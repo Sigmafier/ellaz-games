@@ -4,6 +4,7 @@ import { SITE } from "../content/site";
 import { categoryCopy } from "../content/categories";
 import { GUIDE_CHROME, guidesIn, type GuideEntry } from "../content/guides";
 import { ART_HEIGHT, ART_WIDTH, artHref } from "./artFiles";
+import { fontPreloadTags, type HeadAssets } from "./assets";
 import { gameName } from "./gameName";
 import { html, type RawHtml } from "./html";
 import { renderDocument, utilityRow } from "./layout";
@@ -44,9 +45,14 @@ function categoryLink(category: string, locale: Locale, base: string): RawHtml {
   const cat = category as Category;
   if (!PAGED_CATEGORIES.includes(cat)) return html``;
   const count = GAMES.filter((m) => m.category === cat).length;
-  return html`<p>
-    <a href="${href(categoryPath(cat, locale), base)}">${categoryCopy(locale, cat, count).h1}</a>
-  </p>`;
+  // `.grid`, a one-tile card, not a bare underlined paragraph - the same
+  // class every other listing on this site draws its links with. See the
+  // note on the Sources and "more guides" sections below.
+  return html`<ul class="grid">
+    <li>
+      <a href="${href(categoryPath(cat, locale), base)}">${categoryCopy(locale, cat, count).h1}</a>
+    </li>
+  </ul>`;
 }
 
 /**
@@ -69,9 +75,22 @@ function categoryLink(category: string, locale: Locale, base: string): RawHtml {
  * A guide has ONE hreflang sibling, itself, and `renderDocument` builds that
  * cluster from the `alternates` below. The one-entry list is the entire
  * single-language design; see `GuideEntry.locale`.
+ *
+ * `headAssets` IS NOT SET ON `renderDocument` HERE, and that is deliberate -
+ * a guide still boots nothing, exactly as the comment above says. It is only
+ * read for its `.fonts`: `fontPreloadTags` looks at nothing else on the
+ * object, and the tag it returns goes into `preloads` instead of
+ * `renderDocument`'s own `headAssets` field, which is what would otherwise
+ * also emit `.tags` - the app's bundle - onto a page that must never boot it.
+ * See .claude/rules/a-font-behind-an-import-is-invisible-to-every-preload.md
  */
-export function guidePage(opts: { guide: GuideEntry; base: string; indexable: boolean }): string {
-  const { guide, base, indexable } = opts;
+export function guidePage(opts: {
+  guide: GuideEntry;
+  base: string;
+  indexable: boolean;
+  headAssets?: HeadAssets;
+}): string {
+  const { guide, base, indexable, headAssets } = opts;
   const locale = guide.locale;
   const c = guide.copy;
   const site = SITE[locale];
@@ -164,20 +183,38 @@ export function guidePage(opts: { guide: GuideEntry; base: string; indexable: bo
     ${categoryLink(meta.category, locale, base)}
 
     <h2>${chrome.sources}</h2>
-    <ul>
+    <!-- The .grid.full class - one card per row, full width - not .grid's
+         default 9.5rem column, which wraps a citation like "Richard Kaye,
+         Minesweeper is NP-complete, The Mathematical Intelligencer 22
+         (2000)" one word per line. A source is a sentence-length citation,
+         not a tile with a short name in it, so it gets the citation layout
+         rather than the card-grid one guideIndex.ts and "more guides"
+         below draw for actual guide tiles. NO BACKTICKS in this comment -
+         it lives inside an html-tagged template literal and one would close
+         it early; see the note at the top of layout.ts. -->
+    <ul class="grid full">
       ${c.sources.map(
-        (s) =>
-          html`<li><a href="${s.url}" rel="noopener">${s.label}</a></li>`,
+        (s) => html`<li><a href="${s.url}" rel="noopener">${s.label}</a></li>`,
       )}
     </ul>
 
     ${siblings.length
       ? html`<h2>${chrome.more}</h2>
-          <ul>
+          <!-- The .grid.wide class, the exact card guideIndex.ts draws for
+               the same list of guides - emoji, headline, the game's name -
+               so a reader who scrolls to the bottom of one guide sees the
+               same shape they would on the index. NO BACKTICKS here either,
+               same reason as the Sources list above. -->
+          <ul class="grid wide">
             ${siblings.map(
               (g) =>
                 html`<li>
-                  <a href="${href(guidePath(g.slug, g.locale), base)}">${g.copy.h1}</a>
+                  <a href="${href(guidePath(g.slug, g.locale), base)}">
+                    <span class="em" aria-hidden="true">${metaFor(g.game)?.emoji ?? ""}</span>
+                    <span
+                      >${g.copy.h1}<span class="cat">${gameName(g.game, g.locale)}</span></span
+                    >
+                  </a>
                 </li>`,
             )}
           </ul>`
@@ -199,5 +236,6 @@ export function guidePage(opts: { guide: GuideEntry; base: string; indexable: bo
     body,
     base,
     indexable,
+    preloads: fontPreloadTags(headAssets, base, locale),
   });
 }

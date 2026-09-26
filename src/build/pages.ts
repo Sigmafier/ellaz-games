@@ -98,11 +98,14 @@ export function renderRoute(route: Route, base: string, headAssets?: HeadAssets)
     return boardsPage({ locale: route.locale, games: GAMES, base, indexable, headAssets });
   }
   // A category page is an ARTICLE about a group, not a screen in the app, so
-  // it gets no `headAssets` and boots nothing. `gamesIn` rather than a filter
-  // written here: the count in the copy, the ItemList in the JSON-LD and the
-  // cards on the page must all come from one answer to "which games are in
-  // this group", and that answer lives beside the route table that decided
-  // the page was worth emitting at all.
+  // it never sets `renderDocument`'s own `headAssets` and boots nothing -
+  // `headAssets` is passed through here only so the page can preload its
+  // BODY FACE the way a game page does (see `categoryPage`'s own comment on
+  // `preloads`). `gamesIn` rather than a filter written here: the count in
+  // the copy, the ItemList in the JSON-LD and the cards on the page must all
+  // come from one answer to "which games are in this group", and that answer
+  // lives beside the route table that decided the page was worth emitting at
+  // all.
   if (route.kind === "category") {
     return categoryPage({
       locale: route.locale,
@@ -110,6 +113,7 @@ export function renderRoute(route: Route, base: string, headAssets?: HeadAssets)
       games: gamesIn(route.category!),
       base,
       indexable,
+      headAssets,
     });
   }
 
@@ -125,9 +129,10 @@ export function renderRoute(route: Route, base: string, headAssets?: HeadAssets)
   // before the roster lookup below because a guide's `id` is its SLUG rather
   // than a game id - `metaFor(route.id)` would throw on it, which is exactly
   // what the throwaway-route probe reported on 2026-09-21 and the only
-  // complaint the whole build produced.
+  // complaint the whole build produced. `headAssets` is passed through only
+  // for its `.fonts` - see `guidePage`'s own comment on `preloads`.
   if (route.kind === "guideIndex") {
-    return guideIndexPage({ locale: route.locale, base, indexable });
+    return guideIndexPage({ locale: route.locale, base, indexable, headAssets });
   }
   if (route.kind === "guide") {
     const guide = guideFor(route.id!);
@@ -138,7 +143,7 @@ export function renderRoute(route: Route, base: string, headAssets?: HeadAssets)
           `edited apart - which guides.test.ts pins.`,
       );
     }
-    return guidePage({ guide, base, indexable });
+    return guidePage({ guide, base, indexable, headAssets });
   }
   // A TOYBOX GAME'S PAGE. A document, handled before the roster lookup below
   // for the guide's reason: its `id` is a Toybox id, not a roster id, and

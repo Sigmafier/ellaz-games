@@ -61,6 +61,24 @@ export function boardsHref(locale: PageLocale): string {
 }
 
 /**
+ * The languages that have a `/guides/` index, mirroring `GUIDE_LOCALES` in
+ * `src/content/guides.ts` for the same reason `PRINT_KINDS` above mirrors
+ * `PRINTABLE_KINDS` rather than importing it: `src/portal/**` may never
+ * import `src/content/**`, on pain of putting every word of every guide into
+ * the precached shell. `paths.test.ts` asserts the two agree, so a locale
+ * gaining or losing its guides cannot drift silently between the two lists.
+ *
+ * English is not in this list - there are no English guides - so `Home`
+ * renders no guides link on the English home with no locale check written
+ * there at all.
+ */
+export const GUIDE_HOME_LOCALES: PageLocale[] = ["he", "fr"];
+
+export function guidesHref(locale: PageLocale): string {
+  return `${BASE}${prefix(locale)}guides/`;
+}
+
+/**
  * The printable packs, at `/he/print/<kind>/`.
  *
  * MIRRORS `PRINT_KINDS` and `printPath` in `src/build/routes.ts`, for the reason

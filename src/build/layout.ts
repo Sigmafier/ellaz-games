@@ -36,10 +36,12 @@ import { fontPreloadTags, type HeadAssets } from "./assets";
 import {
   LOCALES,
   canonicalUrl,
+  categoryPath,
   guidesIndexPath,
   homePath,
   href,
   OG_ROUTES,
+  PAGED_CATEGORIES,
   toyboxPagePath,
 } from "./routes";
 import { GUIDE_CHROME, GUIDE_LOCALES } from "../content/guides";
@@ -234,6 +236,16 @@ th{background:var(--doc-card);font-weight:600}
    headline rather than floating beside its middle. */
 .grid.wide{grid-template-columns:repeat(auto-fill,minmax(17rem,1fr))}
 .grid.wide a{align-items:flex-start;line-height:1.35}
+/* A CITATION IS NOT A TILE. A source's own label is a full sentence -
+   "Richard Kaye, Minesweeper is NP-complete, The Mathematical Intelligencer
+   22 (2000)" - and the base .grid column (9.5rem) wraps that one word per
+   line, which is a defect and not a small one: it turns a short reference
+   list into a tall, unreadable column. One column, full width, and
+   flex-start so the wrapped lines read as a paragraph rather than being
+   centred around an icon that is not there - everything else (the card
+   border, background and radius) is inherited from .grid unchanged. */
+.grid.full{grid-template-columns:1fr}
+.grid.full a{align-items:flex-start;line-height:1.4}
 footer{border-block-start:1px solid var(--doc-line);margin-block-start:56px;
   padding:22px 20px 40px;color:var(--doc-soft);font-size:.85rem}
 footer .in{max-width:44rem;margin-inline:auto;display:flex;flex-wrap:wrap;gap:14px}
@@ -1067,6 +1079,35 @@ function guidesLink(locale: Locale, base: string): RawHtml {
   return html`<a href="${href(guidesIndexPath(locale), base)}">${GUIDE_CHROME[locale].guides}</a>`;
 }
 
+/**
+ * The footer's links to the five paged shelves, on every emitted document.
+ *
+ * FREE, the same way `guidesLink` and `toyboxFooterLink` above are: the
+ * footer belongs to `renderDocument`'s chrome, which an APP SHELL does not
+ * render at all (`opts.shell`) - so the home pages, in every language, carry
+ * none of this. Every other page that gets it is a document a reader only
+ * downloads after choosing something, so it costs the first-visit budget
+ * nothing by construction.
+ *
+ * `PAGED_CATEGORIES` is derived from the live roster (see `routes.ts`), never
+ * a hand-kept list - a shelf crossing the three-game floor gets a footer link
+ * the same build it gets a page, and one falling below it loses the link the
+ * same way, with no edit here.
+ *
+ * The anchor text is `SITE[locale].categories[c]` - the same short label the
+ * breadcrumb crumb already uses (`gamePage.ts`) - rather than a category
+ * page's own sentence-length `h1`, so a footer row of five stays a footer row
+ * of five instead of five headlines.
+ */
+function shelfFooterLinks(locale: Locale, base: string): RawHtml {
+  const labels = SITE[locale].categories;
+  return html`${PAGED_CATEGORIES.map((c) =>
+    labels[c]
+      ? html`<a href="${href(categoryPath(c, locale), base)}">${labels[c]}</a>`
+      : html``,
+  )}`;
+}
+
 export function utilityRow(
   crumb: RawHtml,
   opts: { tools?: RawHtml; fullLabel?: string; reportLabel?: string; badge?: RawHtml } = {},
@@ -1313,6 +1354,7 @@ export function renderDocument(opts: DocumentOptions): string {
     <footer>
       <div class="in">
         <span>${site.footer}</span>
+        ${shelfFooterLinks(locale, base)}
         ${guidesLink(locale, base)}
         ${toyboxFooterLink(base)}
         ${toyboxPageLinks(base)}

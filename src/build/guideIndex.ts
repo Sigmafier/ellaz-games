@@ -1,6 +1,7 @@
 import type { Locale } from "../content/types";
 import { SITE } from "../content/site";
 import { GUIDE_CHROME, GUIDE_LOCALES, guidesIn } from "../content/guides";
+import { fontPreloadTags, type HeadAssets } from "./assets";
 import { gameName } from "./gameName";
 import { html } from "./html";
 import { renderDocument, utilityRow } from "./layout";
@@ -20,13 +21,19 @@ import { guidePath, guidesIndexPath, homePath, href } from "./routes";
  * reader scanning a list of headlines wants to know which game each one
  * concerns and the headline does not always say. The game's name is read from
  * the roster rather than typed, so it cannot be a name we do not ship.
+ *
+ * `headAssets`, like on `guidePage`, is read only for `.fonts` - the tag
+ * `fontPreloadTags` returns goes into `preloads`, never into
+ * `renderDocument`'s own `headAssets` field, so this listing still boots
+ * nothing.
  */
 export function guideIndexPage(opts: {
   locale: Locale;
   base: string;
   indexable: boolean;
+  headAssets?: HeadAssets;
 }): string {
-  const { locale, base, indexable } = opts;
+  const { locale, base, indexable, headAssets } = opts;
   const site = SITE[locale];
   const chrome = GUIDE_CHROME[locale];
   const guides = guidesIn(locale);
@@ -81,5 +88,6 @@ export function guideIndexPage(opts: {
     body,
     base,
     indexable,
+    preloads: fontPreloadTags(headAssets, base, locale),
   });
 }

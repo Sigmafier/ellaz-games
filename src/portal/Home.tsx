@@ -18,7 +18,16 @@ import {
   type DailyStateV1,
   type ProfileV1,
 } from "@sdk/index";
-import { PRINT_KINDS, PRINT_PAGE_LOCALE, boardsHref, gameHref, printHref, worldHref } from "./paths";
+import {
+  GUIDE_HOME_LOCALES,
+  PRINT_KINDS,
+  PRINT_PAGE_LOCALE,
+  boardsHref,
+  gameHref,
+  guidesHref,
+  printHref,
+  worldHref,
+} from "./paths";
 import { ToyboxRow } from "./ToyboxRow";
 import { openReport } from "./openReport";
 import { inkFor } from "@ui/ink";
@@ -436,6 +445,7 @@ export function Home({
         <ToyboxRow locale={locale} onTap={tap} />
 
         <PrintablePacks locale={locale} onTap={tap} />
+        <GuidesHomeLink locale={locale} onTap={tap} />
 
         <p
           style={{
@@ -733,6 +743,51 @@ export function PrintablePacks({ locale, onTap }: { locale: AppLocale; onTap: ()
           {PACK_LABEL[kind]}
         </a>
       ))}
+    </p>
+  );
+}
+
+/**
+ * The home screen's own link to its locale's `/guides/` index, for the same
+ * reason `PrintablePacks` above exists: `sitePages.ts` carries this link
+ * inside `#home-doc` for a crawler or a no-JavaScript visitor, but the
+ * runtime REMOVES that markup once React mounts, so without this component a
+ * player with JavaScript on the Hebrew or French home has no route to the
+ * guides at all.
+ *
+ * `GUIDE_HOME_LOCALES` mirrors `GUIDE_LOCALES` in `src/content/guides.ts` -
+ * see `paths.ts` for why this file cannot import that one directly - and the
+ * two labels are literals for the same reason `PACK_LABEL` above is: there is
+ * no app-string dictionary entry for "guides" today, and these are the exact
+ * words `GUIDE_CHROME.he.guides` and `GUIDE_CHROME.fr.guides` already ship.
+ * English is not in the list, so this renders nothing on the English home.
+ */
+const GUIDES_LABEL: Record<string, string> = {
+  he: "מדריכים",
+  fr: "Guides",
+};
+
+function GuidesHomeLink({ locale, onTap }: { locale: AppLocale; onTap: () => void }) {
+  const pageLocale = pageLocaleFor(locale);
+  if (!GUIDE_HOME_LOCALES.includes(pageLocale)) return null;
+  return (
+    <p style={{ textAlign: "center", marginTop: 10 }}>
+      <a
+        href={guidesHref(pageLocale)}
+        onClick={onTap}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          minHeight: "var(--tap)",
+          padding: "0 8px",
+          color: "var(--text-dim)",
+          font: "600 13px var(--font)",
+          textDecoration: "underline",
+          textUnderlineOffset: 3,
+        }}
+      >
+        {GUIDES_LABEL[pageLocale]}
+      </a>
     </p>
   );
 }

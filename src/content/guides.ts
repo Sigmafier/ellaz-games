@@ -166,25 +166,25 @@ export const GUIDE_CHROME: Record<PageLocale, GuideChrome> = {
     more: "More guides",
   },
   es: {
-    indexTitle: "Guias de juegos - Ellaz",
+    indexTitle: "Guías de juegos - Ellaz",
     indexDescription:
-      "Guias breves de nuestros juegos: como funcionan, que conviene saber y que dicen los numeros. Sin anuncios ni registro.",
-    indexH1: "Guias",
+      "Guías breves de nuestros juegos: cómo funcionan, qué conviene saber y qué dicen los números. Sin anuncios ni registro.",
+    indexH1: "Guías",
     indexLede:
-      "Cada guia responde una pregunta y trae un numero que calculamos nosotros. Todas terminan con un enlace al juego.",
-    guides: "Guias",
+      "Cada guía responde una pregunta y trae un número que calculamos nosotros. Todas terminan con un enlace al juego.",
+    guides: "Guías",
     play: "Jugar",
-    admission: "Lo que no funciona aqui",
+    admission: "Lo que no funciona aquí",
     sources: "Fuentes",
-    more: "Mas guias",
+    more: "Más guías",
   },
   fr: {
     indexTitle: "Guides de jeux - Ellaz",
     indexDescription:
-      "Des guides courts sur nos jeux : comment ils marchent, ce qu'il faut savoir, ce que disent les chiffres. Sans publicite ni inscription.",
+      "Des guides courts sur nos jeux : comment ils marchent, ce qu'il faut savoir, ce que disent les chiffres. Sans publicité ni inscription.",
     indexH1: "Guides",
     indexLede:
-      "Chaque guide repond a une question et apporte un chiffre que nous avons calcule nous-memes. Tous se terminent par un lien vers le jeu.",
+      "Chaque guide répond à une question et apporte un chiffre que nous avons calculé nous-mêmes. Tous se terminent par un lien vers le jeu.",
     guides: "Guides",
     play: "Jouer",
     admission: "Ce qui ne marche pas ici",

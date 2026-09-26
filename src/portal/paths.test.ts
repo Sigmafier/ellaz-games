@@ -1,7 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
 import { GAMES } from "./games";
-import { PRINT_KINDS, boardsHref, gameHref, homeHref, printHref, worldHref } from "./paths";
+import {
+  GUIDE_HOME_LOCALES,
+  PRINT_KINDS,
+  boardsHref,
+  gameHref,
+  guidesHref,
+  homeHref,
+  printHref,
+  worldHref,
+} from "./paths";
 import { readPageContext } from "./pageContext";
 import { redirectLegacyHash } from "./legacyHash";
 import {
@@ -9,10 +18,12 @@ import {
   PRINTABLE_KINDS,
   boardsPath,
   gamePath,
+  guidesIndexPath,
   homePath,
   printPath,
   worldPath,
 } from "../build/routes";
+import { GUIDE_LOCALES } from "../content/guides";
 import { APP_LOCALES, CANONICAL_LOCALE, PAGE_LOCALES } from "@i18n/locales";
 
 /**
@@ -36,6 +47,17 @@ describe("the app links to the pages the emitter actually writes", () => {
       expect(homeHref(locale)).toBe(homePath(locale));
       expect(worldHref(locale)).toBe(worldPath(locale));
       expect(boardsHref(locale)).toBe(boardsPath(locale));
+    }
+  });
+
+  it("agrees about which locales have a guides index, list and URL both", () => {
+    // The LIST first, for the same reason as the printable packs above: if the
+    // content registry grows a guide in a fifth language and this mirror does
+    // not, the URL loop below still passes on the original two and the new
+    // locale's home page simply never links to its own guides.
+    expect([...GUIDE_HOME_LOCALES].sort()).toEqual([...GUIDE_LOCALES].sort());
+    for (const locale of GUIDE_HOME_LOCALES) {
+      expect(guidesHref(locale)).toBe(guidesIndexPath(locale));
     }
   });
 

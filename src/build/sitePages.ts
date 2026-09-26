@@ -24,18 +24,19 @@ import {
   categoryPath,
   gamePath,
   guidePath,
+  guidesIndexPath,
   homePath,
   href,
   printPath,
   worldPath,
 } from "./routes";
-import { GUIDE_CHROME, guidesForGame } from "../content/guides";
+import { GUIDE_CHROME, GUIDE_LOCALES, guidesForGame } from "../content/guides";
 import { PRINT_CHROME, PRINT_COPY } from "../content/print/copy";
 import { categoryGraph, homeGraph, worldGraph } from "./schema";
 import { CATEGORY_CHROME, categoryCopy } from "../content/categories";
 import { gameCards } from "./gamePage";
 import type { Category } from "../sdk/types";
-import { lazyPreloadTags, type HeadAssets } from "./assets";
+import { fontPreloadTags, lazyPreloadTags, type HeadAssets } from "./assets";
 
 /**
  * The three pages that are not about one game: the home index, the room, and
@@ -163,6 +164,7 @@ export function homeShellBody(
       <p><a href="${href(worldPath(locale), base)}">${site.worldPage.h1}</a></p>
       <p><a href="${href(boardsPath(locale), base)}">${site.boardsPage.h1}</a></p>
       ${printPackLinks(locale, base)}
+      ${guidesHomeLink(locale, base)}
       ${otherHomeLinks(locale, base)}
     </div>
   `);
@@ -380,6 +382,29 @@ function printPackLinks(locale: Locale, base: string): RawHtml {
   `;
 }
 
+/**
+ * The home document's own link to its locale's `/guides/` index.
+ *
+ * DERIVED FROM `GUIDE_LOCALES`, never a hand-kept language list - a locale
+ * gains its guides index the same build a guide is registered for it, and
+ * loses this link the same way if it ever has none, so it can never point at
+ * a page this build did not write. English has no guides today
+ * (`GUIDE_LOCALES` holds only `he` and `fr`), so this renders nothing on the
+ * English home, with no locale check written here at all.
+ *
+ * Placed here rather than only in the footer: home pages are app shells and
+ * `renderDocument` never emits a footer for them (`opts.shell`), so the
+ * site-wide footer link the other pages carry (`guidesLink` in `layout.ts`)
+ * never reaches a home page. This is the one route a visitor on the home
+ * screen, or a crawler reading `#home-doc`, has to the guides at all.
+ */
+function guidesHomeLink(locale: Locale, base: string): RawHtml {
+  if (!GUIDE_LOCALES.includes(locale)) return raw("");
+  return html`<p>
+    <a href="${href(guidesIndexPath(locale), base)}">${GUIDE_CHROME[locale].guides}</a>
+  </p>`;
+}
+
 function otherHomeLinks(locale: Locale, base: string): RawHtml {
   return html`${LOCALES.filter((l) => l !== locale).map(
     (l) =>
@@ -509,6 +534,15 @@ export function categoryPage(
     body,
     base,
     indexable: opts.indexable,
+    // The BODY FACE only, not `headAssets` itself - a category page still
+    // "gets no headAssets and boots nothing" (see the comment above): setting
+    // `opts.headAssets` on `renderDocument` would also emit `.tags`, which is
+    // the app's own bundle. `fontPreloadTags` reads only `.fonts` off the
+    // object it is given, so the raw tag it returns goes into `preloads`
+    // instead - the same field a game page's chunk preloads use, and the one
+    // `renderDocument` renders with no assumption about what booted the page.
+    // See .claude/rules/a-font-behind-an-import-is-invisible-to-every-preload.md
+    preloads: fontPreloadTags(opts.headAssets, base, locale),
   });
 }
 
