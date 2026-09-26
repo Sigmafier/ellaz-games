@@ -608,4 +608,30 @@ export const REST: Record<string, Scene> = {
     <g fill="${I}">
       <circle cx="136" cy="112" r="3"/><circle cx="150" cy="126" r="3"/>
       <circle cx="175" cy="125" r="3"/></g>` },
+
+  /* Hold the Line. A keep's battlement on the left with its banner, the lane
+     running away to the right, and three figures on it walking in - the nearest
+     close enough to read, the far one small. The whole game in one picture: the
+     thing you defend, the distance, and what is crossing it. */
+  holdtheline: { a: "#8C4A1E", b: "#D98B45", d: "hill", s: `
+    <rect x="14" y="40" width="46" height="106" rx="3" fill="${PAL.inkSoft}"
+          stroke="${I}" stroke-width="3.5"/>
+    <g fill="${PAL.inkSoft}" stroke="${I}" stroke-width="3">
+      <rect x="14" y="30" width="13" height="14" rx="2"/>
+      <rect x="33" y="30" width="13" height="14" rx="2"/>
+      <rect x="52" y="30" width="8" height="14" rx="2"/></g>
+    <path d="M26 56h16v26l-8-7-8 7z" fill="${PAL.clay}" stroke="${I}"
+          stroke-width="3" stroke-linejoin="round"/>
+    <rect x="30" y="112" width="18" height="34" rx="9" fill="${I}"/>
+    <path d="M14 146h172" stroke="${PAL.sunflower}" stroke-width="7"
+          stroke-linecap="round"/>
+    <g stroke="${I}" stroke-width="3.5" stroke-linejoin="round">
+      <rect x="92" y="96" width="22" height="34" rx="6" fill="${PAL.raspberry}"/>
+      <circle cx="103" cy="84" r="11" fill="${PAL.paper}"/>
+      <rect x="134" y="106" width="17" height="26" rx="5" fill="${PAL.indigo}"/>
+      <circle cx="142" cy="96" r="8" fill="${PAL.paper}"/>
+      <rect x="166" y="114" width="13" height="19" rx="4" fill="${PAL.jade}"/>
+      <circle cx="172" cy="106" r="6" fill="${PAL.paper}"/></g>
+    <path d="M150 44L162 56L150 68L138 56z" fill="${PAL.orchid}" stroke="${I}"
+          stroke-width="3.5" stroke-linejoin="round"/>` },
 };

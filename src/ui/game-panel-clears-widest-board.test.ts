@@ -279,10 +279,15 @@ describe("the desktop game panel clears the widest board", () => {
 
   it("knows what the widest board actually is", () => {
     // Pins the headroom, so shrinking the cap toward the widest board is a
-    // visible diff rather than a quiet erosion of the margin. 1664 is
-    // survivors' landscape arena, the one board that declares the stage.
+    // visible diff rather than a quiet erosion of the margin.
+    //
+    // 1760 since 2026-09-26, and the diff is the point: it was 1664, survivors'
+    // landscape arena. `holdtheline` is a LANE - a 2.1:1 board whose width is
+    // the whole game - and 1664 of a 1920 row is 87%, under the board gate's
+    // own 90% floor. So the wider cap is that gate's answer rather than a
+    // preference, and `PANEL_USABLE` still clears it with room to spare.
     const widest = Math.max(...sources.flatMap((s) => pxCeilings(s.src)));
-    expect(widest).toBe(1664);
+    expect(widest).toBe(1760);
     expect(PANEL_USABLE).toBeGreaterThanOrEqual(widest);
   });
 

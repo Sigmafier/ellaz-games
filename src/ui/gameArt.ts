@@ -335,6 +335,7 @@ const ART: Record<string, Scene> = {
 const LAZY_GROUNDS: Record<string, string> = {
   lettercross: "#B33A3A",
   survivors: "#2A2570",
+  holdtheline: "#8C4A1E",
   chess: "#6D4C41",
   backgammon: "#A85A2E",
   balloons: "#FF4D8D",

@@ -44,6 +44,7 @@ import { untangle } from "./games/untangle";
 import { survivors } from "./games/survivors";
 import { chess } from "./games/chess";
 import { backgammon } from "./games/backgammon";
+import { holdtheline } from "./games/holdtheline";
 
 export type { GameContent, GameCopy, FaqItem, Titled, Provenance, Locale, PageLocale } from "./types";
 
@@ -108,6 +109,7 @@ export const CONTENT: Record<string, GameContent> = {
   [survivors.id]: survivors,
   [chess.id]: chess,
   [backgammon.id]: backgammon,
+  [holdtheline.id]: holdtheline,
 };
 
 /** The ids that have prose today. */

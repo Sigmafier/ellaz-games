@@ -42,6 +42,7 @@ import { meta as onestroke } from "../games/onestroke/meta";
 import { meta as wordsearch } from "../games/wordsearch/meta";
 import { meta as untangle } from "../games/untangle/meta";
 import { meta as survivors } from "../games/survivors/meta";
+import { meta as holdtheline } from "../games/holdtheline/meta";
 import { meta as chess } from "../games/chess/meta";
 import { meta as backgammon } from "../games/backgammon/meta";
 
@@ -185,6 +186,7 @@ export const REST: ReadonlyArray<GameMeta> = [
   // construction rather than by anybody remembering.
   chess,
   backgammon,
+  holdtheline,
 ];
 
 /**
@@ -230,4 +232,5 @@ export const REST_LOADERS: Record<string, () => Promise<{ default: GameModule }>
   survivors: () => import("../games/survivors/index"),
   chess: () => import("../games/chess/index"),
   backgammon: () => import("../games/backgammon/index"),
+  holdtheline: () => import("../games/holdtheline/index"),
 };
