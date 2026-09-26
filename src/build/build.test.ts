@@ -139,17 +139,47 @@ describe("the roster the emitter reads", () => {
 });
 
 describe("related games", () => {
-  it("never lists the game itself, and prefers its own category", () => {
+  it("never lists the game itself, never lists a game twice, and prefers its own shelf", () => {
     for (const meta of GAMES) {
       const related = relatedTo(meta, GAMES);
       expect(related.some((m) => m.id === meta.id)).toBe(false);
-      expect(related.length).toBe(6);
+      expect(new Set(related.map((m) => m.id)).size).toBe(related.length);
+      expect(related.length).toBe(9);
       const sameCategory = GAMES.filter(
         (m) => m.id !== meta.id && m.category === meta.category,
       ).length;
       const got = related.filter((m) => m.category === meta.category).length;
       expect(got).toBe(Math.min(6, sameCategory));
     }
+  });
+
+  /**
+   * The coverage floor this rotation exists for. Every game must be picked by
+   * at least THREE others, or a link nobody clicks into is still a link
+   * nobody clicked FROM - the 2026-09 rank-and-slice algorithm left 14 of 45
+   * games at 0-1 inbound links, sitewide, forever, because a stable sort of
+   * the whole roster returns the identical head-of-category six for every
+   * member of that category.
+   *
+   * PROVING THE TEST CAN FAIL: swap in the old `sort-then-slice` shape and
+   * confirm this goes red before trusting it green on the rotation. That
+   * planted version is left here, commented out, as the reproduction step -
+   * uncomment it, run the test, watch it fail, then restore.
+   *
+   *   const related = [...GAMES]
+   *     .filter((m) => m.id !== meta.id)
+   *     .sort((a, b) => rank(a, meta) - rank(b, meta))
+   *     .slice(0, 6);
+   */
+  it("gives every game at least 3 inbound related-game links", () => {
+    const inbound = new Map<string, number>(GAMES.map((m) => [m.id, 0]));
+    for (const meta of GAMES) {
+      for (const m of relatedTo(meta, GAMES)) {
+        inbound.set(m.id, (inbound.get(m.id) ?? 0) + 1);
+      }
+    }
+    const under3 = [...inbound.entries()].filter(([, n]) => n < 3);
+    expect(under3, `games under the floor: ${JSON.stringify(under3)}`).toEqual([]);
   });
 });
 

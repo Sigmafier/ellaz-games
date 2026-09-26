@@ -1336,21 +1336,34 @@ export function renderDocument(opts: DocumentOptions): string {
     </footer>
   `;
 
+  /**
+   * FIRST, and synchronous. data-theme is deliberately never baked into
+   * these documents - they are cached and it would be wrong for whoever
+   * chose the other theme - so this is what sets it before the first
+   * paint. A module import runs far too late and the page visibly
+   * flashes the other theme. Generated from themes.ts, never written
+   * out here, so adding a theme cannot leave it behind.
+   */
+  const themeBootTag = html`<script>
+          ${raw(themeBootScript())}
+        </script>`;
+
+  /**
+   * Measurement, on EVERY emitted document and not only the app shell.
+   * Search Console says the arrivals land on GAME pages from Hebrew
+   * queries, so a shell-only tag would have measured almost none of
+   * them. Empty on any non-primary base, so the noindex mirror never
+   * reports. Config and its deliberate limits: src/build/analytics.ts.
+   */
+  const analyticsSection = raw(opts.analytics === false ? "" : analyticsTag(base));
+
   return (
     "<!doctype html>\n" +
     toHtml(html`<html lang="${locale}" dir="${dir}">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <!-- FIRST, and synchronous. data-theme is deliberately never baked into
-             these documents - they are cached and it would be wrong for whoever
-             chose the other theme - so this is what sets it before the first
-             paint. A module import runs far too late and the page visibly
-             flashes the other theme. Generated from themes.ts, never written
-             out here, so adding a theme cannot leave it behind. -->
-        <script>
-          ${raw(themeBootScript())}
-        </script>
+        ${themeBootTag}
         <meta name="theme-color" content="${themeById(DEFAULT_THEME).browserChrome}" />
         <title>${opts.title}</title>
         <meta name="description" content="${opts.description}" />
@@ -1379,13 +1392,7 @@ export function renderDocument(opts: DocumentOptions): string {
           <meta name="twitter:image" content="${ogImage}" />`}
         <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}" />
         <link rel="icon" type="image/svg+xml" href="${base}favicon.svg" />
-        <!-- Measurement, on EVERY emitted document and not only the app shell.
-             Search Console says the arrivals land on GAME pages from Hebrew
-             queries, so a shell-only tag would have measured almost none of
-             them. Empty on any non-primary base, so the noindex mirror never
-             reports. Config and its deliberate limits: src/build/analytics.ts. -->
-        
-${raw(opts.analytics === false ? "" : analyticsTag(base))}
+        ${analyticsSection}
         ${(opts.headAssets ? fontPreloadTags(opts.headAssets, base, locale) : []).map((t) =>
           raw(t),
         )}

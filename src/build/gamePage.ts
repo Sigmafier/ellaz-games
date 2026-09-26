@@ -55,13 +55,6 @@ function sections(items: Titled[]): RawHtml {
 }
 
 /**
- * Up to six other games worth a click, nearest first.
- *
- * Same category, then the same age band, then whatever is left - so the list is
- * never short even for a category of one, and never random. Deriving it means a
- * new game joins every relevant page's related list on the build that adds it.
- */
-/**
  * The guides about THIS game, in THIS language, as a short list.
  *
  * WHY IT IS HERE AND NOT ON THE HOME PAGE. The home body is emitted into
@@ -75,6 +68,35 @@ function sections(items: Titled[]): RawHtml {
  * EMPTY WHEN THERE IS NO GUIDE, and that is most pages today. A heading over
  * an empty list is a page promising something it does not have.
  */
+/**
+ * The page's own picture, and the first image in the article body.
+ *
+ * Google chooses the thumbnail beside a text result from images embedded on
+ * the page. Until 2026-08-22 there were none: the stage above draws the
+ * emoji as TEXT and the art everywhere else is inline <svg>, which has no
+ * URL and cannot be indexed as an image. So the result was permanently
+ * pictureless with nothing failing anywhere.
+ *
+ * width/height are the SVG's own declared box, so the browser reserves
+ * the space from the attributes and this adds nothing to the layout shift.
+ * loading is EAGER on purpose - it is the main image, above most of the
+ * prose, and a lazy main image is one Google may not see.
+ *
+ * The alt is one template per language with the game's name filled in.
+ * It was the page's own H1 for an hour, which reads as "Snake" and "2048"
+ * in three of the four languages - a name, not a description of a picture.
+ */
+function artImage(meta: GameMeta, locale: Locale, site: SiteCopy, base: string): RawHtml {
+  return html`<img
+    class="art"
+    src="${artHref(base, meta.id)}"
+    alt="${site.artAlt.replace("{title}", gameName(meta.id, locale))}"
+    width="${ART_WIDTH}"
+    height="${ART_HEIGHT}"
+    decoding="async"
+  />`;
+}
+
 function guideSection(meta: GameMeta, locale: Locale, base: string): RawHtml {
   const guides = guidesForGame(meta.id, locale);
   if (!guides.length) return html``;
@@ -87,15 +109,73 @@ function guideSection(meta: GameMeta, locale: Locale, base: string): RawHtml {
     </ul>`;
 }
 
+/**
+ * Nine other games worth a click: up to six shelf-mates, then whatever else it
+ * takes to reach nine from other shelves.
+ *
+ * SORTING BY RANK, the old algorithm, put the same head-of-category games on
+ * every page in that category - `slice(0, 6)` after a stable sort always
+ * returns the SAME six for every member of a shelf, so a shelf of 11 sends all
+ * eleven pages to the same six neighbours and the other five of that shelf get
+ * zero related-game links sitewide. Measured on the 2026-09 roster: 14 of 45
+ * games had 0-1 inbound related links, because nothing in a rank-and-slice
+ * scheme ever points BACK.
+ *
+ * ROTATION fixes it by construction. A shelf of S games, each pointing at the
+ * `min(6, S-1)` games that follow it in roster order (wrapping), is a circulant
+ * graph: reading the same rotation backwards is exactly who points AT a given
+ * game, so out-degree and in-degree are equal within the shelf. A shelf too
+ * small for six (`create` has one member, `speed` has four) still has every
+ * member point at every other member, which is the same equality at S-1.
+ *
+ * The remaining slots - three for a full shelf, more for a small one - are
+ * filled by walking the WHOLE roster from a fixed offset roughly half of it
+ * around, skipping this game's own shelf and anything already picked. That
+ * offset is what makes the cross-shelf edges reciprocal too: a game's own
+ * cross-shelf picks land on a different stretch of the roster than the games
+ * that, walking from THEIR position, land on it. The "gives every game at
+ * least 3 inbound related-game links" test in `build.test.ts` is the actual
+ * guarantee - it walks the live roster and asserts every game clears the
+ * floor - because the algorithm's job is to make that test easy to keep
+ * passing as the roster grows, not to prove it in the abstract.
+ *
+ * BETA games (`meta.beta`) get no special case, on purpose: CLAUDE.md's own
+ * rule is that a beta game "plays and ranks like a finished one," and this
+ * function already treated beta and non-beta alike before this change.
+ */
 export function relatedTo(
   meta: GameMeta,
   all: ReadonlyArray<GameMeta>,
-  limit = 6,
+  limit = 9,
+  ownShelf = 6,
 ): ReadonlyArray<GameMeta> {
-  const others = all.filter((m) => m.id !== meta.id);
-  const rank = (m: GameMeta) =>
-    m.category === meta.category ? 0 : m.ageBand === meta.ageBand ? 1 : 2;
-  return [...others].sort((a, b) => rank(a) - rank(b)).slice(0, limit);
+  const n = all.length;
+  const selfIndex = all.findIndex((m) => m.id === meta.id);
+  const shelf = all.filter((m) => m.category === meta.category);
+  const shelfSelf = shelf.findIndex((m) => m.id === meta.id);
+  const shelfWant = Math.min(ownShelf, shelf.length - 1);
+
+  const picked = new Set([meta.id]);
+  const result: GameMeta[] = [];
+
+  // Own shelf: the members that follow this game, wrapping - a rotation, not
+  // a fixed head-of-shelf slice, so every member's outbound set is different.
+  for (let k = 1; k <= shelfWant; k++) {
+    const m = shelf[(shelfSelf + k) % shelf.length];
+    result.push(m);
+    picked.add(m.id);
+  }
+
+  // Other shelves: walk the whole roster from a fixed offset (roughly half of
+  // it), skipping this game's own category and anything already picked.
+  const OFFSET = Math.floor(n / 2) + 1;
+  for (let step = 0; result.length < limit && step < n; step++) {
+    const cand = all[(selfIndex + OFFSET + step) % n];
+    if (picked.has(cand.id) || cand.category === meta.category) continue;
+    result.push(cand);
+    picked.add(cand.id);
+  }
+  return result.slice(0, limit);
 }
 
 export function gameCards(
@@ -483,32 +563,7 @@ export function gamePage(opts: GamePageOptions): string {
     <h1>${headingFor(meta, locale)}</h1>
     <p class="lede">${copy.lede}</p>
 
-    <!--
-      The page's own picture, and the first image in the article body.
-
-      Google chooses the thumbnail beside a text result from images embedded on
-      the page. Until 2026-08-22 there were none: the stage above draws the
-      emoji as TEXT and the art everywhere else is inline <svg>, which has no
-      URL and cannot be indexed as an image. So the result was permanently
-      pictureless with nothing failing anywhere.
-
-      width/height are the SVG's own declared box, so the browser reserves
-      the space from the attributes and this adds nothing to the layout shift.
-      loading is EAGER on purpose - it is the main image, above most of the
-      prose, and a lazy main image is one Google may not see.
-
-      The alt is one template per language with the game's name filled in.
-      It was the page's own H1 for an hour, which reads as "Snake" and "2048"
-      in three of the four languages - a name, not a description of a picture.
-    -->
-    <img
-      class="art"
-      src="${artHref(base, meta.id)}"
-      alt="${site.artAlt.replace("{title}", gameName(meta.id, locale))}"
-      width="${ART_WIDTH}"
-      height="${ART_HEIGHT}"
-      decoding="async"
-    />
+    ${artImage(meta, locale, site, base)}
     <ul class="facts">
       ${site.facts.map((f) => html`<li>${f}</li>`)}
     </ul>
