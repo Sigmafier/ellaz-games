@@ -49,6 +49,16 @@
  *
  * Both are counted inside the same solver the headline uses, so the two
  * numbers cannot describe different software.
+ *
+ * --firstclick ANSWERS A THIRD QUESTION, added for the French guide at
+ * /fr/guides/demineur-en-ligne/ (2026-09-26): before any logic runs at all,
+ * how much of the board does the FIRST tap already show, and does WHERE you
+ * tap change that? Folk wisdom says open a corner first; this counts it.
+ *
+ * It calls the shipped `reveal()` directly - the exact function the browser
+ * calls on a tap, mines and all - rather than the solver's own instrumented
+ * flood, because this question has nothing to do with proof and everything to
+ * do with what one click actually uncovers.
  */
 
 import { register } from "node:module";
@@ -58,7 +68,7 @@ import { fileURLToPath } from "node:url";
 register("./alias-hooks.mjs", import.meta.url);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const { DIFFICULTIES, newGame, placeMines } = await import(
+const { DIFFICULTIES, newGame, placeMines, reveal } = await import(
   join(ROOT, "src/games/minesweeper/logic.ts")
 );
 
@@ -239,6 +249,23 @@ function solve(state, stats) {
 }
 
 const PATTERNS = process.argv.includes("--patterns");
+const FIRSTCLICK = process.argv.includes("--firstclick");
+
+/**
+ * One tap, on a freshly-placed board, at (r, c). Returns the percentage of
+ * SAFE squares it revealed - the same denominator `guessFreePct` uses, so the
+ * two figures can sit in one sentence without a footnote about what 100% means.
+ */
+function firstTapPct(d, r, c, rng) {
+  const s = reveal(newGame(d), r, c, rng);
+  let revealed = 0;
+  for (const row of s.grid) for (const cell of row) if (cell.revealed && !cell.mine) revealed++;
+  return (revealed / (d.rows * d.cols - d.mines)) * 100;
+}
+
+function mean(xs) {
+  return xs.reduce((a, b) => a + b, 0) / xs.length;
+}
 
 /** Median, so one pathological board cannot move the headline the way a mean can. */
 function median(xs) {
@@ -271,6 +298,27 @@ for (const [name, d] of Object.entries(DIFFICULTIES)) {
     density: Number(((d.mines / (d.rows * d.cols)) * 100).toFixed(1)),
     guessFreePct: Number(((solved / BOARDS) * 100).toFixed(1)),
   };
+  if (FIRSTCLICK) {
+    // Three starting squares, same board population, same BOARDS count. A
+    // separate seed stream (offset by 9 973, a prime not used anywhere else in
+    // this file) so this reading is not silently the exact same 2,000 boards
+    // the headline table already drew - it is its own sample of the same
+    // distribution.
+    const corner = [];
+    const edge = [];
+    const centre = [];
+    for (let i = 0; i < BOARDS; i++) {
+      const seed = (i + 9973) * 2654435761 + name.length * 7919;
+      corner.push(firstTapPct(d, 0, 0, mulberry32(seed)));
+      edge.push(firstTapPct(d, 0, Math.floor(d.cols / 2), mulberry32(seed)));
+      centre.push(firstTapPct(d, Math.floor(d.rows / 2), Math.floor(d.cols / 2), mulberry32(seed)));
+    }
+    out.levels[name].firstClick = {
+      cornerPct: Number(mean(corner).toFixed(1)),
+      edgePct: Number(mean(edge).toFixed(1)),
+      centrePct: Number(mean(centre).toFixed(1)),
+    };
+  }
   if (PATTERNS) {
     const resolved = stats.single + stats.subset;
     out.levels[name].patterns = {
@@ -357,6 +405,32 @@ if (process.argv.includes("--json")) {
             `solver finished with ${p.squaresSettled} squares open or flagged. A square is ` +
             `being credited twice, or not at all.`,
         );
+      }
+    }
+  }
+
+  if (FIRSTCLICK) {
+    console.log(`\nONE CLICK, before any logic runs. Percentage of the SAFE board it reveals.`);
+    console.log("level     board   corner   edge   centre");
+    for (const [name, r] of Object.entries(out.levels)) {
+      const f = r.firstClick;
+      console.log(
+        `${name.padEnd(9)} ${r.board.padEnd(7)} ${String(f.cornerPct + "%").padStart(6)}   ` +
+          `${String(f.edgePct + "%").padStart(4)}   ${String(f.centrePct + "%").padStart(6)}`,
+      );
+    }
+    console.log(
+      "\nPOPULATION: the same three boards per row - one seed stream, three taps on\n" +
+        "each - so the difference is the click and nothing else. A control that can\n" +
+        "fail: every cell above is a percentage of a REAL board, so a bug feeding this\n" +
+        "the wrong denominator prints something outside 0-100 rather than a plausible\n" +
+        "wrong number.",
+    );
+    for (const [name, r] of Object.entries(out.levels)) {
+      for (const [pos, pct] of Object.entries(r.firstClick)) {
+        if (pct < 0 || pct > 100) {
+          throw new Error(`${name} ${pos}: ${pct}% is outside 0-100 - the denominator is wrong`);
+        }
       }
     }
   }

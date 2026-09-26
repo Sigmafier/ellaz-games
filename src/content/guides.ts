@@ -38,6 +38,8 @@ import type { FaqItem, Locale, PageLocale, Provenance } from "./types";
 import { minesweeperNoGuessing } from "./guides/minesweeper-no-guessing";
 import { labyrintheEnLigne } from "./guides/labyrinthe-en-ligne";
 import { memoryGameForKids } from "./guides/memory-game-for-kids";
+import { findTheDifferences } from "./guides/find-the-differences";
+import { demineurEnLigne } from "./guides/demineur-en-ligne";
 
 /** A heading and the paragraphs under it. */
 export interface GuideSection {
@@ -215,6 +217,8 @@ export const GUIDES: Record<string, GuideEntry> = {
   [minesweeperNoGuessing.slug]: minesweeperNoGuessing,
   [labyrintheEnLigne.slug]: labyrintheEnLigne,
   [memoryGameForKids.slug]: memoryGameForKids,
+  [findTheDifferences.slug]: findTheDifferences,
+  [demineurEnLigne.slug]: demineurEnLigne,
 };
 
 /** In declaration order, which is the order the index page lists them. */

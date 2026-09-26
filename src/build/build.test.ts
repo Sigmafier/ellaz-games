@@ -932,7 +932,15 @@ describe("robots, sitemap and llms", () => {
     expect(defaults).toBe(wantDefaults);
     // ...and most rows still have one, so a build that lost every x-default
     // cannot pass by making the expectation zero too.
-    expect(wantDefaults).toBeGreaterThan(rows.length - 10);
+    //
+    // Proportional rather than a fixed slack: a fixed `-10` was calibrated
+    // against a tree with 9 single-locale rows (world/boards/print/category
+    // clusters per non-default locale) and broke the day two more
+    // single-locale guides shipped (2026-09-26) - legitimate content growth,
+    // not a lost x-default. A tenth of the sitemap leaves room for the single-
+    // locale pages to keep growing while still catching the real bug this
+    // guards: every row losing its x-default at once.
+    expect(wantDefaults).toBeGreaterThan(rows.length * 0.9);
   });
 
   it("lists every game in llms.txt, in every page language", () => {
