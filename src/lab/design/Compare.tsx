@@ -1,0 +1,268 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { GAMES as ROSTER } from "../../portal/games";
+import { Preview } from "./Preview";
+import { VARIANTS } from "./spec";
+
+/**
+ * Live versus a named variant, side by side, at phone width.
+ *
+ * Both arms are the SAME local build of the SAME page, same origin, differing
+ * only in the tokens the bench writes - so what is measured below is the
+ * difference the variant makes and nothing else. Two different builds, or a
+ * screenshot against a live site, would each fold in every unrelated change
+ * that landed in between, which is how a comparison starts agreeing with
+ * whatever you already believed.
+ *
+ * The diff is READ from the two documents with `getBoundingClientRect`. It is
+ * never typed, because a typed diff is a claim about a pair rather than the
+ * pair - the exact thing the operator asked to stop reading.
+ */
+
+/**
+ * Every game, read off the ROSTER rather than typed.
+ *
+ * A hand-written list of six was correct the day it was written and is one
+ * commit from being wrong - the roster grows, and a bench that can only look
+ * at the games somebody remembered is the same failure the bench exists to
+ * end. `games.ts` is already in the shell, so this costs the lab nothing.
+ */
+/** Exported ONLY so `the-bench-sees-every-game.test.ts` can count it. */
+export const GAMES = ROSTER.map((g) => g.id);
+
+/**
+ * Phone widths and desktop widths, and the arm matters.
+ *
+ * `GameChrome` and the emitted header both branch at 719px, so a chrome
+ * decision taken at one width says nothing about the other - which is how a
+ * knob dialled on a desktop ships a key hanging off the side of a phone.
+ * The frames are REAL iframes, so a 390px frame is a real 390px viewport:
+ * media queries and `position:fixed` both read it. Narrowing the page with
+ * a width on `<html>` does not - fixed elements keep tracking the real
+ * window, and the tell is a measurement that never varies.
+ */
+const VIEWS = [
+  { w: 390, h: 844, label: "phone 390" },
+  { w: 430, h: 932, label: "phone 430" },
+  { w: 768, h: 1024, label: "tablet 768" },
+  { w: 1024, h: 800, label: "pc 1024" },
+  { w: 1280, h: 800, label: "pc 1280" },
+];
+
+type Row = { what: string; a: string; b: string; same: boolean };
+
+/** Everything worth comparing, read off one document. */
+function probe(doc: Document): Record<string, string> {
+  const px = (el: Element | null) =>
+    el ? `${Math.round(el.getBoundingClientRect().height)}px` : "absent";
+  const wide = (el: Element | null) =>
+    el ? `${Math.round(el.getBoundingClientRect().width)}px` : "absent";
+  const bc = doc.querySelector(".urow .bc");
+  const panel = doc.querySelector(".ellaz-game-panel");
+  const cells = panel?.querySelectorAll(":scope > div:first-child > div > *") ?? [];
+  const board = doc.querySelector(".ellaz-play-surface");
+  return {
+    "platform bar": px(doc.querySelector("header, .hdr")),
+    "utility row": px(doc.querySelector(".urow")),
+    // `doc.defaultView`, never the bare global. `getComputedStyle` belongs to a
+    // WINDOW, and calling this window's on another document's element returns
+    // initial values - which read as a real measurement and are not one. It
+    // reported "99px" for an arm whose breadcrumb was measurably 0px, so the
+    // table said the two arms agreed while they visibly differed.
+    "breadcrumb shape": bc ? doc.defaultView?.getComputedStyle(bc).borderRadius ?? "?" : "absent",
+    "breadcrumb fill": bc ? doc.defaultView?.getComputedStyle(bc).backgroundColor ?? "?" : "absent",
+    "utility buttons": String(doc.querySelectorAll(".urow .ubtn:not([hidden])").length),
+    "game row cells": String(cells.length),
+    "game row lines": String(
+      new Set([...cells].map((c) => Math.round(c.getBoundingClientRect().top))).size,
+    ),
+    "game cell height": px(cells[0] ?? null),
+    "level toggle width": wide(cells[0] ?? null),
+    "board width": wide(board),
+    "board height": px(board),
+  };
+}
+
+export function Compare() {
+  const [game, setGame] = useState(GAMES[0]);
+  const [variant, setVariant] = useState("g1");
+  const [view, setView] = useState(VIEWS[0]);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [err, setErr] = useState("");
+  const ready = useRef(false);
+  const left = useRef<HTMLIFrameElement>(null);
+  const right = useRef<HTMLIFrameElement>(null);
+
+  const url = (v?: string) =>
+    `/games/${game}/${v ? `?design&shut&variant=${v}` : ""}`;
+
+  const measure = useCallback(() => {
+    const a = left.current?.contentDocument;
+    const b = right.current?.contentDocument;
+    if (!a || !b) return setErr("an arm has not loaded yet");
+    // A frame that has not painted reports zeros for everything, and a table of
+    // zeros looks exactly like a table of measurements.
+    if (!a.querySelector(".ellaz-game-panel") || !b.querySelector(".ellaz-game-panel")) {
+      return setErr("an arm has no game panel yet - give it a moment, then measure again");
+    }
+    // AND the variant arm must have APPLIED. The bench arrives as a dynamic
+    // import, so there is a window where the page is fully painted and still
+    // showing the shipped values - measure inside it and every row agrees,
+    // which is the one answer this screen must never produce by accident.
+    // Measured 2026-08-21: a capture at 900px reported both breadcrumbs at
+    // 99px while the screenshot beside it plainly showed one of them square.
+    if (!b.documentElement.dataset.designCrumb) {
+      return setErr("the variant arm has not applied yet - measure again in a moment");
+    }
+    setErr("");
+    ready.current = true;
+    const pa = probe(a);
+    const pb = probe(b);
+    setRows(
+      Object.keys(pa).map((what) => ({
+        what,
+        a: pa[what],
+        b: pb[what],
+        same: pa[what] === pb[what],
+      })),
+    );
+  }, []);
+
+  // Re-measure when the arms change, once they have had a chance to paint.
+  useEffect(() => {
+    setRows([]);
+    // Poll rather than guess a single delay: how long the arms take depends on
+    // the game, the machine and whether this is a cold dev module graph, and a
+    // single timeout that fires early is what produced the false agreement
+    // above. `measure` refuses while an arm is unready, so this is cheap.
+    ready.current = false;
+    let n = 0;
+    const t = setInterval(() => {
+      measure();
+      if (ready.current || ++n >= 10) clearInterval(t);
+    }, 900);
+    return () => clearInterval(t);
+  }, [game, variant, view, measure]);
+
+  return (
+    <section
+      dir="ltr"
+      /* ITS OWN SCROLLER. `body.app-shell{overflow:hidden;height:100%}` clips
+         anything a lab route renders past the fold, so a root that declares no
+         scroller is not a long page - it is a cut-off one. Measured at 390x844
+         with a wheel over the preview: this screen moved 0px while
+         `#/lab/buttons` moved 788, and the difference is that the other screen
+         sets `overflowX: hidden` and gets `overflow-y: auto` as a side effect
+         of the clipped x-axis. Both axes are written out here rather than
+         leaning on that. */
+      style={{ padding: 12, height: "100dvh", overflowY: "auto", overflowX: "hidden" }}
+    >
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <Pick label="game" value={game} options={GAMES} onPick={setGame} />
+        <Pick
+          label="variant"
+          value={variant}
+          options={Object.keys(VARIANTS)}
+          onPick={setVariant}
+        />
+        <Pick
+          label="view"
+          value={view.label}
+          options={VIEWS.map((v) => v.label)}
+          onPick={(l) => setView(VIEWS.find((v) => v.label === l) ?? VIEWS[0])}
+        />
+        <button type="button" onClick={measure} style={BTN}>
+          measure
+        </button>
+      </div>
+
+      {/* Wrap rather than scroll sideways. Two arms side by side is the point
+          on a desktop; on a phone there is no width for two, and a pair the
+          operator has to scroll HORIZONTALLY between is not a comparison. */}
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", paddingBottom: 6 }}>
+        {(
+          [
+            ["live - what ships today", undefined, left],
+            [`${variant} - the variant`, variant, right],
+          ] as const
+        ).map(([caption, v, ref]) => (
+          <Preview
+            key={caption}
+            frameRef={ref}
+            frameKey={`${game}-${variant}-${view.label}-${caption}`}
+            title={caption}
+            src={url(v)}
+            w={view.w}
+            h={view.h}
+            controls={<div style={CAP}>{caption}</div>}
+          />
+        ))}
+      </div>
+
+      {err ? <p style={{ color: "#f59e0b" }}>{err}</p> : null}
+
+      {rows.length ? (
+        <table style={{ borderCollapse: "collapse", marginTop: 14, fontSize: 13 }}>
+          <thead>
+            <tr>
+              {["", "live", variant].map((h) => (
+                <th key={h} style={{ ...TD, textAlign: "left", color: "#94a3b8" }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.what} style={{ opacity: r.same ? 0.45 : 1 }}>
+                <td style={TD}>{r.what}</td>
+                <td style={TD}>{r.a}</td>
+                <td style={{ ...TD, fontWeight: r.same ? 400 : 800 }}>{r.b}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      <p style={{ fontSize: 12, color: "#94a3b8", maxWidth: 620 }}>
+        Bold rows are what the variant changes. Everything is read out of the two
+        documents, so a row that says the same thing twice is a measurement and
+        not an omission.
+      </p>
+    </section>
+  );
+}
+
+function Pick({
+  label,
+  value,
+  options,
+  onPick,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onPick: (v: string) => void;
+}) {
+  return (
+    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+      <span style={{ color: "#94a3b8" }}>{label}</span>
+      <select value={value} onChange={(e) => onPick(e.currentTarget.value)} style={BTN}>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+const BTN: React.CSSProperties = {
+  font: "inherit",
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: "1px solid #334155",
+  background: "#1e293b",
+  color: "#e2e8f0",
+};
+const CAP: React.CSSProperties = { fontSize: 12, color: "#94a3b8", marginBottom: 4 };
+const TD: React.CSSProperties = { padding: "3px 12px 3px 0", borderBottom: "1px solid #1e293b" };

@@ -1,0 +1,182 @@
+rules_version = '2';
+
+// Ellaz — cloud backup rules.
+//
+// The threat model is small and worth stating, because it is what makes these
+// rules simple enough to be obviously correct. A player document holds a coin
+// balance, a star count, shop item ids, per-game records and a two-word name
+// picked from a fixed list. There is no name a child typed, no email, no age,
+// no free text of any kind, and nothing that identifies a person. So the thing
+// worth protecting is a player's progress from being DAMAGED, not their
+// document from being read.
+//
+// Everything requires an anonymous account, so nothing here is open to the
+// unauthenticated internet.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // One document per anonymous player, holding the whole profile as a JSON
+    // string in `profile`.
+    match /players/{uid} {
+      // Readable by any signed-in user. This is deliberate and it is what makes
+      // the backup code work: restoring onto a new tablet means reading the
+      // OLD player's document while signed in as a NEW anonymous user, and a
+      // rule cannot see whether the caller knows the code. Uids are
+      // unguessable, the contents are not sensitive, and the alternative
+      // designs all end in a rule that can be satisfied by lying.
+      allow read: if request.auth != null;
+
+      // Only the owner writes. This is the half that matters: it means no
+      // caller can damage another player's progress, however many uids they
+      // enumerate.
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // code -> uid, so a code written on a piece of paper can find a document.
+    match /codes/{code} {
+      allow read: if request.auth != null;
+
+      // A code may only ever be claimed FOR YOURSELF, and only while it is
+      // unclaimed. Without the `!exists` half, anyone could repoint an existing
+      // code at their own empty document and a child restoring from their note
+      // would silently receive a stranger's blank profile instead of their
+      // room — losing everything with no error anywhere.
+      //
+      // The cost of this is that a code collision (1 in ~1.1e12) permanently
+      // burns that code for the second player. Their data is fine; their note
+      // is not, which is the right direction to fail.
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Leaderboards. One document per player per board, at
+    // `boards/<game>__<difficulty>/scores/<uid>`.
+    //
+    // The board is PUBLIC to any signed-in player, which is the point of a
+    // board. What it exposes is a two-word name from a fixed list and a number
+    // — there is nothing here that identifies a child, by construction.
+    //
+    // `{path=**}` rather than `boards/{board}` — deliberately, and it costs
+    // nothing the specific match did not already grant. A single-collection
+    // match only ever satisfies a query issued against ONE board; the pooled
+    // standings screen reads every board in one COLLECTION GROUP query, and
+    // Firestore denies a collection-group read unless a rule reaches it via a
+    // recursive wildcard (its own docs: "configure a security rule for that
+    // collection group... using wildcards"). The write clause below never
+    // referenced `board` in the first place, so widening the match changes
+    // nothing about who may write where — only which READS are now reachable.
+    match /{path=**}/scores/{uid} {
+      allow read: if request.auth != null;
+
+      // Write only your own row. This is the whole integrity story for who a
+      // score belongs to: no caller can put a number under someone else's name,
+      // however many uids they enumerate.
+      //
+      // What these rules deliberately do NOT claim: that a score is REAL. This
+      // is a client-only app, so the number arrives from a browser the player
+      // controls and no rule can tell a genuine 4,200 from a typed one. The
+      // shape checks below stop a malformed or oversized document from breaking
+      // every reader; they are not anti-cheat, and calling them that would be
+      // the kind of false comfort that stops someone building the real thing
+      // later. The mitigations that do work are structural: the windows reset
+      // daily and weekly, so a fabricated score ages out on its own.
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.data.keys().hasOnly(
+                        ['name', 'unit', 'best', 'd', 'dBest', 'w', 'wBest', 'm', 'mBest', 'at'])
+                   && request.resource.data.best is number
+                   && request.resource.data.dBest is number
+                   && request.resource.data.wBest is number
+                   && request.resource.data.mBest is number
+                   && request.resource.data.at is int
+                   // Bounded strings: a name is two word ids, and a window key
+                   // is a date stamp. Anything longer is not one of ours, and
+                   // an unbounded string is how one row makes a board unusable.
+                   && request.resource.data.name.size() <= 64
+                   && request.resource.data.unit.size() <= 16
+                   && request.resource.data.d.size() <= 16
+                   && request.resource.data.w.size() <= 16
+                   && request.resource.data.m.size() <= 16;
+
+      // A record can be beaten; it cannot be taken away — the same rule
+      // `ctx.score` follows on the device, enforced here too so it also holds
+      // for a caller who is not our app.
+      allow delete: if false;
+    }
+
+    // Bug and idea reports, one document per report, at
+    // `reports/<uid>/items/<minute>`.
+    //
+    // WRITE-ONLY, FROM THE OUTSIDE. `read` is false for everybody: a report can
+    // carry a sentence a person typed, and this is the one collection here
+    // whose contents are not, by construction, free of anything personal. We
+    // read them with an owner credential, which bypasses these rules; nothing
+    // that ships in a browser can. That also means a report cannot be used to
+    // read back what another player wrote, which a `read: if request.auth`
+    // rule - correct for scores and for backup - would have allowed.
+    //
+    // THE DOC ID IS THE THROTTLE, AND THE SERVER PICKS THE WINDOW. The id is
+    // the minute the report was written, and the rule below compares it to
+    // `request.time` rather than trusting it. Without that comparison a caller
+    // simply invents ids and the "one per minute" limit is a comment: the
+    // create rule only ever fires for a document that does not exist, so the
+    // ONLY thing bounding how many documents a caller can make is how many ids
+    // it is allowed to name. A window of plus or minus two minutes is slack for
+    // a device with a wrong clock, and it is why the honest description of this
+    // is "a few per minute" rather than "exactly one".
+    //
+    // `update` and `delete` are denied, so a sent report cannot be edited into
+    // something else after we have read it, and cannot be withdrawn - which is
+    // the right direction for a record we act on.
+    match /reports/{uid}/items/{minute} {
+      allow read: if false;
+      allow update, delete: if false;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    // The id is a server-checked minute stamp. A non-numeric id
+                    // makes int() error, and an erroring rule denies - which is
+                    // the direction this should fail in.
+                    && int(minute) >= math.floor(request.time.toMillis() / 60000) - 2
+                    && int(minute) <= math.floor(request.time.toMillis() / 60000) + 2
+
+                    && request.resource.data.keys().hasOnly(
+                         ['at', 'kind', 'reason', 'message', 'ctx', 'shot'])
+                    && request.resource.data.keys().hasAll(['at', 'kind', 'ctx'])
+
+                    && request.resource.data.at is int
+                    && request.resource.data.kind in ['bug', 'idea']
+
+                    // Bounded strings, for the same reason the scores block
+                    // bounds its own: one unbounded value is how a single row
+                    // makes a collection unreadable, and an unbounded write is
+                    // free storage for anybody who finds the endpoint.
+                    //
+                    // `ctx` is a JSON STRING rather than a map, exactly as a
+                    // profile is in `players`. Rules cannot measure a map's
+                    // size, so a map here would be uncapped - and the context
+                    // carries a game's own session snapshot, which is the part
+                    // most worth bounding.
+                    && request.resource.data.ctx is string
+                    && request.resource.data.ctx.size() <= 100000
+                    && (!request.resource.data.keys().hasAny(['message'])
+                        || (request.resource.data.message is string
+                            && request.resource.data.message.size() <= 300))
+                    && (!request.resource.data.keys().hasAny(['reason'])
+                        || (request.resource.data.reason is string
+                            && request.resource.data.reason.size() <= 24))
+                    && (!request.resource.data.keys().hasAny(['shot'])
+                        || (request.resource.data.shot is string
+                            && request.resource.data.shot.size() <= 220000));
+    }
+
+    // Deny by default, so a future collection cannot fall into a hole.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

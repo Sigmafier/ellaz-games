@@ -1,0 +1,113 @@
+import type { PageLocale } from "@i18n/locales";
+import { localePrefix } from "@i18n/locales";
+
+/**
+ * Where things live, as URLs the browser can navigate to.
+ *
+ * These mirror `src/build/routes.ts` exactly, and they have to: the emitter
+ * writes the files and this generates the links to them. The duplication is
+ * deliberate rather than shared, because `src/build/**` must never be importable
+ * from the app - it reads `src/content`, and one import would put every word of
+ * every page into the precached shell. `paths.test.ts` asserts the two agree on
+ * every game, so the copy cannot drift silently.
+ *
+ * BASE_URL is Vite's own build constant: "/" on Hostinger, "/ellaz/" on GitHub
+ * Pages. Every href here carries it; nothing that identifies a page does.
+ *
+ * Every function here takes a `PageLocale` and not a `Locale`, and the two
+ * stopped being the same type on 2026-08-16. These build the address of an
+ * EMITTED DOCUMENT, so they follow the list of languages that have documents -
+ * not the narrower list of languages whose authored strings ship in the bundle.
+ * `pageLocaleFor()` is the funnel: the app may be speaking one of eleven
+ * languages, and it maps down to the page that actually exists.
+ */
+
+const BASE = import.meta.env.BASE_URL;
+
+/**
+ * The same answer `src/build/routes.ts` gives, in the form this file needs.
+ *
+ * `localePrefix` returns "" or "/en" because a canonical path starts with a
+ * slash; every href here is appended to BASE, which already ends with one. So
+ * the leading slash comes off and a trailing one goes on. Reading it from
+ * `i18n/locales.ts` rather than restating the rule is what stops the app's
+ * links and the emitter's filenames from drifting apart - the duplication
+ * `paths.test.ts` exists to catch is in the URL SHAPES, and it should not
+ * extend to which languages have pages at all.
+ */
+function prefix(locale: PageLocale): string {
+  const p = localePrefix(locale);
+  return p ? `${p.slice(1)}/` : "";
+}
+
+export function homeHref(locale: PageLocale): string {
+  return `${BASE}${prefix(locale)}`;
+}
+
+/**
+ * The slug is the game's OWN id. `src/games/n2048/` publishes at
+ * `/games/2048/`, because its `meta.id` is "2048".
+ */
+export function gameHref(id: string, locale: PageLocale): string {
+  return `${BASE}${prefix(locale)}games/${encodeURIComponent(id)}/`;
+}
+
+export function worldHref(locale: PageLocale): string {
+  return `${BASE}${prefix(locale)}world/`;
+}
+
+export function boardsHref(locale: PageLocale): string {
+  return `${BASE}${prefix(locale)}boards/`;
+}
+
+/**
+ * The printable packs, at `/he/print/<kind>/`.
+ *
+ * MIRRORS `PRINT_KINDS` and `printPath` in `src/build/routes.ts`, for the reason
+ * at the top of this file, and `paths.test.ts` asserts the two lists and the two
+ * URL shapes agree - so a fifth pack cannot appear on one side only.
+ *
+ * NO LOCALE ARGUMENT, deliberately. Every other function here takes a
+ * `PageLocale` because every other page exists in four languages; these exist in
+ * one, by a content decision the route table states in full. A parameter would
+ * invite `printHref(k, "en")` to compile and emit a URL nothing writes.
+ *
+ * WHAT THIS LIST IS NOT is the list to render. A pack is only reachable if its
+ * GAME is on the roster - the emitter derives `PRINTABLE_KINDS` for exactly that
+ * reason, and `assert-slope.mjs` builds an arm with the last eight games cut, so
+ * a caller that hard-lists these four links to a page that arm never wrote.
+ * Filter against the roster you are rendering from, as `Home` does.
+ */
+export const PRINT_KINDS = ["sudoku", "maze", "wordsearch", "coloring"] as const;
+
+export type PrintKind = (typeof PRINT_KINDS)[number];
+
+/** The one language the packs are written in. `src/build/routes.ts` PRINT_LOCALE. */
+export const PRINT_PAGE_LOCALE: PageLocale = "he";
+
+export function printHref(kind: PrintKind): string {
+  return `${BASE}${prefix(PRINT_PAGE_LOCALE)}print/${kind}/`;
+}
+
+/**
+ * The Toybox beta shelf, and one game inside it.
+ *
+ * NO LOCALE PREFIX, unlike every other href here, and that is the whole point:
+ * `/toybox/` is not in this site's route table. It is a second application -
+ * four games on the studio's own engine - built from `studio/` and copied into
+ * `dist/toybox/` by both deploy workflows AFTER `build:check` runs. There is
+ * one copy of it, in English, so there is no `/he/toybox/` to link to.
+ *
+ * BASE-PREFIXED all the same, because there are two hosts: `/toybox/` on
+ * ellaz.fun and `/ellaz/toybox/` on the Pages mirror. Writing the absolute path
+ * by hand is a 404 on the mirror that nothing local can see - the same trap
+ * `assert-pages.mjs` catches for every other link, and cannot catch for this one
+ * because the pages do not exist at build time.
+ */
+export function toyboxHref(): string {
+  return `${BASE}toybox/`;
+}
+
+export function toyboxGameHref(dir: string): string {
+  return `${BASE}toybox/games/${dir}/page/index.html`;
+}

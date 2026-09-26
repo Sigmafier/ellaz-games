@@ -1,0 +1,379 @@
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import type { Locale } from "@i18n/index";
+import type { GameContext } from "@sdk/index";
+import { type DifficultyOption } from "@ui/index";
+import { GameChrome } from "@ui/GameChrome";
+import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { haptic, shake } from "@juice/index";
+import { Prompt, useGameTimer, useRememberedLevel, winMoment } from "@shared/index";
+import {
+  COVER_MS,
+  DIFFICULTIES,
+  isCorrectChoice,
+  newRound,
+  nextPhase,
+  revealedItems,
+  vanishedItem,
+  type Difficulty,
+  type Phase,
+  type Round,
+} from "./logic";
+
+// "What disappeared?" - study, cover, answer.
+//
+// The renderer owns only TIMING and PIXELS; `logic.ts` owns the round. The one
+// rule worth restating here is that a wrong tap costs nothing: it shakes, the
+// character stays hidden, and the same question is asked again. There is no
+// score to lose and no attempt counter to exhaust.
+
+const LEVEL_LABELS: Record<Difficulty, Record<Locale, string>> = {
+  easy: { he: "קל", en: "Easy", es: "Fácil", sv: "Lätt" },
+  medium: { he: "בינוני", en: "Med", es: "Media", sv: "Medel" },
+  hard: { he: "קשה", en: "Hard", es: "Difícil", sv: "Svår" },
+};
+
+// Built from DIFFICULTIES so the row can never drift out of sync with the ladder.
+const LEVEL_OPTIONS: DifficultyOption<Difficulty>[] = DIFFICULTIES.map((id) => ({
+  id,
+  label: LEVEL_LABELS[id],
+}));
+
+// Hebrew is the PRIMARY string, not a translation of the English.
+const T = {
+  he: {
+    study: "תסתכלו טוב על החברים",
+    cover: "עוצמים עיניים רגע...",
+    ask: "מי נעלם?",
+    solved: "כל הכבוד! מצאתם את",
+    round: "סיבוב",
+    found: "מצאתם",
+    time: "זמן",
+    again: "שוב",
+    next: "עוד סיבוב",
+  },
+  en: {
+    study: "Look carefully at the friends",
+    cover: "Close your eyes for a moment...",
+    ask: "Who disappeared?",
+    solved: "Well done! You found",
+    round: "Round",
+    found: "Found",
+    time: "Time",
+    again: "Again",
+    next: "Next round",
+  },
+  es: {
+    study: "Mira bien a los amigos",
+    cover: "Cierra los ojos un momento...",
+    ask: "¿Quién desapareció?",
+    solved: "¡Muy bien! Encontraste a",
+    round: "Ronda",
+    found: "Encontrados",
+    time: "Tiempo",
+    again: "Otra vez",
+    next: "Siguiente ronda",
+  },
+  sv: {
+    study: "Titta noga på kompisarna",
+    cover: "Blunda ett ögonblick...",
+    ask: "Vem försvann?",
+    solved: "Bra jobbat! Du hittade",
+    round: "Runda",
+    found: "Hittade",
+    time: "Tid",
+    again: "Igen",
+    next: "Nästa runda",
+  },
+} as const;
+
+const TILE_MIN = 72; // kids target floor is 64px; the extra 8 is breathing room
+
+export function Vanish({ ctx }: { ctx: GameContext }) {
+  const t = T[ctx.locale];
+
+  // vanish shipped this by hand — read, validate against the known ids, fall
+  // back — before every other game had it. `useRememberedLevel` is that exact
+  // code, under the same `level` key with the same values, so this game's
+  // players keep the difficulty they last chose.
+  const [level, setLevel] = useRememberedLevel(ctx, DIFFICULTIES, "easy");
+  // Furthest round reached, per DIFFICULTY — `roundNo` resets to 1 on a fresh run
+  // at a new difficulty, so a shared record would let an easy streak stand as the
+  // record on hard. Seeded from the RESTORED difficulty, not "easy": the level is
+  // persisted, so a returning player must see the record for the one they are on.
+  const [best, setBest] = useState<number | undefined>(() => ctx.score?.best(level));
+  const [round, setRound] = useState<Round>(() => newRound(level));
+  const [phase, setPhase] = useState<Phase>("study");
+  const [solved, setSolved] = useState(false);
+  const [roundNo, setRoundNo] = useState(1);
+  const [foundCount, setFoundCount] = useState(0);
+  const started = useRef(false);
+  // Read once, for the item glyph size only - the grid's own size is the
+  // stylesheet's (`.ellaz-board`).
+  const [pc] = useState(isPcArena);
+
+  // Pause-aware: a child who puts the tablet down mid-study must not come back
+  // to a blown clock, so the study countdown is `useGameTimer` (which stops on
+  // ctx.onPause) rather than a bare setTimeout. `running` is true ONLY during
+  // the study beat, so the clock is stopped for the cover and answer beats too.
+  const { elapsedMs, reset: resetTimer } = useGameTimer(ctx, {
+    running: phase === "study",
+    tickMs: 100,
+    onTick: (ms) => {
+      // A pure updater - no side effects here, so a double-invoked updater is
+      // harmless and a late tick after the beat changed is a no-op.
+      if (ms >= round.studyMs) setPhase((p) => (p === "study" ? nextPhase(p) : p));
+    },
+  });
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    ctx.lifecycle.gameplayStart();
+    ctx.analytics.levelStart(`vanish-${level}`);
+  }, [ctx, level]);
+
+  // The blanket beat. Cleared on unmount and on any phase change, so a round
+  // restarted mid-cover cannot be dragged forward by a stale timer.
+  useEffect(() => {
+    if (phase !== "cover") return;
+    const id = setTimeout(() => setPhase((p) => (p === "cover" ? nextPhase(p) : p)), COVER_MS);
+    return () => clearTimeout(id);
+  }, [phase]);
+
+  const startRound = useCallback(
+    (d: Difficulty, opts?: { fresh?: boolean }) => {
+      // `setLevel` persists — see useRememberedLevel. The hand-written
+      // `storage.set` that used to sit here is now the hook's job.
+      setLevel(d);
+      // The record is scoped to the difficulty, so switching boards must show the
+      // record for the board actually being played.
+      setBest(ctx.score?.best(d));
+      setRound(newRound(d));
+      setSolved(false);
+      setPhase("study");
+      resetTimer();
+      if (opts?.fresh) {
+        setRoundNo(1);
+        setFoundCount(0);
+      } else {
+        setRoundNo((n) => n + 1);
+      }
+      ctx.analytics.levelStart(`vanish-${d}`);
+    },
+    [ctx, resetTimer],
+  );
+
+  const onChoice = useCallback(
+    (e: PointerEvent<HTMLButtonElement>, index: number) => {
+      if (phase !== "reveal" || solved) return;
+      // Inside the gesture, so iOS opens both gates.
+      ctx.audio.unlock();
+      ctx.speech.unlock();
+      const el = e.currentTarget;
+
+      if (!isCorrectChoice(round, index)) {
+        // Gentle: a nudge and another try, with the character still hidden.
+        ctx.audio.play("tap");
+        haptic.tap();
+        shake(el);
+        return;
+      }
+
+      setSolved(true);
+      setFoundCount((n) => n + 1);
+      const r = el.getBoundingClientRect();
+      // From the event handler, never from inside a setState updater: React may
+      // run an updater twice, and that would double-grant the coins.
+      // No `ms` here on purpose: the only clock in this file counts the STUDY
+      // beat down, not how long the answer took, and `ms` is read as a solve
+      // duration. "Not measured" is the honest answer.
+      const won = winMoment(ctx, {
+        reason: "level_complete",
+        tier: round.difficulty,
+        level: `vanish-${round.difficulty}`,
+        at: { x: r.left + r.width / 2, y: r.top + r.height / 2 },
+        score: { value: roundNo, unit: "points", board: round.difficulty },
+      });
+      if (won.score) setBest(won.score.best);
+    },
+    // `roundNo` is read for the score — the round being solved IS the record.
+    [ctx, phase, round, solved, roundNo],
+  );
+
+  const gone = vanishedItem(round);
+  const board = revealedItems(round);
+  const secondsLeft = Math.max(0, Math.ceil((round.studyMs - elapsedMs) / 1000));
+  // Four options lay out 2×2 rather than a stranded 3+1; three stay in a row.
+  const choiceCols = round.choices.length === 4 ? 2 : Math.min(round.choices.length, 3);
+  const promptText =
+    phase === "study"
+      ? t.study
+      : phase === "cover"
+        ? t.cover
+        : solved
+          ? `${t.solved} ${gone[ctx.locale]}`
+          : t.ask;
+  const promptGlyph =
+    phase === "study" ? "👀" : phase === "cover" ? "🫣" : solved ? "🎉" : "🫥";
+
+  return (
+    <GameChrome
+      ctx={ctx}
+      stats={[
+        { icon: "layers", label: t.round, value: roundNo, compact: true, record: best ?? "-" },
+        // The middle cell CHANGES with the beat: a countdown while the child is
+        // memorising, then how many they have found. Two facts, one slot, and
+        // only ever one of them is true at a time.
+        {
+          icon: phase === "study" ? "clock" : "check",
+          label: phase === "study" ? t.time : t.found,
+          value: phase === "study" ? secondsLeft : foundCount,
+          compact: true,
+        },
+      ]}
+      levels={LEVEL_OPTIONS}
+      level={level}
+      onLevel={(d) => startRound(d, { fresh: true })}
+      onRestart={() => startRound(level, { fresh: true })}
+      footer={
+        solved ? (
+          <button
+            type="button"
+            onClick={() => startRound(level)}
+            style={{
+              width: "100%",
+              minHeight: 68,
+              border: "none",
+              borderRadius: "var(--radius-2)",
+              background: "var(--brand)",
+              color: "#fff",
+              boxShadow: "var(--shadow-1)",
+              fontFamily: "Fredoka, inherit",
+              fontSize: 22,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {t.next} ▶
+          </button>
+        ) : undefined
+      }
+    >
+      <Prompt ctx={ctx} glyph={promptGlyph} text={promptText} />
+
+      {/* Spatial board: pinned LTR so the slots do not mirror in the Hebrew app,
+          and touch-action:none so a tap on a tile is never eaten by a scroll. */}
+      <div
+        dir="ltr"
+        className={BOARD_CLASS}
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${round.columns}, 1fr)`,
+          gap: 12,
+          // chrome 169: the head row plus the Prompt chip above the board -
+          // the footer sits beside the board on a PC, so it costs no height. measured 2026-09-14 by repro-board-fills-the-window.mjs at every PC arm. Every item is square
+          // (aspectRatio 1 below), so the grid's own shape is columns over
+          // its row count.
+          ...boardVars({
+            vw: 92,
+            vh: 52,
+            cap: 420,
+            chrome: 169,
+            ratio: round.columns / Math.ceil(round.items.length / round.columns),
+            // The 12px gaps, so every level's board is one height.
+            space: { x: (round.columns - 1) * 12, y: (Math.ceil(round.items.length / round.columns) - 1) * 12 },
+          }),
+          ...(pc ? { containerType: "inline-size" as const } : {}),
+          touchAction: "none",
+        }}
+      >
+        {round.items.map((item, i) => {
+          const covered = phase === "cover";
+          const shown = phase === "study" ? item : board[i];
+          const hole = shown === null && !covered;
+          return (
+            <div
+              key={item.emoji}
+              // The flip carries the blanket beat; the pop carries the reveal, so
+              // the disappearance reads as an event rather than a jump cut.
+              className={covered ? "ellaz-flip" : hole ? "ellaz-pulse" : "ellaz-pop"}
+              // `role="img"` is what makes the label reachable - a bare <div>
+              // with an aria-label is ignored by most screen readers.
+              role="img"
+              aria-label={hole || covered ? "?" : item[ctx.locale]}
+              style={{
+                aspectRatio: "1",
+                minHeight: TILE_MIN,
+                borderRadius: 18,
+                display: "grid",
+                placeItems: "center",
+                // On a PC the glyph follows the CELL (a share of the grid's
+                // width per column), or a big board holds a small character.
+                fontSize: pc
+                  ? `calc(${56 / round.columns}cqw)`
+                  : "clamp(30px, 9vw, 56px)",
+                background: covered
+                  ? "linear-gradient(180deg,var(--brand-2),var(--brand))"
+                  : hole
+                    ? "transparent"
+                    : "var(--surface)",
+                border: hole ? "3px dashed var(--brand)" : "none",
+                boxShadow: hole ? "none" : "var(--shadow-1)",
+                transition: "background 0.2s ease",
+              }}
+            >
+              {covered ? "" : hole ? <span style={{ opacity: 0.35 }}>❓</span> : shown?.emoji}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* The answer row is the ORIGINAL set, shuffled: an absence is not
+          tappable, so the child points at the character instead of the hole. */}
+      {phase === "reveal" && (
+        <div
+          dir="ltr"
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${choiceCols}, 1fr)`,
+            gap: 10,
+            width: `min(92vw, 420px)`,
+            touchAction: "none",
+          }}
+        >
+          {round.choices.map((item, i) => {
+            const isAnswer = solved && item.emoji === gone.emoji;
+            return (
+              <button
+                key={item.emoji}
+                aria-label={item[ctx.locale]}
+                onPointerDown={(e) => onChoice(e, i)}
+                style={{
+                  minHeight: TILE_MIN,
+                  padding: "8px 4px",
+                  border: "none",
+                  borderRadius: 18,
+                  display: "grid",
+                  placeItems: "center",
+                  gap: 2,
+                  background: isAnswer ? "linear-gradient(180deg,#55efc4,#00b894)" : "var(--surface)",
+                  color: "var(--text)",
+                  boxShadow: "var(--shadow-1)",
+                  cursor: "pointer",
+                  touchAction: "none",
+                }}
+              >
+                <span style={{ fontSize: "clamp(26px, 7vw, 42px)", lineHeight: 1 }}>
+                  {item.emoji}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.1 }}>
+                  {item[ctx.locale]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </GameChrome>
+  );
+}

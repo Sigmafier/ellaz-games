@@ -1,0 +1,17 @@
+import type { GameMeta } from "@sdk/index";
+
+// DOM-free metadata: the portal catalog imports this statically so the home grid
+// renders without pulling React/Phaser into the shell bundle.
+export const meta: GameMeta = {
+  id: "bees",
+  title: { he: "רק דבורים", en: "Bees Only", es: "Solo abejas", sv: "Bara bin" },
+  emoji: "🐝",
+  color: "#f6b93b",
+  ageBand: "kids",
+  category: "speed",
+  orientation: "any",
+  renderer: "dom",
+  tier: "simple",
+  ownsChrome: true,
+  scoreUnit: "points",
+};

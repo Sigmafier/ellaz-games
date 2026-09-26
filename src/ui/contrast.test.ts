@@ -1,0 +1,325 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { GAMES } from "../portal/games";
+import { contrastRatio, inkFor, inkContrast, INK_DARK, INK_LIGHT } from "./ink";
+
+/**
+ * Every readable pairing this app renders, measured rather than eyeballed.
+ *
+ * This test failed the day it was written, which is the point: minesweeper's
+ * slate read 3.23:1 and sequence's violet 3.49:1 under the single hardcoded
+ * ink the name strips used to carry, and sudoku's blue failed BOTH inks at
+ * 4.38 and 3.87 - so it needed its colour nudged, not its ink chosen better.
+ *
+ * WCAG 2.2 AA: 4.5:1 for normal text, 3:1 for large text and UI components.
+ * The name strip is bold 13.5-14px, which is not "large" by the spec's
+ * definition (18.66px bold), so the floor here is 4.5.
+ */
+
+const FLOOR = 4.5;
+
+const TOKENS = readFileSync(fileURLToPath(new URL("./tokens.css", import.meta.url)), "utf8");
+
+/** Resolve a token to its literal value inside one theme block. */
+function tokenValue(theme: "night" | "market", name: string): string {
+  const stripped = TOKENS.replace(/\/\*[\s\S]*?\*\//g, "");
+  // By attribute, never by full selector: which theme also carries the bare
+  // `:root` is what the flip changes, and this lookup must survive it.
+  const at = stripped.indexOf(`[data-theme="${theme}"]`);
+  const open = stripped.indexOf("{", at);
+  const block = stripped.slice(open + 1, stripped.indexOf("}", open));
+  const m = new RegExp(`${name}:\\s*([^;]+);`).exec(block);
+  if (!m) throw new Error(`token ${name} not found in ${theme}`);
+  const raw = m[1].trim();
+  // One level of indirection is enough here: night's ink siblings alias their
+  // bright value, and nothing else in these blocks chains further.
+  const ref = /^var\((--[a-z0-9-]+)\)$/.exec(raw);
+  return ref ? tokenValue(theme, ref[1]) : raw;
+}
+
+describe("game name strips are readable on every accent", () => {
+  it("covers the whole roster", () => {
+    // Without this the suite passes vacuously if GAMES ever comes back empty.
+    expect(GAMES.length).toBeGreaterThanOrEqual(21);
+  });
+
+  it.each(GAMES.map((g) => [g.id, g.color] as const))(
+    "%s (%s) clears 4.5:1 with the ink inkFor picks",
+    (_id, color) => {
+      expect(inkContrast(color)).toBeGreaterThanOrEqual(FLOOR);
+    },
+  );
+
+  it("actually exercises both inks", () => {
+    // A roster where every colour happens to want the dark ink would pass the
+    // assertions above while proving nothing about the light branch. Two games
+    // (minesweeper, sequence) are the reason inkFor exists.
+    const picks = new Set(GAMES.map((g) => inkFor(g.color)));
+    expect(picks).toContain(INK_DARK);
+    expect(picks).toContain(INK_LIGHT);
+  });
+
+  it("pins the three strips that failed under the old single ink", () => {
+    // Literal historical colours, not today's meta - one of the three has
+    // since been nudged, so reading it from GAMES would quietly stop testing
+    // the thing this pins. Had the old hardcoded dark ink been fine, none of
+    // this machinery would be justified.
+    const before = { minesweeper: "#636e72", sequence: "#6c5ce7", sudoku: "#0984e3" };
+    for (const [, color] of Object.entries(before)) {
+      expect(contrastRatio(color, INK_DARK)).toBeLessThan(FLOOR);
+    }
+    // Choosing the better ink rescues two of the three...
+    expect(inkContrast(before.minesweeper)).toBeGreaterThanOrEqual(FLOOR);
+    expect(inkContrast(before.sequence)).toBeGreaterThanOrEqual(FLOOR);
+    // ...and cannot rescue the third, which is why sudoku's colour moved.
+    // 4.38 dark, 3.87 light: no ink sits on that blue.
+    expect(inkContrast(before.sudoku)).toBeLessThan(FLOOR);
+  });
+});
+
+describe("theme text tokens are readable on their own surfaces", () => {
+  for (const theme of ["night", "market"] as const) {
+    it(`${theme}: body text on the surface`, () => {
+      expect(
+        contrastRatio(tokenValue(theme, "--text"), tokenValue(theme, "--surface")),
+      ).toBeGreaterThanOrEqual(FLOOR);
+    });
+
+    it(`${theme}: dimmed text on the surface`, () => {
+      // --text-dim labels stat captions at 12px, so it gets the same floor.
+      expect(
+        contrastRatio(tokenValue(theme, "--text-dim"), tokenValue(theme, "--surface")),
+      ).toBeGreaterThanOrEqual(FLOOR);
+    });
+
+    it(`${theme}: text on the page background`, () => {
+      const page = tokenValue(theme, "--bg");
+      expect(contrastRatio(tokenValue(theme, "--text"), page)).toBeGreaterThanOrEqual(FLOOR);
+    });
+
+    it(`${theme}: on-brand label on the brand fill`, () => {
+      expect(
+        contrastRatio(tokenValue(theme, "--on-brand"), tokenValue(theme, "--brand")),
+      ).toBeGreaterThanOrEqual(3);
+    });
+
+    // The ink siblings exist to be used as TEXT. Night aliases them to the
+    // bright accents, which is only safe because night's surface is dark - so
+    // this assertion is a real constraint in both themes, not a formality.
+    for (const accent of [
+      "--brand-ink",
+      "--brand-2-ink",
+      "--teal-ink",
+      "--yellow-ink",
+      "--red-ink",
+      "--green-ink",
+      "--pink-ink",
+      "--orange-ink",
+    ]) {
+      it(`${theme}: ${accent} on the surface`, () => {
+        expect(
+          contrastRatio(tokenValue(theme, accent), tokenValue(theme, "--surface")),
+        ).toBeGreaterThanOrEqual(FLOOR);
+      });
+    }
+  }
+});
+
+/**
+ * LABEL PAIRINGS - the pairs a component actually declares, at the 4.5 floor.
+ *
+ * This block exists because the assertion above it was green over a real
+ * defect for months, and it was green for two separate reasons worth naming.
+ *
+ * 1. IT USED THE WRONG FLOOR. "on-brand label on the brand fill" asserts >= 3.
+ *    3:1 is the floor for a UI COMPONENT or a graphic - the chip's fill
+ *    against the card behind it. The label ON that fill is text, and text is
+ *    4.5. --on-brand on market's --brand measures 3.14, so the one assertion
+ *    covering the brand button passed a pairing that fails for its own label.
+ *
+ * 2. IT ASSERTED A PAIR NOTHING RENDERED. The pair in the test is
+ *    (--on-brand, --brand). The pair `Button`, `ReportSheet` and `Lab` all
+ *    shipped is (--text, --brand-fill), which the test never names. A
+ *    contrast suite built from a hand-kept list of token pairs measures the
+ *    list, not the app - the same shape as
+ *    `.claude/rules/a-path-filter-is-a-hand-kept-mirror-of-an-import-graph.md`.
+ *
+ * Measured on RENDERED PIXELS 2026-09-02, not on the CSS, because a gradient
+ * only has a ratio once something paints it:
+ *
+ *     pairing                            market   night
+ *     --text      on --brand-fill         5.34     2.53
+ *     --on-brand  on --brand              3.14     4.86
+ *     --on-brand  on --brand-strong       5.87     4.86   <- the only one that
+ *                                                            clears in both
+ */
+describe("a label's fill clears the TEXT floor, in both themes", () => {
+  for (const theme of ["night", "market"] as const) {
+    it(`${theme}: --on-brand on --brand-strong`, () => {
+      expect(
+        contrastRatio(tokenValue(theme, "--on-brand"), tokenValue(theme, "--brand-strong")),
+      ).toBeGreaterThanOrEqual(FLOOR);
+    });
+  }
+
+  /**
+   * A CONTROL THAT FLOATS ON THE BOARD is measured against the board, not
+   * against a card.
+   *
+   * Bubble Shooter's aim-guide switch sits on the canvas, whose background is
+   * `--surface-2`. Every instinct for a floating button - a `--surface` fill, a
+   * `--line` border - is invisible there, and invisible in BOTH themes, which
+   * is why it is worth pinning rather than remembering (2026-09-05):
+   *
+   *                                     market   night
+   *     --surface   on --surface-2       1.08     1.14
+   *     --line      on --surface-2       1.18     1.06
+   *     --text-dim  on --surface-2       5.85     7.00   <- the edge it uses
+   *     --brand-strong on --surface-2    5.36     2.79   <- fill alone is NOT
+   *                                                        enough in night
+   *
+   * So the border carries the shape and the fill only says on or off. The last
+   * row is the one that would have bitten: a fill-only design measures fine in
+   * market and fails the 3:1 component floor in night, and night is one tap
+   * away on Home.
+   */
+  for (const theme of ["night", "market"] as const) {
+    it(`${theme}: the board-corner switch has an edge you can see on the board`, () => {
+      expect(
+        contrastRatio(tokenValue(theme, "--text-dim"), tokenValue(theme, "--surface-2")),
+      ).toBeGreaterThanOrEqual(3);
+    });
+
+    it(`${theme}: its off-state glyph clears the text floor on the board`, () => {
+      // Off has no fill at all - the board shows through - so the glyph is
+      // measured against the board itself.
+      expect(
+        contrastRatio(tokenValue(theme, "--text-dim"), tokenValue(theme, "--surface-2")),
+      ).toBeGreaterThanOrEqual(FLOOR);
+    });
+  }
+
+  it("a fill-only version of that switch would fail in night, which is why it has a border", () => {
+    // The negative half. If this ever starts passing, --brand-strong has moved
+    // and the border is no longer load-bearing - delete the border and this
+    // assertion together, rather than keeping a guard nothing needs.
+    expect(
+      contrastRatio(tokenValue("night", "--brand-strong"), tokenValue("night", "--surface-2")),
+    ).toBeLessThan(3);
+  });
+
+  /**
+   * A gradient has no contrast ratio - it has a worst stop, and the worst stop
+   * governs. Night's --brand-fill runs --brand-2 -> --brand, and NO ink clears
+   * 4.5 across it: white reads 2.43 on the light stop, --text reads 2.25.
+   *
+   * So this is not "pick a better ink"; it is "text never sits on this token".
+   * The assertion is the reason --brand-strong exists, and it fails the day
+   * somebody flattens the gradient - at which point delete it, do not widen it.
+   */
+  it("night's --brand-fill cannot carry a label at all, which is why it never does", () => {
+    const stops = [tokenValue("night", "--brand-2"), tokenValue("night", "--brand")];
+    for (const ink of [tokenValue("night", "--on-brand"), tokenValue("night", "--text")]) {
+      const worst = Math.min(...stops.map((s) => contrastRatio(ink, s)));
+      expect(worst).toBeLessThan(FLOOR);
+    }
+  });
+
+  /**
+   * A PROPERTY OF THE TOKEN, which has not changed and is not a defect: market's
+   * --brand is a bright pink that a white label cannot clear. Kept because the
+   * guard below is meaningless without it - if this ever rose above 4.5, the
+   * scan would be forbidding something harmless.
+   */
+  it("market's --brand cannot carry a white label - 3.14, below the text floor", () => {
+    const r = contrastRatio(tokenValue("market", "--on-brand"), tokenValue("market", "--brand"));
+    expect(r).toBeLessThan(FLOOR);
+    expect(r).toBeGreaterThanOrEqual(3);
+  });
+
+  /**
+   * AND NOW THE THING THAT ACTUALLY MATTERS: that no component pairs them.
+   *
+   * What stood here until 2026-09-07 was the ratio assertion above plus a
+   * comment saying the pair "ships today in ShareSheet's primary button and two
+   * Boards labels", and promising that fixing those would RED this test.
+   *
+   * Both halves were false. The set was six, not two - it also included the
+   * home page's category chips (which is the one Lighthouse eventually caught),
+   * a mode toggle inside Nonogram, and the Play button on every embed page.
+   * And fixing them could never have redded anything, because the assertion
+   * reads TOKEN VALUES, which the call sites do not change. A green run over a
+   * false sentence, for as long as anyone cared to read it.
+   *
+   * So the claim moved out of prose and into a scan, and the population comes
+   * from the filesystem rather than from a list someone remembered to update.
+   * See .claude/rules/a-comment-that-explains-a-cost-must-name-its-measurement.md
+   */
+  describe("no component paints a label on the bright brand fill", () => {
+    const ROOT = fileURLToPath(new URL("..", import.meta.url));
+
+    /** Every source file that could render one, found, never listed. */
+    function sources(dir: string, out: string[] = []): string[] {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) {
+          if (e.name !== "node_modules") sources(full, out);
+        } else if (/\.(tsx?|css)$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) {
+          out.push(full);
+        }
+      }
+      return out;
+    }
+
+    /**
+     * `--on-brand` within 12 lines of a `--brand` BACKGROUND. This is the exact
+     * instrument that found all six, so it is known to fire on the real corpus
+     * rather than only on a fixture. It is deliberately not a style-object
+     * parser: the six live in inline styles, template CSS strings and a
+     * concatenated string of CSS, and no one parser reads all three.
+     *
+     * `--brand-strong`, `--brand-fill`, `--brand-2` and `--brand-ink` are
+     * different tokens and must not match - that is what the near-miss case
+     * below pins.
+     */
+    const BAD_BG = /background\s*:[^;\n]*var\(--brand\)/;
+    const INK = /var\(--on-brand[,)]/;
+
+    function offenders(text: string): number {
+      const lines = text.split("\n");
+      let n = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (!BAD_BG.test(lines[i])) continue;
+        const from = Math.max(0, i - 12);
+        if (INK.test(lines.slice(from, i + 13).join("\n"))) n++;
+      }
+      return n;
+    }
+
+    it("fires on the pairing, and stays silent on --brand-strong", () => {
+      // Positive control. Without this a clean scan and a dead scan look alike.
+      expect(
+        offenders('background: "var(--brand)",\ncolor: "var(--on-brand)",'),
+      ).toBe(1);
+      // The near-miss that matters: this is the FIX, and it must not be flagged.
+      expect(
+        offenders('background: "var(--brand-strong)",\ncolor: "var(--on-brand)",'),
+      ).toBe(0);
+      // And a brand background with no label on it is fine - an outline, a dot.
+      expect(offenders('background: "var(--brand)",\nborderRadius: 8,')).toBe(0);
+    });
+
+    it("no source file pairs --on-brand with a --brand background", () => {
+      const files = sources(ROOT);
+      // The denominator, printed with the finding. A scan over zero files
+      // passes just as quietly as a scan over a clean corpus.
+      expect(files.length).toBeGreaterThan(100);
+      const bad = files
+        .map((f) => [f.slice(ROOT.length), offenders(readFileSync(f, "utf8"))] as const)
+        .filter(([, n]) => n > 0);
+      expect(bad, `${files.length} files scanned; pair --brand-strong with --on-brand instead`).toEqual([]);
+    });
+  });
+});

@@ -1,0 +1,203 @@
+// @vitest-environment jsdom
+import { describe, it, expect, beforeEach } from "vitest";
+import { GAMES } from "./games";
+import { PRINT_KINDS, boardsHref, gameHref, homeHref, printHref, worldHref } from "./paths";
+import { readPageContext } from "./pageContext";
+import { redirectLegacyHash } from "./legacyHash";
+import {
+  PRINT_KINDS as BUILD_PRINT_KINDS,
+  PRINTABLE_KINDS,
+  boardsPath,
+  gamePath,
+  homePath,
+  printPath,
+  worldPath,
+} from "../build/routes";
+import { APP_LOCALES, CANONICAL_LOCALE, PAGE_LOCALES } from "@i18n/locales";
+
+/**
+ * The app's link generator and the page emitter's route table are two
+ * implementations of the same URLs, deliberately - `src/build/**` reads
+ * `src/content`, so the app may never import it. This file is what stops the
+ * copy drifting: if the two ever disagree about a single game, a card on the
+ * home grid links to a page that was never written.
+ */
+describe("the app links to the pages the emitter actually writes", () => {
+  it.each(GAMES.map((m) => m.id))("%s resolves to the same URL on both sides", (id) => {
+    expect(gameHref(id, "he")).toBe(gamePath(id, "he"));
+    expect(gameHref(id, "en")).toBe(gamePath(id, "en"));
+  });
+
+  it("agrees about the home, the room and the boards too", () => {
+    // PAGE_LOCALES: these are the addresses of emitted DOCUMENTS, so the
+    // population is the languages that have documents - not the narrower
+    // list of languages whose app strings ship.
+    for (const locale of PAGE_LOCALES) {
+      expect(homeHref(locale)).toBe(homePath(locale));
+      expect(worldHref(locale)).toBe(worldPath(locale));
+      expect(boardsHref(locale)).toBe(boardsPath(locale));
+    }
+  });
+
+  it("agrees about the printable packs, list and URL both", () => {
+    // The LIST first. If the emitter grows a fifth pack and this file does not,
+    // the URL loop below still passes on all four and the new one is simply
+    // never linked from the app - an orphan, which is the exact defect this
+    // whole change exists to close.
+    expect([...PRINT_KINDS]).toEqual([...BUILD_PRINT_KINDS]);
+    for (const kind of PRINT_KINDS) expect(printHref(kind)).toBe(printPath(kind));
+  });
+
+  it("only ever renders packs whose game is still on the roster", () => {
+    // `PRINTABLE_KINDS` is the emitter's DERIVED list, and it is what actually
+    // gets a document written for it. A caller rendering the full PRINT_KINDS
+    // would link to a page that was never emitted the moment a game leaves -
+    // which is not hypothetical: `assert-slope.mjs` builds an arm with the last
+    // eight games cut, and the wordsearch pack has already killed it once.
+    for (const kind of PRINTABLE_KINDS) expect(PRINT_KINDS).toContain(kind);
+    expect(PRINTABLE_KINDS.every((k) => GAMES.some((g) => g.id === k))).toBe(true);
+  });
+
+  it("uses the game id, not the directory name", () => {
+    // src/games/n2048/ has meta.id "2048". The canonical language, so this
+    // stays a test about the SLUG rather than about who owns the bare URL.
+    expect(gameHref("2048", CANONICAL_LOCALE)).toBe("/games/2048/");
+  });
+});
+
+describe("what page am I on", () => {
+  beforeEach(() => {
+    document.documentElement.lang = "he";
+    document.body.removeAttribute("data-page");
+    document.body.removeAttribute("data-game");
+    document.body.innerHTML = "";
+  });
+
+  it("is the app shell whenever #root is there", () => {
+    document.body.innerHTML = '<div id="root"></div>';
+    expect(readPageContext().kind).toBe("app");
+  });
+
+  it("reads the game and the language off the document", () => {
+    document.documentElement.lang = "en";
+    document.body.dataset.page = "game";
+    document.body.dataset.game = "2048";
+    document.body.innerHTML = '<div id="game-frame"></div><span id="wallet-slot"></span>';
+
+    const ctx = readPageContext();
+    expect(ctx.kind).toBe("game");
+    expect(ctx.gameId).toBe("2048");
+    expect(ctx.locale).toBe("en");
+    expect(ctx.frame).toBeTruthy();
+    expect(ctx.walletSlot).toBeTruthy();
+  });
+
+  it("recognises the room", () => {
+    document.body.dataset.page = "world";
+    document.body.innerHTML = '<div id="game-frame"></div>';
+    expect(readPageContext().kind).toBe("world");
+  });
+
+  it("recognises the boards", () => {
+    // Without this branch the boards page falls through to the game arm and
+    // mounts a GameHost with an empty id — a page that renders its prose
+    // perfectly and shows "we couldn't find that game" where the boards go.
+    document.body.dataset.page = "boards";
+    document.body.innerHTML = '<div id="game-frame"></div>';
+    expect(readPageContext().kind).toBe("boards");
+  });
+
+  it("falls back to the app rather than mounting nothing", () => {
+    // A half-deployed or hand-edited document with neither marker must still
+    // boot something. Rendering nothing at all is the worse failure: it looks
+    // exactly like a page that loaded fine.
+    document.body.innerHTML = "<p>prose only</p>";
+    expect(readPageContext().kind).toBe("app");
+  });
+
+  it("ignores a language it does not speak", () => {
+    // DERIVED, because the literal here was "fr" - an app language with no page
+    // today and a page language the moment somebody promotes it, at which point
+    // this test asserts the exact opposite of its own name and fails for a
+    // reason that has nothing to do with `readPageContext`.
+    //
+    // The intent is "an app language the emitter has never written a page for",
+    // so that is what it computes. If every app language is promoted the set is
+    // empty and there is nothing left to test, which the skip says out loud
+    // rather than passing vacuously.
+    const unwritten = APP_LOCALES.find((l) => !(PAGE_LOCALES as readonly string[]).includes(l));
+    if (!unwritten) return; // every app language has pages: nothing to ignore
+    document.documentElement.lang = unwritten;
+    document.body.dataset.page = "game";
+    document.body.dataset.game = "snake";
+    document.body.innerHTML = '<div id="game-frame"></div>';
+    expect(readPageContext().locale).toBeUndefined();
+  });
+});
+
+describe("old hash links keep working", () => {
+  const spy = () => {
+    const calls: string[] = [];
+    return { calls, hash: "", replace: (u: string) => calls.push(u) };
+  };
+
+  it("sends #/game/<id> to the real page", () => {
+    const loc = { ...spy(), hash: "#/game/snake" };
+    expect(redirectLegacyHash(loc)).toBe(true);
+    expect(loc.calls).toEqual(["/games/snake/"]);
+  });
+
+  it("sends #/world to the room", () => {
+    const loc = { ...spy(), hash: "#/world" };
+    expect(redirectLegacyHash(loc)).toBe(true);
+    expect(loc.calls).toEqual(["/world/"]);
+  });
+
+  it("sends #/boards to the leaderboards", () => {
+    const loc = { ...spy(), hash: "#/boards" };
+    expect(redirectLegacyHash(loc)).toBe(true);
+    expect(loc.calls).toEqual(["/boards/"]);
+  });
+
+  it("does not redirect the retired lab hash", () => {
+    // `#/lab` was the Juice Lab, deleted 2026-08-08. `legacyHash` still declines
+    // to redirect it - not because the lab is special, but because it has no
+    // page to redirect TO. `parseHash` then treats it like any other
+    // unrecognised hash and the app renders the home grid, which is the right
+    // landing for a bookmark from the tournament.
+    const loc = { ...spy(), hash: "#/lab" };
+    expect(redirectLegacyHash(loc)).toBe(false);
+    expect(loc.calls).toEqual([]);
+  });
+
+  it("does nothing at all with no hash, or with the home hash", () => {
+    for (const hash of ["", "#", "#/"]) {
+      const loc = { ...spy(), hash };
+      expect(redirectLegacyHash(loc)).toBe(false);
+      expect(loc.calls).toEqual([]);
+    }
+  });
+
+  it("does not bounce on an unrecognised fragment", () => {
+    // parseHash reads anything unknown as "home". Redirecting that would send a
+    // visitor from / to / forever, which is worse than the stale link.
+    const loc = { ...spy(), hash: "#/nonsense" };
+    expect(redirectLegacyHash(loc)).toBe(false);
+  });
+
+  it("carries the requested language through", () => {
+    // A NON-canonical language on purpose. Asked in the canonical one the
+    // answer is the bare URL, which is also what a wrong or ignored argument
+    // produces - so the test would pass without carrying anything through.
+    const other = PAGE_LOCALES.find((l) => l !== CANONICAL_LOCALE)!;
+    const loc = { ...spy(), hash: "#/game/sudoku" };
+    redirectLegacyHash(loc, other);
+    expect(loc.calls).toEqual([`/${other}/games/sudoku/`]);
+  });
+
+  it("defaults to the bare URL, so an old link needs no second hop", () => {
+    const loc = { ...spy(), hash: "#/game/sudoku" };
+    redirectLegacyHash(loc);
+    expect(loc.calls).toEqual(["/games/sudoku/"]);
+  });
+});

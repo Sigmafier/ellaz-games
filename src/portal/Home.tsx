@@ -1,0 +1,1255 @@
+import { useEffect, useReducer, useRef, useState, type CSSProperties } from "react";
+import type { AppLocale } from "@i18n/locales";
+import { makeT, textFor, pageLocaleFor } from "@i18n/index";
+import {
+  CATEGORY_ORDER,
+  ensureFullCatalog,
+  findEntry,
+  subscribeCatalog,
+  type CatalogEntry,
+} from "./catalog";
+import { ROSTER_CATEGORY, ROSTER_IDS } from "./shellRoster";
+import {
+  audioPort,
+  dailyStreak,
+  speechPort,
+  wallet,
+  type Category,
+  type DailyStateV1,
+  type ProfileV1,
+} from "@sdk/index";
+import { PRINT_KINDS, PRINT_PAGE_LOCALE, boardsHref, gameHref, printHref, worldHref, toyboxGameHref } from "./paths";
+import { openReport } from "./openReport";
+import { inkFor } from "@ui/ink";
+import { Icon } from "@ui/icons";
+import { GameArt, showsArt } from "@ui/gameArtView";
+import { useTheme } from "@ui/useTheme";
+import { themeById } from "@ui/themes";
+import { attachShellJuice } from "@juice/index";
+import { LanguagePicker } from "@ui/LanguagePicker";
+import { HEADER_PILL } from "@ui/headerPill";
+import { WalletChip } from "./WalletChip";
+import { dailyGameId, todayKey, todaysGame } from "./dailyRotation";
+import { Scene } from "./world/Scene";
+
+// Home screen. Four moving parts, all of them there because a four-year-old is
+// the user:
+//
+//   1. An ICON filter rail instead of stacked text sections. A pre-reader cannot
+//      read "חשיבה", and at the full catalog the stacked-section layout ran to
+//      about five phone screens of scrolling - measured, not guessed. Tapping a
+//      picture cuts that to roughly one.
+//   2. A FAVOURITE star in the corner of every card. It replaced the
+//      stars-earned badge on 2026-09-23 (operator: "i dont know what it means
+//      and i rather have a favorite button"); stars still show on the World
+//      screen and the boards.
+//   3. A KEEP PLAYING row, so returning needs no reading at all, and under it
+//      a FAVOURITES row once anything is starred.
+//   4. The WORLD as a hero card showing the real room, rather than a 48px button
+//      in the corner. It is the reason to earn coins; it should look like it.
+
+/** "no category chosen" - a distinct value, never a Category. */
+const ALL = "all" as const;
+type Filter = typeof ALL | Category;
+
+/** How many games the keep-playing row shows before it starts scrolling. */
+const RECENT_LIMIT = 4;
+
+// `GameArt` and `showsArt` moved to `@ui/gameArtView` when the boards screen
+// started showing the same games: two copies would be two answers to "what does
+// this game look like".
+
+export function Home({
+  locale,
+  onPickLocale,
+}: {
+  locale: AppLocale;
+  onPickLocale: (next: AppLocale) => void;
+}) {
+  const t = makeT(locale);
+  const [profile, setProfile] = useState<ProfileV1>(() => wallet.snapshot());
+  const [filter, setFilter] = useState<Filter>(ALL);
+
+  // The wallet is the source of truth for stars, coins, the equipped room AND
+  // what was played last, so one subscription feeds every part of this screen.
+  useEffect(() => wallet.subscribe(setProfile), []);
+
+  // The shell carries full metadata for only the games above the fold. Pull in
+  // the rest and re-render when they land - the cards below the fold fill in
+  // their label and colour, the same beat the card art has had since 2026-08-13.
+  // Their SPACE is already reserved (`pending` below), so nothing reflows.
+  const [, catalogArrived] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const stop = subscribeCatalog(catalogArrived);
+    void ensureFullCatalog();
+    return stop;
+  }, []);
+
+  // ONE SLOT PER GAME, IN ROSTER ORDER, AND THE SAME SLOT THROUGHOUT.
+  //
+  // This is a list of ids, never of loaded entries, because a card must occupy
+  // its FINAL position from the first paint. The grid used to draw the empty
+  // slots first and the arrived cards after them, which made the height right
+  // and every position wrong: as the lazy catalogue landed, each card jumped
+  // from the tail of the grid to its place in catalogue order. The page did not
+  // grow, so nothing about it looked broken - but 42 tiles moving is a layout
+  // shift, and it was the larger half of what PageSpeed measured on 2026-09-07
+  // (mobile CLS 0.4575 with the daily card's box already reserved; 0.0026 once
+  // the grid stopped reordering, three interleaved runs per arm).
+  //
+  // `ROSTER_IDS` is the shell's own list and `roster-split.test.ts` asserts it
+  // equals `GAMES.map(m => m.id)` element for element, so this order IS the
+  // catalogue's order - the cards do not move when they arrive, they fill in.
+  const slots = ROSTER_IDS.filter((id) => filter === ALL || ROSTER_CATEGORY[id] === filter);
+
+  // Only categories that actually have a game are offered. A chip that filters
+  // to an empty grid is a dead end, and an empty grid gives a child no way back.
+  // From `ROSTER_CATEGORY`, never from the loaded catalogue: `learn`, `speed`
+  // and `create` have ALL of their games below the fold, so deriving these from
+  // what has ARRIVED would pop three chips into the nav row a beat after paint.
+  const chips = CATEGORY_ORDER.filter((c) =>
+    ROSTER_IDS.some((id) => ROSTER_CATEGORY[id] === c.category),
+  );
+
+  // Filter FIRST, slice second. The wallet is below the portal in the module
+  // graph, so it cannot know the catalog and happily returns ids for games that
+  // have since been deleted. Slicing before dropping those would quietly return
+  // a short row - four stamps, one dead, three cards - with nothing to show for
+  // the missing one.
+  // WHICH games the keep-playing rail will show is known on the first paint;
+  // WHAT they are called is not. `recentlyPlayed()` is a synchronous read of
+  // the profile, and `ROSTER_IDS` is the shell's own list - so the COUNT is
+  // settled before the lazy catalogue lands, and the rail can hold its own
+  // height instead of appearing later and pushing the grid down. The slice
+  // happens BEFORE the lookup for exactly that reason: slicing the resolved
+  // entries would grow the rail from one card to four as they arrived.
+  //
+  // Filtered by `ROSTER_IDS` so a game that has LEFT the roster reserves
+  // nothing - its id can sit in a returning player's profile forever, and
+  // `findEntry` will never resolve it.
+  const recentIds = wallet
+    .recentlyPlayed()
+    .filter((id) => ROSTER_IDS.includes(id))
+    .slice(0, RECENT_LIMIT);
+  // Every favourite, not a slice: the player chose each one, and the rail
+  // scrolls. Filtered by the roster for the same reason as the row above.
+  // A synchronous read: the wallet subscription above re-renders this screen
+  // on every star, so it is never stale.
+  const favoriteIds = wallet.favorites().filter((id) => ROSTER_IDS.includes(id));
+
+  const juiceRef = useRef<HTMLDivElement>(null);
+
+  // Every card is a real <a> now, so opening a game is a navigation and this
+  // only has to make the tap FEEL like something. The audio unlock that used to
+  // live here moved to a first-gesture listener in `PageApp.tsx`, because a
+  // player arriving from a shared link or a search result never taps a card at
+  // all and would otherwise have Hebrew speech silently locked all visit.
+  const tap = () => {
+    audioPort.unlock();
+    speechPort.unlock();
+    audioPort.play("tap");
+  };
+
+  // The shell answers a touch: press depth, a ripple at the finger, a haptic.
+  // Home had the SOUND already (`tap` above) and none of the feel - the World
+  // shakes and bursts, every game is full of it, and the one screen every
+  // session starts on was visually inert.
+  //
+  // NO `playTap` HERE, deliberately. `attachShellJuice` can own the tap sound,
+  // and in a shell that did not already have one it should. This one does:
+  // `tap` is threaded to every card and toggle as `onTap`. Passing `playTap`
+  // as well would fire on pointerdown AND on click - two shutter clicks per
+  // press, which reads as a stutter rather than as a doubled sound. Collapsing
+  // the threaded props into the delegated listener is the right end state and
+  // is a separate change; doing it here would mean the first tap of a session
+  // plays before `audioPort.unlock()` has run, because pointerdown precedes
+  // click and the context is still suspended.
+  useEffect(() => {
+    const root = juiceRef.current;
+    if (!root) return;
+    return attachShellJuice(root);
+  }, []);
+
+  return (
+    <div className="ellaz-scroll" style={{ flex: 1 }} ref={juiceRef}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "8px 16px 32px" }}>
+        <header
+          // IT WRAPS, and that is the fix rather than a tidy-up.
+          //
+          // This row's width grows with the LANGUAGE LIST, which only ever gets
+          // longer - the same shape as
+          // .claude/rules/a-row-that-grows-with-the-catalog-must-wrap.md, whose
+          // two earlier instances grew with the catalog. Measured at 390px
+          // before this: 447px of demand in Hebrew, 489 in English, 509 in
+          // Indonesian, against a 350px box. All eleven languages overflowed at
+          // 320, 360 and 390.
+          //
+          // The symptom was SIDEWAYS SCROLL rather than clipping, and that is
+          // why both checks that rule recommends reported clean. `body.app-shell`
+          // is overflow:hidden so the document never widened -
+          // documentElement.scrollWidth was exactly innerWidth in all 33 cells -
+          // and the overflow landed in `.ellaz-scroll` (overflow-x:auto) one
+          // level in, 76px of travel in Hebrew and 139 in Indonesian. The
+          // per-item check found nothing either, because these children were
+          // never squeezed: they were pushed bodily outside the box. In Hebrew
+          // the language pill sat at x=-76, half off the left edge, on the
+          // DEFAULT locale.
+          //
+          // Trimming was measured before being rejected: deleting the language
+          // control outright still leaves English and Indonesian 17px over.
+          // Wrapping is the only answer that needs no re-deriving when the
+          // twelfth language, a longer app name or a four-digit coin count
+          // arrives.
+          //
+          // gap stays 8 rather than going back to 12: with the row wrapped the
+          // header no longer needs what that recovers, and two rows on a phone
+          // should read as one block rather than as two unrelated bars.
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 8,
+            rowGap: 8,
+            padding: "12px 4px 16px",
+          }}
+        >
+          {/* 26 rather than 40, and the tagline below is hidden on a phone -
+              together they are the 73px that gets this bar onto ONE row.
+              Measured on the built page at 390px: the identity block alone
+              claimed 342 of the 350 available, which is why removing controls
+              changed the height by exactly zero and shrinking the identity is
+              the only lever that moves it.
+
+              The controller stays, on the operator's ruling (they were shown
+              the same bar with and without it and picked with). It is
+              aria-hidden decoration, so it costs a crawler and a screen reader
+              nothing. */}
+          <div style={{ fontSize: 26 }} aria-hidden="true">
+            🎮
+          </div>
+          {/* `minWidth: 0` because a flex item's default `min-width: auto`
+              refuses to shrink below its own content - which is what let the
+              title push the controls off the screen instead of the row
+              wrapping. The wrap above does nothing without it. */}
+          {/* `0 1 auto`, not `1 1 auto` - operator pick, arm P, 2026-08-25.
+              At `1 1 auto` this block GREW to hold a ~60px word: measured on
+              the built page at 390px it claimed 310 of the 358 available, which
+              is why removing controls from the bar changed its height by
+              exactly zero. `minWidth: 0` stays, because a flex item's default
+              `min-width: auto` refuses to shrink below its own content - which
+              is what let the title push the controls off the screen instead of
+              the row wrapping. The wrap above does nothing without it. */}
+          <div style={{ flex: "0 1 auto", minWidth: 0 }}>
+            {/* The size is a CLASS - 18px on a phone, 24px from 560px up - and
+                an inline `fontSize` here would beat the media query that does
+                it. The WORD ITSELF never goes: operator, 2026-08-25, "must
+                keeop the elllaz logo and text". */}
+            <h1 className="ellaz-wordmark">{t("appName")}</h1>
+            {/* HIDDEN on a phone, never removed. A media query rather than a
+                conditional render, for the reason the emitted screen name
+                already carries: responsive hiding is not cloaking, and not
+                rendering it at all is a different thing - a crawler and a
+                screen reader still get the line. */}
+            <div className="ellaz-tagline" style={{ color: "var(--text-dim)", fontSize: 14 }}>
+              {t("tagline")}
+            </div>
+          </div>
+          {/* The four controls travel together. Without this wrapper the row
+              wraps one control at a time, and a phone gets the language pill
+              alone on a second line under its three siblings; with it, the
+              group drops as a unit and returns to one line the moment there is
+              room. It wraps internally too, so no autonym and no coin count can
+              overflow it either - the same guarantee, one level down. */}
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: 8,
+              rowGap: 8,
+              // `0 1 auto` with `minWidth: 0`, and the SHRINK half is
+              // load-bearing rather than defensive. At `0 0 auto` this group
+              // keeps its max-content width - 431px in Indonesian once the
+              // autonym is back - so it never gets squeezed, so its own
+              // `flexWrap` above never fires, so it overflows instead of
+              // wrapping. Measured at exactly 430px, the width where the label
+              // returns: 21px of sideways travel and three controls outside the
+              // viewport, i.e. the original bug reproduced in a 1px-wide band.
+              // A wrap that cannot be reached is not a wrap.
+              flex: "0 1 auto",
+              minWidth: 0,
+              marginInlineStart: "auto",
+            }}
+          >
+            {/* COINS AND STARS. Operator ruling 2026-08-25, reversing the
+                stars-only ruling of the day before - and the width argument
+                that had been recorded beside it was measured and found to
+                blame the wrong control. Re-measured live at 390px, changing
+                ONE variable at a time:
+
+                    stars  0  ->  header  76px   ONE row
+                    stars 24  ->  header 122px   TWO rows   <- coins not in it
+                    stars  5  ->  header  76px   ONE row    (reverses cleanly)
+
+                The wrap is the STAR count reaching two digits, not the coin
+                half. With coins restored at 320px on a four-digit balance:
+                nothing wider than the header, nothing clipped inside its own
+                box, no horizontal overflow. The wrapper below is what absorbs
+                it, and it was already doing that job.
+
+                See .claude/rules/a-threshold-tuned-against-todays-tree-goes-stale.md -
+                a measurement recorded without its one-variable control is a
+                hypothesis that reads like a finding. */}
+            <WalletChip coinsOnly />
+            {/* NO STREAK CHIP HERE. Operator ruling 2026-08-25: "remove the
+                streak fire icon from the header, we dont need it there."
+
+                It stood beside the wallet and rendered only once there was a
+                streak to show, so most visits never saw it - which is also why
+                it is a DELETION FROM THIS BAR and not from the app. The daily
+                card below still carries the streak, and the game page's own
+                header still draws it `bare`; nothing about the feature, the
+                storage or the rotation changed.
+
+                The bar it left is the one-line bar of arm P, and every control
+                in it is now something a player can ACT on: coins, the
+                leaderboards, the language, the theme. A number that appears
+                and disappears on its own was the odd one out. */}
+            {/* The leaderboards, back in the bar. Operator ruling 2026-08-24,
+                after the trophy had been removed from it earlier the same day:
+                "i dont see the leaderbors icon in header".
+
+                It is a LINK, not a button, so middle-click and long-press
+                behave - the same reason the game cards are anchors. It is
+                always-on by construction, which is exactly what the gated card
+                below the room used to be for, so for a day the two overlapped
+                and a player who had played something saw the leaderboards
+                twice. Operator ruling 2026-08-25: "only icon in header". The
+                card is gone; THIS is the way to /boards/ from the home screen.
+
+                Which makes one thing load-bearing rather than incidental: the
+                emitted home shell in `sitePages.ts` carries its own /boards/
+                link, removed on mount, and that is now the ONLY inbound link a
+                crawler or a no-JavaScript visitor can follow. Removing it
+                orphans the screen. */}
+            <a
+              href={boardsHref(pageLocaleFor(locale))}
+              onClick={tap}
+              aria-label={t("boards")}
+              // The same square the two pills beside it hold, so the row reads
+              // as one set of controls rather than three sizes - and now
+              // literally the same object, so it cannot stop being true.
+              style={HEADER_PILL}
+            >
+              <Icon name="trophy" />
+            </a>
+            <LanguagePicker locale={locale} onPick={onPickLocale} onTap={tap} />
+            <ThemeToggle locale={locale} onTap={tap} />
+          </div>
+        </header>
+
+        {/* THE ROOM FIRST, then today's puzzle, then the games. Operator
+            ruling 2026-08-24: "then my world then games". The boards card
+            follows, on its own gate - see the comment on it below. */}
+        <WorldHero profile={profile} locale={locale} onTap={tap} />
+
+        <DailyCard locale={locale} onTap={tap} />
+
+        {/* SHARING LEFT THIS SCREEN. Operator ruling 2026-08-25: "the share
+            card in homepage shouldmove from here. we should add per game share
+            options instead."
+
+            What stood here was a DAILY DIGEST - it shared the site root with a
+            list of what had been played today, which is a thing about the
+            player rather than a thing about a game. The share is now one button
+            on each game's own utility row (`gamePage.ts` emits it, `wireShare`
+            in `PageApp.tsx` opens the sheet), and what it sends is an invite to
+            THAT game at THAT game's URL. */}
+
+        <GameRail title={t("keepPlaying")} ids={recentIds} locale={locale} onTap={tap} />
+        <GameRail title={t("favorites")} ids={favoriteIds} locale={locale} onTap={tap} />
+
+        {/* The grid's own filters, in one strip above the grid: WHICH games.
+
+            It carried a card-style toggle as a trailing item until 2026-09-12 -
+            "and HOW they are drawn". That is deleted. A preference chip sitting
+            among category filters reads as one more category, and this one was
+            worse than that: a tap stored the emoji permanently, and the way back
+            wore the same palette glyph as the real `create` category with
+            nothing on screen offering an undo. The operator hit it on the live
+            site. This strip has one job now. */}
+        <CategoryRail
+          chips={chips}
+          value={filter}
+          onChange={setFilter}
+          locale={locale}
+          allLabel={t("allCategories")}
+        />
+
+        {/* ABOVE THE GRID, not under it. Operator ruling 2026-09-22, taken off
+            a render of the live page: the strip first shipped beside
+            PrintablePacks at the bottom, which measured 2,262px down on a
+            390px phone - 2.7 screens past 45 game cards. They picked "above
+            the game grid" over leaving it and over making it a card in the
+            grid, because a card sits beside games that pay coins and stars
+            and these four pay neither.
+
+            It costs no bytes to be here: same component, rendered earlier. */}
+        <ToyboxShelf onTap={tap} />
+
+        <div
+          style={{
+            display: "grid",
+            // 96px, not 104px. A 360px phone (very common on Android) leaves
+            // (360 - 32 padding - 24 gaps) / 3 = 101px per column, so a 104px
+            // minimum silently drops to TWO columns there - losing the density
+            // win on the narrowest screens, which are the ones that need it.
+            // Verified by measuring at 360 and 430, not by arithmetic alone.
+            // The whole card is the tap target, so 96px still clears the 64px
+            // kids floor comfortably.
+            gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {slots.map((id) => {
+            const entry = findEntry(id);
+            // Deliberately empty and unlabelled: a placeholder TITLE would flash
+            // the wrong text, and a spinner on a card nobody has scrolled to is
+            // noise. It holds the space and nothing else - the same square the
+            // card itself is, so the arriving card replaces it in place.
+            return entry ? (
+              <GameCard
+                key={id}
+                entry={entry}
+                locale={locale}
+                favorite={profile.games[id]?.favoritedAt !== undefined}
+                onTap={tap}
+                t={t}
+              />
+            ) : (
+              <div
+                key={id}
+                aria-hidden
+                style={{ aspectRatio: "1 / 1", borderRadius: "var(--radius-3)" }}
+              />
+            );
+          })}
+        </div>
+
+        <PrintablePacks locale={locale} onTap={tap} />
+
+        <p
+          style={{
+            color: "var(--text-dim)",
+            fontSize: 13,
+            textAlign: "center",
+            marginTop: 28,
+          }}
+        >
+          📲 {t("installHint")}
+        </p>
+        {/* The reporter's home-screen door.
+            IN THE TRAILING SHELF, not the header. It is platform chrome and it
+            is on every screen, but this screen's header belongs to a child -
+            coins, trophies, language, theme - and a fifth pill there is one
+            more thing to tap for somebody who cannot read yet. The person who
+            reports a bug is an adult, and adults read the bottom of a page.
+            The three emitted screens carry the same door on their utility row,
+            which is where their adult chrome already lives.
+
+            A real <button>, because it asks: see
+            .claude/rules/a-control-that-carries-an-imperative-must-be-a-control.md */}
+        <p style={{ textAlign: "center", marginTop: 4 }}>
+          <button
+            type="button"
+            onClick={() => void openReport({ locale })}
+            style={{
+              background: "none",
+              border: 0,
+              padding: "0 8px",
+              minHeight: "var(--tap)",
+              color: "var(--text-dim)",
+              font: "600 13px var(--font)",
+              textDecoration: "underline",
+              textUnderlineOffset: 3,
+              cursor: "pointer",
+            }}
+          >
+            {t("reportHome")}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * Day / night, as one pill beside the language toggle.
+ *
+ * One tap, one result - the same language the rest of this app speaks. There
+ * is deliberately no settings screen: a screen for two switches is a screen a
+ * five-year-old has to learn to leave.
+ *
+ * It shows the theme it will switch TO, not the one you are in, because the
+ * icon is a button label rather than a status readout. Its `aria-label` says
+ * so in words, since a sun on its own is ambiguous either way.
+ *
+ * It draws from `@ui/icons` like every other control in this bar. It used to
+ * render `next.glyph` - the characters U+2600 and U+263E - so the machine's
+ * font decided the weight, and the result sat beside a 2.1 round-capped star
+ * and globe looking like it came from somewhere else. It did.
+ */
+function ThemeToggle({ locale, onTap }: { locale: AppLocale; onTap: () => void }) {
+  const [theme, setTheme] = useTheme();
+  const next = themeById(theme === "night" ? "market" : "night");
+  return (
+    <button
+      aria-label={`${textFor({ he: "ערכת נושא", en: "Theme", es: "Tema", sv: "Tema" }, locale)}: ${textFor(next.label, locale)}`}
+      onClick={() => {
+        onTap();
+        setTheme(next.id);
+      }}
+      // THE SHARED PILL, and this button is why it exists. Hand-written, this
+      // block omitted display/alignItems/justifyContent, so the moon rendered
+      // 15px LEFT of centre on every screen size while its two neighbours were
+      // centred. See @ui/headerPill.
+      style={HEADER_PILL}
+    >
+      <Icon name={next.icon} />
+    </button>
+  );
+}
+
+/**
+ * Today's puzzle - one game, chosen by the date, the same on every device.
+ *
+ * A REAL LINK to that game's own page, like every other card here, so it is
+ * shareable, middle-clickable and reachable with Back. There is nothing special
+ * about the destination: the game is itself, and `ctx.daily` inside it knows it
+ * is today's puzzle. The alternative - a `?daily=1` route - would give one game
+ * two behaviours and every game a branch to get wrong.
+ *
+ * It shows the game's own ART and its own name rather than hiding them behind a
+ * mystery box. A four-year-old decides whether to tap by looking at the picture,
+ * and "find out what today's game is" is a reading-age idea.
+ */
+/**
+ * The daily card's box and its art slot, shared by the real card and by the
+ * placeholder that holds its space. The 68px art governs the height whether or
+ * not there is any text beside it, so the two are the same 88px tall by
+ * construction rather than by a copied number.
+ */
+const DAILY_BOX: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  width: "calc(100% - 8px)",
+  margin: "0 4px 12px",
+  padding: 10,
+  border: "none",
+  borderRadius: "var(--radius-3)",
+  background: "var(--surface)",
+  boxShadow: "var(--shadow-1)",
+  color: "var(--text)",
+  textAlign: "start",
+  textDecoration: "none",
+};
+
+const DAILY_ART: CSSProperties = {
+  flex: "0 0 68px",
+  width: 68,
+  height: 68,
+  borderRadius: "var(--radius-2)",
+  overflow: "hidden",
+  display: "block",
+};
+
+function DailyCard({ locale, onTap }: { locale: AppLocale; onTap: () => void }) {
+  const t = makeT(locale);
+  const [daily, setDaily] = useState<DailyStateV1>(() => dailyStreak.read());
+  useEffect(() => dailyStreak.subscribe(setDaily), []);
+
+  // After the hooks, never before them.
+  const meta = todaysGame();
+
+  // RESERVE THE BOX WHILE THE CATALOGUE IS STILL ARRIVING.
+  //
+  // `todaysGame()` needs the game's METADATA, which lives in the lazy
+  // catalogue - so this card used to return null on the first paint and appear
+  // about half a second later, dropping the category rail and the whole
+  // 42-tile grid 100px down the page. Measured on the live site 2026-09-07 as
+  // the ONLY late arrival above the grid (the category rail's top went 224 ->
+  // 324 between t=400ms and t=800ms), and worth CLS 0.200 on desktop and 0.713
+  // on mobile over three interleaved runs per arm.
+  //
+  // Which game it IS, though, is known from the first paint: `dailyGameId()` is
+  // pure and reads `ROSTER_IDS`, which the shell carries. So an undefined id
+  // means there genuinely is no card today and nothing should be reserved,
+  // while a defined one means the card is coming and its space is held.
+  //
+  // The placeholder is unlabelled and `aria-hidden`, the same as the grid's
+  // pending slots: a placeholder title would flash the wrong game's name, and
+  // it is a div rather than an anchor because an anchor with no accessible name
+  // is an accessibility failure - and because nothing on it invites a tap.
+  if (!meta) {
+    return dailyGameId(todayKey()) === undefined ? null : (
+      <div aria-hidden style={DAILY_BOX}>
+        <span style={DAILY_ART} />
+      </div>
+    );
+  }
+
+  const done = daily.last === todayKey();
+  const title = textFor(meta.title, locale);
+
+  return (
+    <a
+      href={gameHref(meta.id, pageLocaleFor(locale))}
+      onClick={onTap}
+      // Also named from contents, for the reason above: the name carried
+      // "Today's puzzle: <title>" while the card visibly ends in a "Play" (or
+      // "Played today") pill that the name did not contain. Nothing is lost by
+      // dropping it - the done state IS that pill's text, so it is still
+      // announced, and now it is announced with the same word the eye reads.
+      style={DAILY_BOX}
+    >
+      <span style={DAILY_ART} aria-hidden="true">
+        <GameArt id={meta.id} emoji={meta.emoji} height="100%" />
+      </span>
+      {/* `minWidth: 0` so a long game name ellipses instead of pushing the pill
+          off the card - the same flex trap the header carries a note about. */}
+      <span style={{ flex: 1, minWidth: 0, display: "block" }}>
+        <strong
+          style={{ display: "block", color: "var(--text-dim)", fontSize: 13, fontWeight: 800 }}
+        >
+          <span aria-hidden="true">🔥</span> {t("dailyPuzzle")}
+        </strong>
+        <span
+          style={{
+            display: "block",
+            fontFamily: '"Fredoka", var(--font)',
+            fontSize: 20,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {title}
+        </span>
+      </span>
+      <span
+        style={{
+          flex: "0 0 auto",
+          background: done ? "var(--surface-2)" : "var(--brand)",
+          color: done ? "var(--text-dim)" : undefined,
+          borderRadius: "var(--radius-pill)",
+          padding: "9px 15px",
+          fontWeight: 800,
+          fontSize: 14,
+        }}
+      >
+        {/* Finished today reads as a receipt, not a lock. The card still opens
+            the game - a child who wants to play it again may. */}
+        {done ? t("dailyDone") : t("play")}
+      </span>
+    </a>
+  );
+}
+
+/**
+ * The four printable packs, in the trailing shelf, in Hebrew only.
+ *
+ * WHY IT IS HERE AT ALL. The packs shipped on 2026-09-03 as ORPHANS - measured
+ * on the live site that week, `/he/` served 47 anchors and `/he/games/kids/`
+ * served 23, and none of the 70 pointed at a print page. `sitePages.ts` now
+ * carries the crawler's half, but that block is REMOVED once React mounts, so
+ * without this row a Hebrew visitor with JavaScript still cannot reach four
+ * pages that return 200. Deleting either half re-orphans them for half the
+ * audience.
+ *
+ * WHY THE TRAILING SHELF and not a card. A worksheet is printed by an adult, and
+ * this shelf is already where the adult chrome lives - the install hint and the
+ * report door are here for the reason spelled out on the reporter below. A card
+ * in the grid would sit between a five-year-old and the games.
+ *
+ * WHY HEBREW-ONLY IS A LOCALE TEST AND NOT AN `APP_LOCALES` TEST. The packs are
+ * addressed by PAGE locale; eleven app languages funnel down to four page
+ * languages, and only one of those has these documents.
+ *
+ * WHY THE LABELS ARE LITERALS. They are not translations - there is nothing to
+ * translate, because the pages exist in one language by a content decision. And
+ * they are not catalogue lookups: only `SHELL_META_COUNT` games' metadata is in
+ * the first visit, so `findEntry("wordsearch")` is undefined until the rest
+ * arrives and this row would GROW under the reader. `printables-are-linked.test.tsx`
+ * pins every one of them to the same `gameName(kind, "he")` the pack pages use,
+ * so they cannot drift into saying something the target does not.
+ */
+const PACK_SECTION = "דפים להדפסה";
+const PACK_LABEL: Record<string, string> = {
+  sudoku: "סודוקו",
+  maze: "הדרך הביתה",
+  wordsearch: "חיפוש מילים",
+  coloring: "צביעה",
+};
+
+/**
+ * The Toybox beta shelf, at `/toybox/`.
+ *
+ * NOT a catalogue game and deliberately not styled like one. The four games
+ * there run on the studio's own engine, keep no coins and no stars, and have no
+ * page in any of the four languages - so a card in the grid would promise a
+ * player all three. A strip of plain links promises what is actually there.
+ *
+ * BASE-PREFIXED, not routed. `/toybox/` is not in the route table and no build here
+ * emits it: both deploy workflows copy `studio/dist-toybox` into `dist/toybox/`
+ * AFTER `build:check` runs. `assert-pages.mjs` names it as the one exception for
+ * that reason, and `assert-live.mjs` fetches it on the real site - so the link is
+ * checked, just at the stage that can see it.
+ *
+ * The labels are the games' own names, which are proper nouns in every language
+ * we ship. The one word that is not - "beta" - is the same borrowed word in all
+ * four, so there is no string to translate and no locale arm to forget.
+ */
+/** slug -> the name the shelf itself shows; `studio/games/hub-games.ts` is the source */
+const TOYBOX_GAMES: [string, string][] = [
+  ["fight", "Toybox Brawl"],
+  ["crypt", "The Crypt"],
+  ["ember", "Ember Hollow"],
+  ["hollow", "The Hollow"],
+];
+
+export function ToyboxShelf({ onTap }: { onTap: () => void }) {
+  return (
+    <p
+      style={{
+        color: "var(--text-dim)",
+        fontSize: 13,
+        textAlign: "center",
+        marginTop: 28,
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "0 4px",
+      }}
+    >
+      <span style={{ fontWeight: 700 }}>Toybox (beta)</span>
+      {TOYBOX_GAMES.map(([slug, label]) => (
+        <a
+          key={slug}
+          href={toyboxGameHref(slug)}
+          onClick={onTap}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            minHeight: "var(--tap)",
+            padding: "0 8px",
+            color: "var(--text-dim)",
+            textDecoration: "underline",
+            textUnderlineOffset: 3,
+          }}
+        >
+          {label}
+        </a>
+      ))}
+    </p>
+  );
+}
+
+export function PrintablePacks({ locale, onTap }: { locale: AppLocale; onTap: () => void }) {
+  if (pageLocaleFor(locale) !== PRINT_PAGE_LOCALE) return null;
+  // The roster the SHELL knows, so a pack whose game has left is not linked -
+  // the emitter derives the same list as `PRINTABLE_KINDS` and does not write a
+  // document for the others.
+  const kinds = PRINT_KINDS.filter((k) => ROSTER_IDS.includes(k));
+  if (kinds.length === 0) return null;
+
+  return (
+    <p
+      style={{
+        color: "var(--text-dim)",
+        fontSize: 13,
+        textAlign: "center",
+        marginTop: 28,
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "0 4px",
+      }}
+    >
+      <span style={{ fontWeight: 700 }}>{PACK_SECTION}</span>
+      {kinds.map((kind) => (
+        <a
+          key={kind}
+          href={printHref(kind)}
+          onClick={onTap}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            minHeight: "var(--tap)",
+            padding: "0 8px",
+            color: "var(--text-dim)",
+            textDecoration: "underline",
+            textUnderlineOffset: 3,
+          }}
+        >
+          {PACK_LABEL[kind]}
+        </a>
+      ))}
+    </p>
+  );
+}
+
+/** The world, showing the child's REAL room rather than a generic illustration. */
+function WorldHero({
+  profile,
+  locale,
+  onTap,
+}: {
+  profile: ProfileV1;
+  locale: AppLocale;
+  onTap: () => void;
+}) {
+  const t = makeT(locale);
+  return (
+    <a
+      href={worldHref(pageLocaleFor(locale))}
+      onClick={onTap}
+      // NO aria-label, deliberately. It used to say just "My world", which
+      // OVERRODE the card's own text - so a screen reader lost the coin count
+      // and the Enter affordance, and `label-content-name-mismatch` scored 0
+      // because the visible words ("My world / Coins: 3 / Enter") are not
+      // inside the name. Both halves of that are the same bug: a voice-control
+      // user saying what they can see could not activate this card.
+      //
+      // Named from its own contents, the name is "My world Coins: 3 Enter" -
+      // longer, complete, and it cannot drift from what is on screen.
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        width: "calc(100% - 8px)",
+        margin: "0 4px 20px",
+        padding: 14,
+        border: "none",
+        borderRadius: "var(--radius-3)",
+        background: "linear-gradient(135deg, var(--surface-2), var(--surface) 65%)",
+        boxShadow: "var(--shadow-1)",
+        color: "var(--text)",
+        textAlign: "start",
+        textDecoration: "none",
+      }}
+    >
+      <div style={{ flex: "0 0 92px", width: 92 }}>
+        <Scene equipped={profile.equipped} size="92px" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <strong style={{ fontFamily: '"Fredoka", var(--font)', fontSize: 21, display: "block" }}>
+          {t("world")}
+        </strong>
+        <span style={{ color: "var(--text-dim)", fontSize: 13.5 }} dir="auto">
+          {/* Before the first coin this is an INVITATION, not a balance. Showing
+              "0 coins" to a child who has not played yet reads as a debt.
+
+              COINS ONLY, since 2026-08-24. The bar directly above this card
+              prints the star count, so a star total here was the same number
+              twice on one screen, about 90px apart.
+
+              Coins are this card's own subject: `RewardsPort` has no `spend()`
+              at all, by design, so the World screen is the ONE place in the
+              whole app where a coin is spent. This line is that room's price
+              tag.
+
+              Stars are NOT irrelevant to the room - outfit_space, hat_crown
+              and pet_dragon gate on 5, 10 and 20 of them - so the tidy story
+              ("the room has nothing to do with stars") would be false. They
+              are simply not needed on the DOOR: `/world/` mounts
+              `<WalletChip bare />`, which draws coins AND stars, and a locked
+              item draws its own star requirement beside itself. The count is
+              one tap away, on the screen where it decides something, next to
+              the thing it decides. */}
+          {profile.coins > 0 ? `${t("coins")}: ${profile.coins}` : t("worldInvite")}
+        </span>
+      </div>
+      <span
+        style={{
+          background: "var(--brand)",
+          borderRadius: "var(--radius-pill)",
+          padding: "9px 15px",
+          fontWeight: 800,
+          fontSize: 14,
+          flex: "0 0 auto",
+        }}
+      >
+        {t("enterWorld")}
+      </span>
+    </a>
+  );
+}
+
+function CategoryRail({
+  chips,
+  value,
+  onChange,
+  locale,
+  allLabel,
+}: {
+  chips: typeof CATEGORY_ORDER;
+  value: Filter;
+  onChange: (f: Filter) => void;
+  locale: AppLocale;
+  allLabel: string;
+}) {
+  const t = makeT(locale);
+  const btn = (id: Filter, glyph: string, label: string) => {
+    const on = value === id;
+    return (
+      <button
+        key={id}
+        aria-pressed={on}
+        aria-label={label}
+        onClick={() => {
+          audioPort.play("tap");
+          onChange(id);
+        }}
+        style={{
+          flex: "0 0 auto",
+          minWidth: "var(--tap-kids)",
+          minHeight: "var(--tap-kids)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 2,
+          padding: "6px 10px",
+          border: "none",
+          borderRadius: "var(--radius-2)",
+          background: on ? "var(--brand-strong)" : "var(--surface)",
+          color: "var(--text)",
+          boxShadow: "var(--shadow-1)",
+        }}
+      >
+        <span style={{ fontSize: 26, lineHeight: 1 }} aria-hidden="true">
+          {glyph}
+        </span>
+        <span
+          style={{ fontSize: 11, fontWeight: 700, color: on ? "var(--on-brand)" : "var(--text-dim)" }}
+        >
+          {label}
+        </span>
+      </button>
+    );
+  };
+
+  return (
+    <div
+      className="ellaz-rail"
+      style={{ display: "flex", gap: 9, overflowX: "auto", padding: "2px 4px 14px" }}
+    >
+      {btn(ALL, "🎲", allLabel)}
+      {chips.map((c) => btn(c.category, c.glyph, t(c.titleKey)))}
+    </div>
+  );
+}
+
+/**
+ * The keep-playing card's shape, in three pieces, because the rail draws two
+ * things with it: the real card, and the slot that holds its space while the
+ * lazy catalogue is still arriving. Sharing the values is the point - a
+ * placeholder built from copied numbers is a second implementation of the
+ * card's height, and it goes wrong the first time anyone changes a padding.
+ */
+const RECENT_ART_H = 92;
+
+const RECENT_SLOT: CSSProperties = {
+  flex: "0 0 auto",
+  width: 132,
+  border: "none",
+  borderRadius: "var(--radius-3)",
+  padding: 0,
+  overflow: "hidden",
+  background: "var(--surface)",
+  boxShadow: "var(--shadow-1)",
+  textAlign: "center",
+  display: "block",
+  color: "inherit",
+  textDecoration: "none",
+};
+
+const RECENT_LABEL: CSSProperties = {
+  // display:block matters: a button's children are inline by default, so
+  // the label would size to its text and clip the longer Hebrew names.
+  display: "block",
+  width: "100%",
+  padding: "8px 6px",
+  fontWeight: 800,
+  fontSize: 14,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+/**
+ * A titled rail of game cards: the keep-playing row and the favourites row.
+ * Renders nothing for an empty list, so a player with no favourites sees no
+ * heading over nothing.
+ */
+function GameRail({
+  title,
+  ids,
+  locale,
+  onTap,
+}: {
+  title: string;
+  ids: readonly string[];
+  locale: AppLocale;
+  onTap: () => void;
+}) {
+  if (ids.length === 0) return null;
+  return (
+    <section style={{ marginBottom: 20 }}>
+      <h2 style={{ fontSize: 18, margin: "0 4px 12px", color: "var(--text-dim)" }}>{title}</h2>
+      <div
+        className="ellaz-rail"
+        style={{ display: "flex", gap: 12, overflowX: "auto", padding: "2px 4px 4px" }}
+      >
+        {ids.map((id) => {
+          const entry = findEntry(id);
+          // Deliberately empty, unlabelled and out of the accessibility tree,
+          // exactly like the grid's pending slots below: a placeholder title
+          // would flash the wrong game's name, and an anchor with no accessible
+          // name is an accessibility failure. It holds the space and nothing
+          // else.
+          return entry ? (
+            <RecentCard key={id} entry={entry} locale={locale} onTap={onTap} />
+          ) : (
+            <div key={`pending-${id}`} aria-hidden style={RECENT_SLOT}>
+              <div style={{ height: RECENT_ART_H }} />
+              <span style={{ ...RECENT_LABEL, background: "var(--surface-2)" }}>
+                {"\u00A0"}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function RecentCard({
+  entry,
+  locale,
+  onTap,
+}: {
+  entry: CatalogEntry;
+  locale: AppLocale;
+  onTap: () => void;
+}) {
+  const { meta } = entry;
+  return (
+    <a
+      href={gameHref(meta.id, pageLocaleFor(locale))}
+      onPointerEnter={() => void entry.load().catch(() => {})}
+      onClick={onTap}
+      style={RECENT_SLOT}
+    >
+      <GameArt id={meta.id} emoji={meta.emoji} height={RECENT_ART_H} />
+      <span
+        style={{
+          ...RECENT_LABEL,
+          background: meta.color,
+          // Derived, not fixed: one ink cannot serve twenty-one accents. See
+          // ui/ink.ts - a hardcoded dark ink here read at 3.23:1 on
+          // minesweeper's slate and 3.49:1 on sequence's violet.
+          color: inkFor(meta.color),
+        }}
+      >
+        {textFor(meta.title, locale)}
+      </span>
+    </a>
+  );
+}
+
+/**
+ * "This game is still being built", on the card, before the player taps it.
+ *
+ * ONE WORD, AND THE PAGE CARRIES THE SENTENCE. The badge on the game's own
+ * page reads "Beta" with the whole translated note beside it for a screen
+ * reader, and that costs a first visit NOTHING because `src/build` ships to
+ * nobody. Here, every character is in the shell chunk every child downloads
+ * before choosing anything - so this one says the word and stops, and the
+ * explanation waits for the page the tap leads to. Measured: the sentence in
+ * three languages plus a title, an aria-label and a role was 293 B gz; the
+ * word alone is a fraction of it, on a budget with about five games of room.
+ *
+ * The word is INLINE rather than an i18n key for the same reason: `makeT` keys
+ * ride in all eleven lazy locale chunks, `textFor` reads three strings once.
+ *
+ * It is on the GRID card and nowhere else among the three. The daily card and
+ * the keep-playing rail are both about a game the player has already met - and
+ * the game's own PAGE carries the badge whatever route they arrived by, which
+ * is the guarantee that actually matters. This one is the courtesy of saying
+ * so before they spend a tap.
+ *
+ * No `dir` here, unlike the star badge beside it: that one pins LTR because it
+ * holds a DIGIT next to a glyph and the pair reorders, while this is one word
+ * with no digits, which renders the same either way - and pinning LTR would be
+ * pinning the wrong direction for the Hebrew word.
+ */
+/**
+ * The word, in one place. `GameCard` puts it at the FRONT of its aria-label
+ * because the pill is visible text on the card, and an accessible name that
+ * omits a visible word is one a voice-control user cannot say
+ * (`label-content-name-mismatch`, which scored 0 on Lettercross). Two copies of
+ * this string would let the badge and the name drift apart silently.
+ */
+function betaWord(locale: AppLocale): string {
+  return textFor({ en: "Beta", he: "בטא", es: "Beta", sv: "Beta" }, locale);
+}
+
+function BetaPill({ locale }: { locale: AppLocale }) {
+  return <span className="ellaz-beta">{betaWord(locale)}</span>;
+}
+
+function GameCard({
+  entry,
+  locale,
+  favorite,
+  onTap,
+  t,
+}: {
+  entry: CatalogEntry;
+  locale: AppLocale;
+  favorite: boolean;
+  onTap: () => void;
+  t: (k: string) => string;
+}) {
+  const { meta } = entry;
+  const prefetch = () => void entry.load().catch(() => {});
+  // The card is a <div> holding TWO controls side by side - the link and the
+  // star - because a <button> inside an <a> is invalid markup, and a tap on it
+  // would also navigate. The div takes the grid slot, the link keeps the
+  // square, and the star paints over it by coming later in the DOM.
+  // `minWidth: 0` because a grid item's `min-width: auto` is its content's
+  // width, and a long nowrap title would widen the column. The anchor never
+  // hit this as the grid item: its `overflow: hidden` already zeroes it.
+  return (
+    <div style={{ position: "relative", minWidth: 0 }}>
+      <a
+        href={gameHref(meta.id, pageLocaleFor(locale))}
+        onPointerEnter={prefetch}
+        onTouchStart={prefetch}
+        onClick={onTap}
+        // Named from its own contents: the beta pill, then the title. The art
+        // is aria-hidden. It used to carry an aria-label with the star count,
+        // which went with the stars badge.
+        style={{
+          border: "none",
+          borderRadius: "var(--radius-3)",
+          padding: 0,
+          overflow: "hidden",
+          background: "var(--surface)",
+          boxShadow: "var(--shadow-1)",
+          textAlign: "center",
+          aspectRatio: "1 / 1",
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          color: "inherit",
+          textDecoration: "none",
+        }}
+      >
+        {meta.beta ? <BetaPill locale={locale} /> : null}
+        {/* The art carries its own ground, so the `.ellaz-tint` wash that used to
+            sit behind the emoji is gone here - two backgrounds fighting under one
+            picture is just mud. A game with no art still gets the wash, because
+            an emoji on bare card stock is what the tint existed to rescue. */}
+        {showsArt(meta.id) ? (
+          <span style={{ flex: 1, minHeight: 0, overflow: "hidden" }} aria-hidden="true">
+            <GameArt id={meta.id} emoji={meta.emoji} height="100%" />
+          </span>
+        ) : (
+          <span
+            className="ellaz-tint"
+            // `--game` is set HERE and the recipe lives in the theme (.ellaz-tint
+            // in global.css). It cannot be the other way round: a var() inside a
+            // custom property resolves where it is declared, and --game does not
+            // exist at :root.
+            style={
+              {
+                flex: 1,
+                display: "grid",
+                placeItems: "center",
+                fontSize: 42,
+                "--game": meta.color,
+              } as CSSProperties
+            }
+            aria-hidden="true"
+          >
+            {meta.emoji}
+          </span>
+        )}
+        <span
+          style={{
+            padding: "7px 4px",
+            fontWeight: 800,
+            fontSize: 13.5,
+            background: meta.color,
+            color: inkFor(meta.color),
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {textFor(meta.title, locale)}
+        </span>
+      </a>
+      <FavoriteStar gameId={meta.id} on={favorite} label={t("favorite")} />
+    </div>
+  );
+}
+
+/**
+ * The favourite toggle in a card's top-left corner.
+ *
+ * PHYSICALLY left in every locale, like the stars badge it replaced: the beta
+ * pill is pinned physically RIGHT (`.ellaz-beta`), so a logical inset here
+ * would land both in one corner under Hebrew.
+ * See .claude/rules/rtl-spatial-grid-dir-ltr.md.
+ *
+ * One constant name and `aria-pressed` for the state, which is how a toggle is
+ * announced. The dark disc is `--badge-fill` in both themes, so a white outline
+ * and a yellow fill both read on it wherever the art is light.
+ */
+function FavoriteStar({ gameId, on, label }: { gameId: string; on: boolean; label: string }) {
+  return (
+    <button
+      aria-label={label}
+      aria-pressed={on}
+      onClick={() => {
+        audioPort.play("tap");
+        wallet.setFavorite(gameId, !on);
+      }}
+      style={{
+        position: "absolute",
+        top: 4,
+        left: 4,
+        width: 36,
+        height: 36,
+        padding: 0,
+        border: "none",
+        borderRadius: "var(--radius-pill)",
+        background: "var(--badge-fill)",
+        color: on ? "var(--yellow)" : "var(--on-brand)",
+        fontSize: 20,
+        display: "grid",
+        placeItems: "center",
+      }}
+    >
+      <Icon name="star" filled={on} />
+    </button>
+  );
+}

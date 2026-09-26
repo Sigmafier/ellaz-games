@@ -1,0 +1,346 @@
+import { textFor } from "@i18n/index";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import type { GameContext } from "@sdk/index";
+import { type DifficultyOption } from "@ui/index";
+import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { GameChrome } from "@ui/GameChrome";
+import { burst, haptic, shake } from "@juice/index";
+import { Prompt, winMoment, useRememberedLevel } from "@shared/index";
+import { isCorrect, newRound, type Difficulty, type ShadowChoice, type ShadowRound } from "./logic";
+
+// THE SILHOUETTE IS A `filter`, NOT AN ASSET. An emoji is a COLOUR glyph, so
+// `brightness(0)` is what collapses it to solid black while keeping its exact
+// outline and its transparency — no second art pipeline, and it works for all
+// 58 glyphs in the cast at once. Verified by eye at :5181, not by reasoning: a
+// silhouette that is secretly still colourful makes the game trivial, and that
+// failure is completely invisible from the code.
+//
+// It is drawn on a LIGHT plate on purpose. The app is dark (`--bg: #0f1226`),
+// and black-on-near-black is not a shadow, it is nothing.
+const SILHOUETTE = "brightness(0)";
+
+const DIFF_OPTIONS: DifficultyOption<Difficulty>[] = [
+  { id: "easy", label: { he: "קל", en: "Easy", es: "Fácil", sv: "Lätt" } },
+  { id: "medium", label: { he: "בינוני", en: "Med", es: "Media", sv: "Medel" } },
+  { id: "hard", label: { he: "קשה", en: "Hard", es: "Difícil", sv: "Svår" } },
+];
+
+// Kids targets: the `max(72px, …)` floor keeps every tile above the ~2cm rule
+// even on a small phone, while the `min()` lets it grow on a tablet.
+const TILE = "max(72px, min(22vw, 15vh, 108px))";
+const TILE_GLYPH = "max(38px, min(13vw, 9vh, 60px))";
+const PLATE = "max(150px, min(66vw, 32vh, 300px))";
+const PLATE_GLYPH = "max(96px, min(42vw, 20vh, 190px))";
+
+/*
+ * THE PC BOARD: the shadow and the pictures SIDE BY SIDE, because a PC window is
+ * wide and a column of plate-over-tiles would be bounded by its height long
+ * before it used the width. Every length is a share of the board's width (`cqw`),
+ * and the tiles stay a balanced block - two by two for four, one column of three
+ * for three - so no picture is ever stranded on a line of its own.
+ *
+ *   four   plate 49, gap 2, tiles 2 x 23.5 with a 2 gap  -> 100 wide, 49 tall
+ *   three  plate 74, gap 3, tiles 1 x 22.5, 3 x 22.5 + 2 x 3 = 73.5 tall
+ *                                                    -> 99.5 wide, 74 tall
+ *
+ * The glyphs keep the phone's proportions to their box: 60/108 of a tile and
+ * 190/300 of the plate.
+ */
+const PC_LAYOUT = {
+  4: { plate: 49, gap: 2, tile: 23.5, tileGap: 2, cols: 2, tileGlyph: 13, plateGlyph: 31 },
+  3: { plate: 74, gap: 3, tile: 22.5, tileGap: 3, cols: 1, tileGlyph: 12.5, plateGlyph: 47 },
+} as const;
+
+export function Shadows({ ctx }: { ctx: GameContext }) {
+  // This game's own words. A locale RECORD, so promoting a language reds
+  // this block by name instead of leaving the game speaking English
+  // inside a page that is not.
+  const T = textFor(
+    {
+      he: { cheer: (n: number) => `🎉 יפה! ממשיכים לשלב ${n}…`, hiding: "מי מסתתר בצל? 🕵️", ask: "איזו תמונה מתאימה לצל?" },
+      en: { cheer: (n: number) => `🎉 Nice! On to level ${n}…`, hiding: "Who is hiding in the shadow? 🕵️", ask: "Which picture matches the shadow?" },
+      es: { cheer: (n: number) => `🎉 ¡Bien! Vamos al nivel ${n}…`, hiding: "¿Quién se esconde en la sombra? 🕵️", ask: "¿Qué dibujo va con la sombra?" },
+    sv: { cheer: (n: number) => `🎉 Bra! Vi går till nivå ${n}…`, hiding: "Vem gömmer sig i skuggan? 🕵️", ask: "Vilken bild passar skuggan?" },
+    },
+    ctx.locale,
+  );
+  const [difficulty, setDifficulty] = useRememberedLevel(
+    ctx,
+    DIFF_OPTIONS.map((o) => o.id),
+    "easy",
+  );
+  // Read ONCE at mount: a PC run lays the shadow and the pictures out as one
+  // board sized from the window's height; a phone run is exactly as it was.
+  const [pc] = useState(isPcArena);
+  const [level, setLevel] = useState(1);
+  const [round, setRound] = useState<ShadowRound>(() => newRound(difficulty));
+  const [solved, setSolved] = useState(false);
+  // Furthest level reached, per DIFFICULTY — the level counter resets to 1 on a
+  // difficulty change, so a shared record would let an easy streak stand as the
+  // record on hard, where the choices are a harder read.
+  const [best, setBest] = useState<number | undefined>(() => ctx.score?.best(difficulty));
+
+  // The double-grant guard. `solved` is state and therefore stale inside a
+  // handler that fires twice in one tick; a ref is read at call time, so two
+  // fast taps cannot bank the same win twice.
+  const lockRef = useRef(false);
+  const startedAt = useRef(Date.now());
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      ctx.lifecycle.gameplayStart();
+      ctx.analytics.levelStart("shadows");
+    }
+  }, [ctx]);
+
+  // Never leave a timer pointing at an unmounted tree.
+  useEffect(
+    () => () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    },
+    [],
+  );
+
+  const deal = useCallback(
+    (d: Difficulty) => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      setRound(newRound(d));
+      setSolved(false);
+      lockRef.current = false;
+      startedAt.current = Date.now();
+      ctx.analytics.levelStart("shadows");
+    },
+    [ctx],
+  );
+
+  /** Another round at the same difficulty, same level number. */
+  const reshuffle = useCallback(() => deal(difficulty), [deal, difficulty]);
+
+  const changeDifficulty = useCallback(
+    (d: Difficulty) => {
+      if (d === difficulty) return;
+      setDifficulty(d);
+      setLevel(1);
+      setBest(ctx.score?.best(d));
+      deal(d);
+    },
+    [ctx, deal, difficulty],
+  );
+
+  const onChoice = useCallback(
+    (choice: ShadowChoice, e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (lockRef.current) return;
+      // Inside the gesture, so iOS opens both gates.
+      ctx.audio.unlock();
+      ctx.speech.unlock();
+
+      if (!isCorrect(round, choice.id)) {
+        // A wrong tap is a gentle nudge and nothing else: no score loss, no
+        // "you lost", no state change at all. This platform has no losing.
+        ctx.audio.play("tap");
+        haptic.tap();
+        shake(e.currentTarget, 5, 150);
+        return;
+      }
+
+      lockRef.current = true;
+      setSolved(true);
+      ctx.audio.play("success");
+      haptic.success();
+      burst(e.clientX, e.clientY, { count: 12 });
+      // Fired from the HANDLER, never from inside a setState updater: React may
+      // run an updater twice, and that would double-grant a real coin.
+      // `level` here is the level being COMPLETED — it is bumped later, inside
+      // the advance timer below — so it is the right number to record.
+      const won = winMoment(ctx, {
+        reason: "level_complete",
+        tier: difficulty,
+        level: `${difficulty}-${level}`,
+        at: { x: e.clientX, y: e.clientY },
+        ms: Date.now() - startedAt.current,
+        score: { value: level, unit: "points", board: difficulty },
+      });
+      if (won.score) setBest(won.score.best);
+      advanceTimer.current = setTimeout(() => {
+        setLevel((n) => n + 1);
+        deal(difficulty);
+      }, 1100);
+    },
+    [ctx, round, difficulty, level, deal],
+  );
+
+  const L = PC_LAYOUT[round.choices.length === 3 ? 3 : 4];
+
+  /* The shadow, on its light plate. */
+  const plate = (
+    <div
+      className="ellaz-play-surface"
+      style={{
+        width: pc ? `${L.plate}cqw` : PLATE,
+        height: pc ? `${L.plate}cqw` : PLATE,
+        ...(pc ? { flex: "0 0 auto" } : {}),
+        display: "grid",
+        placeItems: "center",
+        borderRadius: 26,
+        background: "linear-gradient(180deg, #ffffff, #ccd6ea)",
+        boxShadow: "var(--shadow-2)",
+        touchAction: "none",
+      }}
+    >
+      {/* On a correct pick the silhouette LIFTS — the real, colourful picture
+          shows for the reveal beat before the next shadow is dealt, so the
+          child sees what was hiding in the shadow. */}
+      <span
+        aria-hidden="true"
+        style={{
+          fontSize: pc ? `${L.plateGlyph}cqw` : PLATE_GLYPH,
+          lineHeight: 1,
+          filter: solved ? "none" : SILHOUETTE,
+          transform: solved ? "scale(1.06)" : "none",
+          transition: "transform 200ms ease",
+        }}
+      >
+        {round.answerEmoji}
+      </span>
+    </div>
+  );
+
+  /* The pictures. `dir="ltr"` because this row is SPATIAL: the app is
+     Hebrew-RTL by default, which would mirror the tiles away from the
+     order the logic dealt them.
+
+     An explicit column count, not `flex-wrap`. Wrapping put four tiles as
+     3+1 on a phone (measured at 420px) — the fourth picture stranded on its
+     own line reads as less of an option than the other three, which is a
+     fairness problem, not a cosmetic one. Two rows of two is balanced at
+     every width. */
+  const tiles = (
+    <div
+      dir="ltr"
+      className="ellaz-play-surface"
+      style={{
+        display: "grid",
+        gridTemplateColumns: pc
+          ? `repeat(${L.cols}, ${L.tile}cqw)`
+          : `repeat(${round.choices.length === 4 ? 2 : round.choices.length}, ${TILE})`,
+        gap: pc ? `${L.tileGap}cqw` : 12,
+        ...(pc ? { flex: "0 0 auto", marginInlineStart: `${L.gap}cqw` } : {}),
+        justifyContent: "center",
+        touchAction: "none",
+      }}
+    >
+      {round.choices.map((c) => {
+        const isAnswer = solved && c.id === round.answerId;
+        return (
+          <button
+            key={c.id}
+            aria-label={textFor(c, ctx.locale)}
+            onPointerDown={(e) => onChoice(c, e)}
+            style={{
+              width: pc ? `${L.tile}cqw` : TILE,
+              height: pc ? `${L.tile}cqw` : TILE,
+              display: "grid",
+              placeItems: "center",
+              padding: 0,
+              fontSize: pc ? `${L.tileGlyph}cqw` : TILE_GLYPH,
+              lineHeight: 1,
+              borderRadius: 20,
+              border: `4px solid ${isAnswer ? "var(--green)" : "transparent"}`,
+              background: "var(--surface)",
+              boxShadow: "var(--shadow-1)",
+              touchAction: "none",
+            }}
+          >
+            {c.emoji}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <GameChrome
+      ctx={ctx}
+      stats={[
+        { icon: "layers", label: ctx.t("stage"), value: level, compact: true, record: best ?? "-" },
+      ]}
+      levels={DIFF_OPTIONS}
+      level={difficulty}
+      onLevel={changeDifficulty}
+      // "New round" IS restart here - the game is endless, so there is nothing
+      // else a restart could mean, and two buttons that deal a fresh round would
+      // be two names for one action.
+      onRestart={reshuffle}
+      footer={
+        <div
+          style={{
+            background: "var(--surface)",
+            borderRadius: "var(--radius-2)",
+            boxShadow: "var(--shadow-1)",
+            padding: "13px 12px",
+            minHeight: 60,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+          }}
+        >
+          <b style={{ fontSize: 17, fontFamily: "Fredoka, inherit" }}>
+            {solved ? T.cheer(level + 1) : T.hiding}
+          </b>
+        </div>
+      }
+    >
+      <Prompt
+        ctx={ctx}
+        glyph="🌑"
+        text={T.ask}
+      />
+
+      {pc ? (
+        // PC: one board, the shadow beside the pictures. It follows the
+        // current difficulty's choice count, so its ratio changes with it.
+        // chrome 269 is an ESTIMATE: the 111 every GameChrome game pays, the
+        // prompt (72) and its 12px gap, and the 60px caption card plus the
+        // footer's 14.
+        <div
+          className={BOARD_CLASS}
+          style={{
+            ...boardVars({
+              vw: 92,
+              vh: 60,
+              cap: 560,
+              chrome: 169,
+              // 100 over the plate, not the row's own width over the plate: every
+              // length is a share of the board's 100cqw, and the three-choice row
+              // is 99.5 of it, which left that level 2px shorter than the
+              // four-choice one - a jump on every difficulty change (2026-09-14).
+              ratio: 100 / L.plate,
+            }),
+            containerType: "inline-size",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {plate}
+          {tiles}
+        </div>
+      ) : (
+        <>
+          {plate}
+          {tiles}
+        </>
+      )}
+    </GameChrome>
+  );
+}

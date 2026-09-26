@@ -1,0 +1,378 @@
+import { textFor } from "@i18n/index";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactElement,
+} from "react";
+import type { GameContext } from "@sdk/index";
+import { type DifficultyOption } from "@ui/index";
+import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { GameChrome } from "@ui/GameChrome";
+import { burst, haptic, shake } from "@juice/index";
+import { Prompt, shapePath, winMoment, useRememberedLevel } from "@shared/index";
+import { colorHex, isCorrect, itemKey, newRound, type Difficulty, type Round, type SeqItem } from "./logic";
+
+const DIFF_OPTIONS: DifficultyOption<Difficulty>[] = [
+  { id: "easy", label: { he: "קל", en: "Easy", es: "Fácil", sv: "Lätt" } },
+  { id: "medium", label: { he: "בינוני", en: "Med", es: "Media", sv: "Medel" } },
+  { id: "hard", label: { he: "קשה", en: "Hard", es: "Difícil", sv: "Svår" } },
+];
+
+// Every box is sized with min()/max() in CSS rather than a measured pixel value,
+// so one set of numbers fits portrait, landscape and tablet with no resize
+// listener. The choice row's `max(72px, ...)` floor is the load-bearing one: it
+// is the kids touch target, and it must not shrink below it on a small phone.
+const SLOT = "min(11.5vw, 58px)";
+const CHOICE = "max(72px, min(20vw, 96px))";
+
+const FONT = {
+  row: { big: "min(8.5vw, 42px)", small: "min(5vw, 24px)", number: "min(6vw, 30px)" },
+  choice: { big: "min(13vw, 60px)", small: "min(7.5vw, 34px)", number: "min(9vw, 42px)" },
+} as const;
+
+/*
+ * THE PC BOARD: the pattern row and the choices, one box, every length a share
+ * of its width (`cqw`), so the whole question grows with the window rather than
+ * sitting in a 560px column. In board-widths:
+ *
+ *   the row      7 slots of 13, 6 gaps of 1, 1.4 padding a side  -> 99.8 wide
+ *                13 tall + 1.6 padding a side                    -> 16.2 tall
+ *   between      2.5
+ *   the choices  up to 4 of 17, 3 gaps of 2                      -> 74 wide, 17 tall
+ *
+ * 16.2 + 2.5 + 17 = 35.7 tall for 100 wide, the same at every difficulty (three
+ * choices are narrower, never taller), so the ratio is 100 / 35.7.
+ *
+ * The glyphs keep the phone's proportions to their box: a big glyph is 42/58 of
+ * a slot and 60/96 of a choice, and so on.
+ */
+const PC_SLOT = "13cqw";
+const PC_CHOICE = "17cqw";
+const PC_RATIO = 100 / 35.7;
+const FONT_PC = {
+  row: { big: "9.4cqw", small: "5.4cqw", number: "6.7cqw" },
+  choice: { big: "10.6cqw", small: "6cqw", number: "7.4cqw" },
+} as const;
+
+/** Draws one pattern element. Purely presentational — identity lives in logic.ts. */
+function ItemView({
+  item,
+  variant,
+  pc = false,
+}: {
+  item: SeqItem;
+  variant: "row" | "choice";
+  pc?: boolean;
+}): ReactElement | null {
+  const font = pc ? FONT_PC[variant] : FONT[variant];
+  switch (item.kind) {
+    case "color":
+      return (
+        <div
+          aria-hidden="true"
+          style={{
+            width: "76%",
+            height: "76%",
+            borderRadius: "50%",
+            background: colorHex(item.color),
+            boxShadow: "inset 0 -5px 0 rgba(0,0,0,0.16)",
+          }}
+        />
+      );
+    case "shape":
+      return (
+        <svg viewBox="0 0 100 100" width="82%" height="82%" aria-hidden="true">
+          <path d={shapePath(item.shape)} fill={colorHex(item.color)} />
+        </svg>
+      );
+    case "glyph":
+      return (
+        <span aria-hidden="true" style={{ fontSize: item.scale === "big" ? font.big : font.small, lineHeight: 1 }}>
+          {item.emoji}
+        </span>
+      );
+    case "number":
+      // Standard notation reads left-to-right whatever the app locale is.
+      return (
+        <span dir="ltr" style={{ fontSize: font.number, fontWeight: 800, lineHeight: 1 }}>
+          {item.value}
+        </span>
+      );
+    default:
+      return null;
+  }
+}
+
+export function Sequence({ ctx }: { ctx: GameContext }): ReactElement {
+  // This game's own words. A locale RECORD, so promoting a language reds
+  // this block by name instead of leaving the game speaking English
+  // inside a page that is not.
+  const T = textFor(
+    {
+      he: { ask: "מה בא אחר כך?", cheer: "🎉 כל הכבוד! ממשיכים…", blank: "מה חסר במשבצת? 🤔", option: (n: number) => `אפשרות ${n}` },
+      en: { ask: "What comes next?", cheer: "🎉 Nice! Next one…", blank: "What fills the blank? 🤔", option: (n: number) => `option ${n}` },
+      es: { ask: "¿Qué viene después?", cheer: "🎉 ¡Bien! El siguiente…", blank: "¿Qué falta en el hueco? 🤔", option: (n: number) => `opción ${n}` },
+    sv: { ask: "Vad kommer sen?", cheer: "🎉 Bra! Nästa…", blank: "Vad saknas i luckan? 🤔", option: (n: number) => `alternativ ${n}` },
+    },
+    ctx.locale,
+  );
+  const [difficulty, setDifficulty] = useRememberedLevel(
+    ctx,
+    DIFF_OPTIONS.map((o) => o.id),
+    "easy",
+  );
+  // Read ONCE at mount: a PC run lays the pattern and the choices out as one
+  // board sized from the window's height; a phone run is exactly as it was.
+  const [pc] = useState(isPcArena);
+  const [level, setLevel] = useState(1);
+  const [round, setRound] = useState<Round>(() => newRound(difficulty));
+  const [solved, setSolved] = useState(false);
+  // Furthest level reached, per DIFFICULTY — the level counter resets to 1 on a
+  // difficulty change, so a shared record would let an easy streak stand as the
+  // record on hard, where the patterns are longer.
+  const [best, setBest] = useState<number | undefined>(() => ctx.score?.best(difficulty));
+  // The latch is a REF, not the `solved` state: two fast taps land in the same
+  // React batch, so a state read would still be false on the second one and the
+  // win would be granted twice.
+  const solvedRef = useRef(false);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    ctx.lifecycle.gameplayStart();
+    ctx.analytics.levelStart("pattern");
+  }, [ctx]);
+
+  useEffect(
+    () => () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    },
+    [],
+  );
+
+  const dealRound = useCallback(
+    (d: Difficulty) => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      solvedRef.current = false;
+      setSolved(false);
+      setRound(newRound(d));
+      ctx.analytics.levelStart("pattern");
+    },
+    [ctx],
+  );
+
+  // Switching level starts a clean run at that level.
+  const changeDifficulty = useCallback(
+    (d: Difficulty) => {
+      if (d === difficulty) return;
+      setDifficulty(d);
+      setLevel(1);
+      setBest(ctx.score?.best(d));
+      dealRound(d);
+    },
+    [ctx, difficulty, dealRound],
+  );
+
+  const onChoice = useCallback(
+    (index: number, e: ReactPointerEvent<HTMLButtonElement>) => {
+      ctx.audio.unlock();
+      ctx.speech.unlock();
+      if (solvedRef.current) return;
+
+      if (!isCorrect(round, index)) {
+        // A wrong answer costs nothing. Gentle shake, tap sound, try again —
+        // there is no losing on this platform.
+        ctx.audio.play("tap");
+        haptic.tap();
+        shake(e.currentTarget, 5, 200);
+        return;
+      }
+
+      solvedRef.current = true;
+      setSolved(true);
+      ctx.audio.play("success");
+      haptic.success();
+      burst(e.clientX, e.clientY, { count: 12 });
+      // Fired from the handler, never from a setState updater: an updater may run
+      // twice, and this one banks coins.
+      // `level` here is the level being COMPLETED — the bump happens below, in
+      // the advance timer. No `ms`: this game keeps no clock, and that field is
+      // a genuine duration.
+      const won = winMoment(ctx, {
+        reason: "level_complete",
+        tier: difficulty,
+        level: `${difficulty}-${round.family}`,
+        at: { x: e.clientX, y: e.clientY },
+        score: { value: level, unit: "points", board: difficulty },
+      });
+      if (won.score) setBest(won.score.best);
+      advanceTimer.current = setTimeout(() => {
+        setLevel((n) => n + 1);
+        dealRound(difficulty);
+      }, 1100);
+    },
+    // `level` is read for the score, so it belongs in here: without it the
+    // handler would only refresh because `round` happens to change every deal,
+    // which is luck rather than correctness.
+    [ctx, round, difficulty, level, dealRound],
+  );
+
+  const promptText = T.ask;
+
+  /* The pattern row is SPATIAL, so it is pinned LTR: in the Hebrew RTL app a
+     plain flex row would mirror and put the blank slot at the far left, which
+     reads as "what came BEFORE". See .claude/rules/rtl-spatial-grid-dir-ltr.md */
+  const patternRow = (
+    <div
+      dir="ltr"
+      style={{
+        display: "flex",
+        ...(pc ? { gap: "1cqw" } : { gap: 6 }),
+        alignItems: "center",
+        justifyContent: "center",
+        flexWrap: "nowrap",
+        ...(pc ? { width: "100%", padding: "1.6cqw 1.4cqw" } : { maxWidth: "min(96vw, 560px)", padding: "10px 8px" }),
+        background: "var(--surface)",
+        borderRadius: "var(--radius-3)",
+        boxShadow: "var(--shadow-1)",
+      }}
+    >
+      {round.shown.map((item, i) => (
+        <div
+          key={`${i}-${itemKey(item)}`}
+          style={{
+            flex: "0 0 auto",
+            width: pc ? PC_SLOT : SLOT,
+            height: pc ? PC_SLOT : SLOT,
+            display: "grid",
+            placeItems: "center",
+            borderRadius: "var(--radius-2)",
+            background: "var(--surface-2)",
+          }}
+        >
+          <ItemView item={item} variant="row" pc={pc} />
+        </div>
+      ))}
+      <div
+        style={{
+          flex: "0 0 auto",
+          width: pc ? PC_SLOT : SLOT,
+          height: pc ? PC_SLOT : SLOT,
+          display: "grid",
+          placeItems: "center",
+          borderRadius: "var(--radius-2)",
+          border: "3px dashed var(--brand)",
+          fontSize: pc ? FONT_PC.row.number : "min(7vw, 30px)",
+          fontWeight: 800,
+          color: "var(--brand)",
+        }}
+      >
+        {solved ? <ItemView item={round.answer} variant="row" pc={pc} /> : "?"}
+      </div>
+    </div>
+  );
+
+  /* The play surface: the tap targets. */
+  const choiceRow = (
+    <div
+      className="ellaz-play-surface"
+      style={{
+        display: "flex",
+        ...(pc ? { gap: "2cqw" } : { gap: 10 }),
+        flexWrap: "wrap",
+        justifyContent: "center",
+        ...(pc ? { width: "100%", marginTop: "2.5cqw" } : { maxWidth: "min(96vw, 560px)" }),
+        touchAction: "none",
+      }}
+    >
+      {round.choices.map((item, i) => (
+        <button
+          key={`${i}-${itemKey(item)}`}
+          aria-label={T.option(i + 1)}
+          disabled={solved}
+          onPointerDown={(e) => onChoice(i, e)}
+          style={{
+            width: pc ? PC_CHOICE : CHOICE,
+            height: pc ? PC_CHOICE : CHOICE,
+            display: "grid",
+            placeItems: "center",
+            border: "none",
+            borderRadius: "var(--radius-3)",
+            background: "var(--surface)",
+            boxShadow: "var(--shadow-1)",
+            opacity: solved ? 0.5 : 1,
+            touchAction: "none",
+          }}
+        >
+          <ItemView item={item} variant="choice" pc={pc} />
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <GameChrome
+      ctx={ctx}
+      stats={[
+        { icon: "layers", label: ctx.t("stage"), value: level, compact: true, record: best ?? "-" },
+      ]}
+      levels={DIFF_OPTIONS}
+      level={difficulty}
+      onLevel={changeDifficulty}
+      // A fresh pattern at the CURRENT level - not a jump back to level 1.
+      // `changeDifficulty` returns early on the level you are already on, so it
+      // cannot serve as restart; `dealRound` is the honest one.
+      onRestart={() => dealRound(difficulty)}
+      footer={
+        <div
+          style={{
+            background: "var(--surface)",
+            borderRadius: "var(--radius-2)",
+            boxShadow: "var(--shadow-1)",
+            padding: "13px 12px",
+            minHeight: 60,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+          }}
+        >
+          <b style={{ fontSize: 17, fontFamily: "Fredoka, inherit" }}>
+            {solved ? T.cheer : T.blank}
+          </b>
+        </div>
+      }
+    >
+      <Prompt ctx={ctx} glyph="🔗" text={promptText} />
+
+      {pc ? (
+        // PC: one board around both rows. chrome 269 is an ESTIMATE: the 111
+        // every GameChrome game pays, the prompt (72) and its 12px gap, and the
+        // 60px caption card plus the footer's 14.
+        <div
+          className={BOARD_CLASS}
+          style={{
+            ...boardVars({ vw: 96, vh: 40, cap: 560, chrome: 169, ratio: PC_RATIO }),
+            containerType: "inline-size",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          {patternRow}
+          {choiceRow}
+        </div>
+      ) : (
+        <>
+          {patternRow}
+          {choiceRow}
+        </>
+      )}
+    </GameChrome>
+  );
+}

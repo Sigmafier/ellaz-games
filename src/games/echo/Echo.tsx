@@ -1,0 +1,409 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { textFor, type Locale } from "@i18n/index";
+import type { GameContext } from "@sdk/index";
+import { GameChrome } from "@ui/GameChrome";
+import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { type DifficultyOption } from "@ui/DifficultySelector";
+import { haptic, shake } from "@juice/index";
+import { Prompt, winMoment, useRememberedLevel } from "@shared/index";
+import { IDLE, beginInput, pressPad, startRound, type SeqState } from "@shared/sequence";
+import {
+  LEVELS,
+  MISS_FREQ,
+  PADS,
+  PRESS_FLASH_MS,
+  ROUND_GAP_MS,
+  buildPlayback,
+  isMilestoneRound,
+  levelById,
+  padTone,
+  type LevelId,
+} from "./logic";
+
+// THE LOAD-BEARING RULE OF THIS GAME: it must be fully playable MUTED.
+//
+// Every step of the pattern is a VISUAL event - the pad brightens, grows, and
+// carries its own glyph - and the tone is a second channel laid on top. Nothing
+// in the playback path reads `ctx.audio.muted`, nothing waits on an audio
+// callback, and no flash is conditional on a tone having been produced. A child
+// with the volume off, or before the first gesture has unlocked audio, sees the
+// whole sequence. Sound here is exactly as supplementary as speech is elsewhere
+// in this app.
+//
+// Tones are fired at the instant of their own flash rather than scheduled ahead
+// against `ctx.audio.time()`. Deliberate: a tone scheduled into the audio clock
+// cannot be un-scheduled through the port, so a paused or unmounted game would
+// keep singing its pattern into an empty room. Cancellable beats sample-accurate
+// for a half-second flash.
+
+const LEVEL_LABELS: Record<LevelId, Record<Locale, string>> = {
+  easy: { he: "קל", en: "Easy", es: "Fácil", sv: "Lätt" },
+  medium: { he: "בינוני", en: "Med", es: "Media", sv: "Medel" },
+  hard: { he: "קשה", en: "Hard", es: "Difícil", sv: "Svår" },
+};
+
+// Derived from LEVELS rather than re-typed, so the row can never drift from the
+// levels the logic actually knows about.
+const LEVEL_OPTIONS: DifficultyOption<LevelId>[] = LEVELS.map((l) => ({
+  id: l.id,
+  label: LEVEL_LABELS[l.id],
+}));
+
+function promptFor(phase: SeqState["phase"], round: number, locale: Locale): string {
+  const P = textFor(
+    {
+      he: {
+        showing: "הסתכלו על הסדר",
+        input: "עכשיו תורכם - חזרו אחריי",
+        won: "יופי! עוד אחד",
+        lost: (n: number) => `הגעתם לשלב ${n}`,
+        idle: "לחצו על ההתחלה ותראו את הסדר",
+      },
+      en: {
+        showing: "Watch the order",
+        input: "Your turn - follow me",
+        won: "Nice! One more",
+        lost: (n: number) => `You reached round ${n}`,
+        idle: "Press start and watch the order",
+      },
+      es: {
+        showing: "Mira el orden",
+        input: "Te toca - sígueme",
+        won: "¡Bien! Una más",
+        lost: (n: number) => `Llegaste a la ronda ${n}`,
+        idle: "Pulsa empezar y mira el orden",
+      },
+      sv: {
+        showing: "Titta på ordningen",
+        input: "Din tur - härma mig",
+        won: "Bra! En till",
+        lost: (n: number) => `Du kom till runda ${n}`,
+        idle: "Tryck på start och titta på ordningen",
+      },
+    },
+    locale,
+  );
+  switch (phase) {
+    case "showing":
+      return P.showing;
+    case "input":
+      return P.input;
+    case "won":
+      return P.won;
+    case "lost":
+      return P.lost(round);
+    default:
+      return P.idle;
+  }
+}
+
+export function Echo({ ctx }: { ctx: GameContext }) {
+  // This game's own words. A locale RECORD, so promoting a language reds
+  // this block by name instead of leaving the game speaking English
+  // inside a page that is not.
+  const T = textFor(
+    { he: { start: "התחילו" }, en: { start: "Start" }, es: { start: "Empezar" }, sv: { start: "Starta" } },
+    ctx.locale,
+  );
+  const [levelId, setLevelId] = useRememberedLevel(ctx, LEVEL_OPTIONS.map((o) => o.id), "easy");
+  const level = levelById(levelId);
+  const [seq, setSeq] = useState<SeqState>(IDLE);
+  /** Which pad is lit right now. The ONLY channel the game truly needs. */
+  const [lit, setLit] = useState<number | null>(null);
+  // Read once, for the pad glyph size only - the grid's own size is the
+  // stylesheet's (`.ellaz-board`).
+  const [pc] = useState(isPcArena);
+  const [paused, setPaused] = useState(false);
+  const [best, setBest] = useState(() => ctx.score?.best() ?? 0);
+
+  const gridRef = useRef<HTMLDivElement>(null);
+  const startedRef = useRef(false);
+  // Live mirrors for the pause handler, which is subscribed once and would
+  // otherwise close over the first render's state forever.
+  const seqRef = useRef(seq);
+  const padsRef = useRef(level.pads);
+  useEffect(() => {
+    seqRef.current = seq;
+    padsRef.current = level.pads;
+  });
+  // A once-per-run latch. The score port answers "was that a record?" on every
+  // round, and without this a first-time player would hear yes on literally
+  // every one of them (1 > 0, then 2 > 1, ...) and mint a personal-best reward
+  // each time. One record per run is the moment worth celebrating.
+  const bestFiredRef = useRef(false);
+  // Timers that are NOT playback: the press flash and the pause before the next
+  // round. Playback owns its own timers inside its effect, whose cleanup is what
+  // makes pause / unmount / level change actually stop a sequence mid-flight.
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearExtra = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  }, []);
+
+  const later = useCallback((fn: () => void, ms: number) => {
+    timersRef.current.push(setTimeout(fn, ms));
+  }, []);
+
+  // Nothing may still be pending after unmount.
+  useEffect(() => clearExtra, [clearExtra]);
+
+  useEffect(() => {
+    if (!startedRef.current) {
+      startedRef.current = true;
+      ctx.lifecycle.gameplayStart();
+    }
+  }, [ctx]);
+
+  // Pause stops playback dead and REWINDS the round: whatever was flashing is
+  // gone, so on resume the child sees the whole pattern again before being asked
+  // to repeat it. Both unsubscribes run on cleanup.
+  //
+  // The `won` case is the one that bites: clearing the timers also kills the
+  // pending advance to the next round, which would strand the run on a cleared
+  // pattern with no way forward. So pause DOES that advance itself. Rewinding a
+  // won round instead would be worse - the child would clear the same round
+  // twice and a milestone would pay twice for it.
+  useEffect(() => {
+    const offPause = ctx.onPause(() => {
+      setPaused(true);
+      setLit(null);
+      clearExtra();
+      const s = seqRef.current;
+      if (s.phase === "won") setSeq(startRound(s, padsRef.current));
+      else if (s.phase === "showing" || s.phase === "input") {
+        setSeq({ ...s, phase: "showing", cursor: 0 });
+      }
+    });
+    const offResume = ctx.onResume(() => setPaused(false));
+    return () => {
+      offPause();
+      offResume();
+    };
+  }, [ctx, clearExtra]);
+
+  // Playback. Driven by plain timeouts off a schedule computed in logic.ts -
+  // there is no simulation here, and deliberately no rAF accumulator (see
+  // .claude/rules/fixed-timestep-must-match-display.md). The cleanup runs on
+  // unmount, on pause, and whenever the round changes, so a sequence can never
+  // outlive the screen it belongs to.
+  useEffect(() => {
+    if (paused || seq.phase !== "showing") return;
+    const pb = buildPlayback(seq.pattern, seq.round);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const step of pb.steps) {
+      timers.push(
+        setTimeout(() => {
+          setLit(step.pad);
+          ctx.audio.tone({ freq: step.freq, ms: step.ms });
+        }, step.atMs),
+      );
+      timers.push(setTimeout(() => setLit(null), step.atMs + step.ms));
+    }
+    // `beginInput` is a no-op unless we are still showing, so a late timer can
+    // never re-open input on a round that already ended.
+    timers.push(setTimeout(() => setSeq((s) => beginInput(s)), pb.inputAtMs));
+    return () => {
+      timers.forEach(clearTimeout);
+      setLit(null);
+    };
+  }, [ctx, seq, paused]);
+
+  const startRun = useCallback(() => {
+    ctx.audio.unlock();
+    ctx.speech.unlock();
+    clearExtra();
+    bestFiredRef.current = false;
+    setLit(null);
+    ctx.analytics.levelStart(levelId);
+    setSeq(startRound(null, level.pads));
+  }, [ctx, clearExtra, levelId, level.pads]);
+
+  const chooseLevel = useCallback(
+    (id: LevelId) => {
+      clearExtra();
+      bestFiredRef.current = false;
+      setLit(null);
+      setLevelId(id);
+      setSeq(IDLE);
+    },
+    [clearExtra],
+  );
+
+  // Everything below runs in the HANDLER FLOW, never inside a setState updater:
+  // React may run an updater twice, and for winMoment that is a double grant.
+  const onPad = useCallback(
+    (pad: number) => {
+      if (seq.phase !== "input") return;
+      ctx.audio.unlock();
+      ctx.speech.unlock();
+
+      const next = pressPad(seq, pad);
+      if (next === seq) return; // the machine ignored it; nothing happened
+      setSeq(next);
+      setLit(pad);
+      later(() => setLit(null), PRESS_FLASH_MS);
+
+      const r = gridRef.current?.getBoundingClientRect();
+      const at = r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : undefined;
+
+      if (next.phase === "lost") {
+        // Gentle: a low soft tone and a shake. No harsh buzzer, no "you lost".
+        ctx.audio.tone({ freq: MISS_FREQ, ms: 320, gain: 0.14 });
+        haptic.tap();
+        const el = gridRef.current;
+        if (el) shake(el);
+        ctx.analytics.levelFail(levelId, `round-${next.round}`);
+        return;
+      }
+
+      ctx.audio.tone({ freq: padTone(pad), ms: 190 });
+      haptic.tap();
+      if (next.phase !== "won") return;
+
+      // Round cleared. This game is ENDLESS, so it never pays a completion star:
+      // a milestone drip every few rounds, and one latched personal best.
+      const round = next.round;
+      if (isMilestoneRound(round)) {
+        winMoment(ctx, { reason: "milestone", level: `round-${round}`, at, confetti: false });
+      }
+      if (ctx.score?.report({ value: round, unit: "points" }).isPersonalBest) {
+        setBest(round);
+        if (!bestFiredRef.current) {
+          bestFiredRef.current = true;
+          winMoment(ctx, {
+            reason: "personal_best",
+            tier: levelId,
+            level: `round-${round}`,
+            at,
+            confetti: false,
+          });
+        }
+      }
+      later(() => setSeq(startRound(next, level.pads)), ROUND_GAP_MS);
+    },
+    [ctx, seq, levelId, level.pads, later],
+  );
+
+  const idle = seq.phase === "idle";
+  const lost = seq.phase === "lost";
+
+  return (
+    <GameChrome
+      ctx={ctx}
+      stats={[
+        { icon: "layers", label: ctx.t("stage"), value: seq.round, record: best, compact: true },
+      ]}
+      levels={LEVEL_OPTIONS}
+      level={levelId}
+      onLevel={chooseLevel}
+      onRestart={startRun}
+      // Echo does not start itself - it waits, because a pattern that begins
+      // playing before the child is looking is a round they have already lost.
+      // So the start button is not decoration and it cannot move into the
+      // chrome's restart: "start" and "start again" read as different things to
+      // a five-year-old, and this one has to be the size of a thumb.
+      footer={
+        idle || lost ? (
+          <button
+            type="button"
+            onClick={startRun}
+            style={{
+              width: "100%",
+              minHeight: 68,
+              border: "none",
+              borderRadius: "var(--radius-2)",
+              background: "var(--brand)",
+              color: "#fff",
+              boxShadow: "var(--shadow-1)",
+              fontFamily: "Fredoka, inherit",
+              fontSize: 22,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {lost ? `🙂 ${ctx.t("restart")}` : `▶ ${T.start}`}
+          </button>
+        ) : undefined
+      }
+    >
+      <Prompt ctx={ctx} glyph="💡" text={promptFor(seq.phase, seq.round, ctx.locale)} />
+
+      {/* dir="ltr": a spatial grid must not mirror in the Hebrew RTL app, or the
+          pad the child watched is not the pad under their finger. */}
+      <div
+        ref={gridRef}
+        dir="ltr"
+        className={`ellaz-play-surface ${BOARD_CLASS}`}
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${level.cols}, 1fr)`,
+          gap: 14,
+          // chrome 169: the head row plus the Prompt chip above the grid.
+          // measured 2026-09-14 by repro-board-fills-the-window.mjs at every PC arm. Every pad is square (aspectRatio 1 below), so the
+          // grid's own shape is cols over its row count.
+          ...boardVars({
+            vw: 88,
+            vh: 42,
+            cap: 420,
+            chrome: 169,
+            ratio: level.cols / Math.ceil(level.pads / level.cols),
+            // The 14px gaps, so a level with a third column is not 5px shorter.
+            space: { x: (level.cols - 1) * 14, y: (Math.ceil(level.pads / level.cols) - 1) * 14 },
+          }),
+          ...(pc ? { containerType: "inline-size" as const } : {}),
+          touchAction: "none",
+        }}
+      >
+        {Array.from({ length: level.pads }, (_, i) => {
+          const pad = PADS[i];
+          const on = lit === i;
+          return (
+            <button
+              key={i}
+              aria-label={pad.name[ctx.locale]}
+              // Pointer Events only for the play action. `onKeyDown` keeps the
+              // pads reachable from a keyboard without an `onClick` that would
+              // double-fire alongside the pointer path.
+              onPointerDown={() => onPad(i)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onPad(i);
+                }
+              }}
+              style={{
+                aspectRatio: "1",
+                minHeight: 64,
+                border: on ? "4px solid #fff" : "4px solid rgba(255,255,255,0.14)",
+                borderRadius: 20,
+                background: pad.color,
+                color: "rgba(0,0,0,0.62)",
+                // On a PC the glyph follows the CELL (a share of the grid's
+                // width per column), or a big pad holds a small glyph.
+                fontSize: pc ? `calc(${56 / level.cols}cqw)` : "clamp(30px, 9vw, 56px)",
+                lineHeight: 1,
+                display: "grid",
+                placeItems: "center",
+                touchAction: "none",
+                // The flash: brighter, bigger, ringed. Three simultaneous visual
+                // changes, so it reads at a glance with the sound off.
+                filter: on ? "brightness(1.5) saturate(1.15)" : "brightness(0.72)",
+                transform: on ? "scale(1.06)" : "scale(1)",
+                boxShadow: on
+                  ? "0 0 0 8px rgba(255,255,255,0.35), var(--shadow-1)"
+                  : "var(--shadow-1)",
+                transition: "filter 0.08s linear, transform 0.08s linear, box-shadow 0.08s linear",
+              }}
+            >
+              {/* The glyph is the non-colour cue, and it grows with the flash. */}
+              <span aria-hidden="true" style={{ transform: on ? "scale(1.15)" : "scale(1)" }}>
+                {pad.glyph}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </GameChrome>
+  );
+}
