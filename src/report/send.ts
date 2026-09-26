@@ -27,7 +27,11 @@
    `request.time`, so a caller cannot invent ids to get around it. A second
    report inside the same minute is a create against an existing document, which
    Firestore answers 409 - a normal, expected outcome, reported as `throttled`
-   rather than as a failure. */
+   rather than as a failure.
+
+   THERE IS A SECOND COPY. studio/toybox/cells/shared/report-send.ts sends the
+   Toybox games' reports into the same inbox, because the studio may not import
+   src/. A change to the rules block or to the shape written here goes there too. */
 
 import { cloudConfig } from "@sdk/cloudConfig";
 
