@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { GameContext } from "@sdk/index";
 import type { Locale } from "@i18n/index";
 import { Icon, type IconName } from "./icons";
@@ -253,6 +253,7 @@ export function GameChrome<T extends string>({
   footer,
   side,
   arenaFills,
+  numbersOnBoard,
   children,
 }: {
   ctx: GameContext;
@@ -290,6 +291,18 @@ export function GameChrome<T extends string>({
    * past the window edge (coloring's pictures did, measured 2026-09-14).
    */
   side?: ReactNode;
+  /**
+   * TRUE when the game draws its numbers ON ITS OWN BOARD and passes none
+   * here. The row then holds only what it is given - the difficulty, full
+   * width - instead of padding to three cells with "-" placeholders.
+   *
+   * Opt-in, and snake is the one caller (2026-09-26): a Phaser-forum review
+   * said its cream score cards looked "not a part of the game", so its score,
+   * stage and best moved into a band on the board. Without this the two freed
+   * cells rendered as two empty dashes beside the difficulty. Every other game
+   * keeps the padded three-cell row, so it renders byte-identical.
+   */
+  numbersOnBoard?: boolean;
   /**
    * TRUE when this game's board takes the WHOLE width it is given on a PC -
    * an arena sized by `pcFillArena()`, never a board sized by a ratio. Pass the
@@ -338,7 +351,8 @@ export function GameChrome<T extends string>({
   useEffect(() => (panelRef.current ? fitColumns(panelRef.current) : undefined), [hasFooter, hasSide]);
   const i = levels && level ? levels.findIndex((l) => l.id === level) : -1;
   const current = i >= 0 && levels ? levels[i] : undefined;
-  const cells = (levels && current && onLevel ? 1 : 0) + padSlots(stats, Boolean(levels && current)).length;
+  const slots = numbersOnBoard ? stats : padSlots(stats, Boolean(levels && current));
+  const cells = (levels && current && onLevel ? 1 : 0) + slots.length;
 
   // Restart is a GAME control and it is NOT drawn here - it is drawn by the
   // page, in the utility row above the board, and this hands it the handler.
@@ -545,6 +559,10 @@ export function GameChrome<T extends string>({
             // 355. Only the standalone bundles wrap, and only while playing.
             flex: "1 1 var(--gc-row-min, 280px)",
             minWidth: 0,
+            // A game with its numbers on its own board gets one equal track
+            // per cell it actually passes, through the same --gc-cols read
+            // colsFor() already makes - so the row stays one grid either way.
+            ...(numbersOnBoard ? ({ "--gc-cols": `repeat(${cells}, minmax(0,1fr))` } as CSSProperties) : {}),
             display: "grid",
             gridTemplateColumns: colsFor(cells),
             alignItems: "center",
@@ -657,10 +675,7 @@ export function GameChrome<T extends string>({
               neither a difficulty nor a number is coloring, which keeps no
               score on purpose - three dashes there would be the opposite of
               the point. */}
-          {((levels && current) || stats.length
-            ? padSlots(stats, Boolean(levels && current))
-            : stats
-          ).map((s, slot) =>
+          {((levels && current) || stats.length ? slots : stats).map((s, slot) =>
             s === null ? (
               <div
                 key={`empty-${slot}`}

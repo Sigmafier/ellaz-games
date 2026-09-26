@@ -23,25 +23,25 @@ import { describe, expect, it } from "vitest";
 const GAME = readFileSync(new URL("./SnakeGame.tsx", import.meta.url), "utf8");
 const SCENE = readFileSync(new URL("./SnakeScene.ts", import.meta.url), "utf8");
 
-/** The `footer` prop, from `footer={` to its matching brace. */
-function footerBlock(): string {
-  const start = GAME.indexOf("footer={");
-  expect(start, "the footer prop moved - this whole file is reading the wrong text").toBeGreaterThan(
-    0,
-  );
-  let depth = 0;
-  let i = start + "footer=".length;
-  for (; i < GAME.length; i++) {
-    if (GAME[i] === "{") depth++;
-    else if (GAME[i] === "}" && --depth === 0) break;
-  }
-  return GAME.slice(start, i + 1);
+/**
+ * The START CARD, from its opening to its `</section>`.
+ *
+ * Since 2026-09-26 the instruction is no longer a strip under the board: it is
+ * a card over it, beside the game-over card, so the score band on top of the
+ * board costs the phone frame nothing. The rule this file exists for is
+ * unchanged - the thing that says "Tap to start" must answer a tap - so the
+ * file follows the words to where they now live.
+ */
+function startCard(): string {
+  const at = GAME.indexOf("snake-start-card");
+  expect(at, "the start card moved - this whole file is reading the wrong text").toBeGreaterThan(0);
+  return GAME.slice(GAME.lastIndexOf("{", at), GAME.indexOf("</section>", at));
 }
 
-describe("the strip that asks the player to tap", () => {
+describe("the card that asks the player to tap", () => {
   it("is a real button, and its handler is the scene's", () => {
-    const footer = footerBlock();
-    expect(footer, "the strip must be a <button>, not a <div> that looks like one").toContain(
+    const card = startCard();
+    expect(card, "the instruction must be a <button>, not a <div> that looks like one").toContain(
       "<button",
     );
     // Anchored on the `?.`, for the THIRD time in this file's short life:
@@ -49,36 +49,34 @@ describe("the strip that asks the player to tap", () => {
     // check passes when the button calls restart instead of start. That
     // mutation SURVIVED the first mutation run and nothing else caught it.
     expect(
-      footer,
+      card,
       "the button must ask the SCENE to start - the canvas is this game's single owner of input",
     ).toContain("?.startFromChrome()");
     expect(
-      footer,
+      card,
       "and it must be start, not restart - restart on the READY screen throws the board away",
     ).not.toContain("?.restartFromChrome()");
   });
 
-  it("stops being a button once the words stop being an instruction", () => {
-    const footer = footerBlock();
-    // The playing branch is a plain line; the asking branch is the button. If
-    // one shape ever served all three phases again, the button would sit under
-    // "Buttons, swipe or arrow keys" - a control that does nothing, which is
-    // the defect this file exists for, wearing the opposite face.
-    const playingAt = footer.indexOf('status.phase === "playing"');
-    const buttonAt = footer.indexOf("<button");
-    expect(playingAt, "the playing phase must be branched on").toBeGreaterThan(0);
-    expect(
-      buttonAt,
-      "the button must come AFTER the playing branch, i.e. be the not-playing arm",
-    ).toBeGreaterThan(playingAt);
-    // `disabled` is reserved for the genuinely impossible (CLAUDE.md). A strip
-    // that is merely not an instruction is not a disabled button; it is not a
-    // button.
-    // Strip comments first. The prose below this strip EXPLAINS why it is not
-    // disabled, so a bare substring scan reads its own justification as the
-    // violation - which it did, on the first run of this file.
-    const code = footer.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-    expect(code, "never disable it - render it as text instead").not.toMatch(/\bdisabled[=}]/);
+  it("exists only while the words are an instruction", () => {
+    // Drawn on the ready screen and nowhere else. Mid-run there is nothing to
+    // ask, and after a game over the game-over card asks instead - a second
+    // button there would be two controls doing one thing.
+    const at = GAME.indexOf("snake-start-card");
+    const guard = GAME.slice(GAME.lastIndexOf("{", GAME.lastIndexOf("<section", at)) - 60, at);
+    expect(guard, "the card must be gated on the ready phase").toContain('status.phase === "ready" &&');
+    // `disabled` is reserved for the genuinely impossible (CLAUDE.md). Strip
+    // comments first: prose explaining why it is not disabled is not a
+    // violation, and a bare scan read it as one on this file's first run.
+    const code = startCard().replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    expect(code, "never disable it").not.toMatch(/\bdisabled[=}]/);
+  });
+
+  it("no strip under the board asks anything any more", () => {
+    const start = GAME.indexOf("footer={");
+    expect(start).toBeGreaterThan(0);
+    const footer = GAME.slice(start, GAME.indexOf("<ControlModePicker", start));
+    expect(footer, "a leftover strip would be a second start button").not.toContain("<button");
   });
 
   it("does not fork the start logic - the strip walks the canvas's path", () => {

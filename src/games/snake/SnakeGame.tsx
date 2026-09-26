@@ -23,6 +23,7 @@ import { measureBoxUnscaled, type ScaleManagerLike } from "@shared/phaserBox";
 // while every comment here still claimed it was lazy.
 import type { SnakeStatus, SpeedKey } from "./SnakeScene";
 import type { Dir } from "./logic";
+import { overCard } from "./draw";
 
 // The one Phaser game in the roster, wearing the same chrome as the other
 // twenty. Its score, level and speed used to be drawn INSIDE the canvas at
@@ -60,6 +61,14 @@ const LOGICAL = 440;
 /** The start strip's height in both of its states: the ready button's measured
  *  49px, so the ready screen - and the phone frame baseline - are unchanged. */
 const STRIP_H = 49;
+/** The score band on top of the board. Fixed, so the frame never moves with a digit. */
+const BAND_H = 44;
+/** The board's own colours, shared by the canvas, the band and the card. */
+/** A family LIST, never `inherit` inside one: "Fredoka, inherit" is an invalid
+ *  declaration and the browser drops it whole, which is how the first build of
+ *  the card rendered its button in the default face. */
+const FONT = "Fredoka, Heebo, sans-serif";
+const INK = { bg: "#0b0e22", rim: "#6c5ce7", mint: "#55efc4", gold: "#ffd166", text: "#f5f6ff", red: "#ff7675" };
 
 export function SnakeGame({ ctx }: { ctx: GameContext }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -89,8 +98,11 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
     speed,
     phase: "ready",
     paused: false,
+    // Read here too, not only in the scene, so the band's first frame - before
+    // Phaser has even downloaded - already shows the record.
+    best: ctx.score?.best() ?? 0,
+    newBest: false,
   });
-  const [best] = useState(() => ctx.score?.best() ?? 0);
   // Arrows (the default), one big stick, or a stick born under the thumb on
   // the board. Keyboard arrows and WASD steer in all three.
   const [controlMode, setControlMode] = useControlMode(ctx);
@@ -123,7 +135,7 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
         parent: host,
         width: LOGICAL,
         height: LOGICAL,
-        backgroundColor: "#0f1226",
+        backgroundColor: INK.bg,
         // NO_CENTER, and the host centres with CSS instead - `updateCenter`
         // would fight `measureBoxUnscaled` below. See `@shared/phaserBox`.
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.NO_CENTER },
@@ -192,22 +204,26 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
   const T = textFor(
     {
       he: {
-        over: "המשחק נגמר - הקישו לשחק שוב",
+        over: "המשחק נגמר",
+        newBest: "שיא חדש",
         ready: "הקישו כדי להתחיל",
         hint: "כפתורים, החלקה או חצים",
       },
       en: {
-        over: "Game over - tap to play again",
+        over: "Game over",
+        newBest: "New best",
         ready: "Tap to start",
         hint: "Buttons, swipe or arrow keys",
       },
       es: {
-        over: "Fin del juego - toca para jugar otra vez",
+        over: "Fin del juego",
+        newBest: "Nuevo récord",
         ready: "Toca para empezar",
         hint: "Botones, desliza o flechas",
       },
       sv: {
-        over: "Spelet är slut - tryck för att spela igen",
+        over: "Spelet är slut",
+        newBest: "Nytt rekord",
         ready: "Tryck för att börja",
         hint: "Knappar, svep eller pilar",
       },
@@ -220,14 +236,19 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
   // — the scene ignores a turn into the direction it is already going — so the
   // joystick needs no repeat: entering a direction once is the whole message.
   const steer = (dir: Dir) => sceneRef.current?.steer(dir);
+  const card = overCard(status);
+  // The band never shows a best behind the score it sits beside, mid-run
+  // included: the record is only reported at death.
+  const bandBest = Math.max(status.best, status.score);
 
   return (
     <GameChrome
       ctx={ctx}
-      stats={[
-        { icon: "bolt", label: ctx.t("score"), value: status.score, record: Math.max(best, status.score) },
-        { icon: "layers", label: ctx.t("stage"), value: status.level, compact: true },
-      ]}
+      // The score, stage and best are on the BOARD now, in its own colours -
+      // "the interface looks like not a part of the game" was the review. Only
+      // the difficulty stays up here, where every game keeps it.
+      stats={[]}
+      numbersOnBoard
       levels={SPEED_OPTIONS}
       level={status.speed}
       // Reachable MID-RUN, which the in-canvas picker never was. The scene
@@ -250,69 +271,10 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
       }
       footer={
         <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-          {/* The strip says three different things and only two of them are
-              INSTRUCTIONS. "Tap to start" and "tap to play again" tell the
-              player to do something; "Buttons, swipe or arrow keys" describes
-              what is available. Until 2026-08-30 all three rendered as the
-              same white card with bold centred text, and none of them was
-              tappable - measured on the published itch bundle: two taps on
-              the strip did nothing, one tap on the board started the game.
-              A card carrying an imperative, directly under the board, is the
-              most button-looking thing on a phone screen.
-
-              So the strip now IS the button while it is asking, and stops
-              looking like one while it is merely telling. Same handler as a
-              canvas tap (`startFromChrome`), never a second copy of the
-              logic. Not `disabled` while playing - it is simply not a button
-              then, which is the honest shape and keeps the platform's rule
-              that `disabled` is reserved for the genuinely impossible. */}
-          {/* ONE HEIGHT in both states. The button's bold 17px line is 49px and
-              the hint's 15px line was 46, so the first key moved the frame 3px
-              and fitStage rescaled the whole phone game (0.9012 -> 0.9048,
-              2026-09-14). A shared minHeight both lines fit under holds it. */}
-          {status.phase === "playing" ? (
-            <div
-              style={{
-                padding: "10px 12px",
-                minHeight: STRIP_H,
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
-                color: "var(--muted)",
-              }}
-            >
-              <span style={{ fontSize: 15, fontFamily: "Fredoka, inherit" }}>{T.hint}</span>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => sceneRef.current?.startFromChrome()}
-              style={{
-                background: "var(--surface)",
-                borderRadius: "var(--radius-2)",
-                boxShadow: "var(--shadow-1)",
-                border: "none",
-                cursor: "pointer",
-                font: "inherit",
-                color: "inherit",
-                padding: "10px 12px",
-                minHeight: STRIP_H,
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
-                touchAction: "manipulation",
-              }}
-            >
-              <b style={{ fontSize: 17, fontFamily: "Fredoka, inherit" }}>
-                {status.phase === "over" ? T.over : T.ready}
-              </b>
-            </button>
-          )}
-
+          {/* No strip under the board any more (2026-09-26). "Tap to start"
+              and the controls hint are on the START CARD over the board, and
+              Play again is on the game-over card - so the band on top of the
+              board costs the phone nothing: -49px of strip, +44px of band. */}
           {/* The Controls setting, directly above what it controls. */}
           <ControlModePicker mode={controlMode} onMode={setControlMode} t={ctx.t} />
 
@@ -331,6 +293,31 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
           the canvas, so the canvas's own tap and swipe cannot also fire: the
           overlay's stick steers, and a tap with no travel is the same
           `startFromChrome` the strip below calls. */}
+      <div
+        className="snake-board"
+        style={{ display: "inline-flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", boxShadow: `0 0 0 2px ${INK.rim}, 0 10px 30px ${INK.rim}44` }}
+      >
+      {/* THE BAND. Part of the board: its colours, its width, its corners. */}
+      <div
+        className="snake-band"
+        aria-live="off"
+        style={{
+          height: BAND_H,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 14px",
+          background: `linear-gradient(#171b3a, ${INK.bg})`,
+          color: INK.text,
+          fontFamily: FONT,
+          lineHeight: 1,
+        }}
+      >
+        <BandCell label={ctx.t("score")} value={status.score} color={INK.mint} />
+        <BandCell label={ctx.t("stage")} value={status.level} color={INK.text} small />
+        <BandCell label={ctx.t("best")} value={bandBest} color={INK.gold} />
+      </div>
+      <div style={{ position: "relative" }}>
       <BoardStick
         active={controlMode === "board"}
         onDir={steer}
@@ -345,10 +332,9 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
             // the pad) sits in the column beside the board. Nothing else shares
             // this column.
             ...(pc
-              ? boardVars({ vw: 88, vh: 46, cap: 440, chrome: 111, ratio: 1 })
+              ? boardVars({ vw: 88, vh: 46, cap: 440, chrome: 111 + BAND_H, ratio: 1 })
               : { width: "min(88vw, 46vh, 440px)" }),
             aspectRatio: "1",
-            borderRadius: 14,
             overflow: "hidden",
             // Phaser's `autoCenter` is off (see the config above), so the
             // centring is here. The box is square and so is the game, so FIT
@@ -362,6 +348,119 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
           }}
         />
       </BoardStick>
+      {/* THE GAME-OVER CARD. Over the board, above the board stick, and the
+          only Play again on the page - GameHost's end-of-run strip does not
+          appear for snake (a personal best is not `runEnded`). The backdrop
+          lets pointers through, so a tap on the board still restarts the way
+          it always has; the card itself takes them. */}
+      {/* THE START CARD. The ready screen's one instruction, and a real
+          button because it is one: "a thing that tells the player to tap it
+          must answer a tap". Same path as a tap on the board, never a copy.
+          The hint under it describes rather than asks, so it is plain text. */}
+      {status.phase === "ready" && (
+        <section
+          className="snake-start-card"
+          aria-label={T.ready}
+          style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none", zIndex: 3 }}
+        >
+          <div style={{ pointerEvents: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginTop: "38%" }}>
+            <button
+              type="button"
+              onClick={() => sceneRef.current?.startFromChrome()}
+              style={{
+                border: "none",
+                borderRadius: 14,
+                padding: "10px 22px",
+                minHeight: STRIP_H,
+                background: "var(--brand-strong)",
+                color: "var(--on-brand)",
+                fontFamily: FONT, fontWeight: 700, fontSize: 18,
+                cursor: "pointer",
+                touchAction: "manipulation",
+                boxShadow: `0 0 22px ${INK.rim}88`,
+              }}
+            >
+              {T.ready}
+            </button>
+            <span style={{ fontSize: 13, color: INK.text, opacity: 0.8, fontFamily: FONT }}>{T.hint}</span>
+          </div>
+        </section>
+      )}
+      {card && (
+        <section
+          className="snake-over-card"
+          aria-label={T.over}
+          style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: `${INK.bg}99`, pointerEvents: "none", zIndex: 3 }}
+        >
+          <div
+            style={{
+              pointerEvents: "auto",
+              width: "74%",
+              padding: "16px 14px",
+              textAlign: "center",
+              borderRadius: 18,
+              border: `1.5px solid ${INK.rim}`,
+              background: "linear-gradient(#1e2250, #151939)",
+              boxShadow: `0 0 30px ${INK.rim}66`,
+              color: INK.text,
+              fontFamily: FONT,
+            }}
+          >
+            <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.06em", color: INK.red }}>{T.over}</div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 26, margin: "10px 0 6px" }}>
+              <CardNum label={ctx.t("score")} value={card.score} color={INK.mint} />
+              <CardNum label={ctx.t("best")} value={card.best} color={INK.gold} />
+            </div>
+            {card.newBest && (
+              <div
+                style={{ display: "inline-block", margin: "0 0 10px", padding: "3px 12px", borderRadius: 99, background: INK.gold, color: "#241c17", fontWeight: 700, fontSize: 13 }}
+              >
+                ★ {T.newBest}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => sceneRef.current?.startFromChrome()}
+              style={{
+                display: "block",
+                width: "100%",
+                border: "none",
+                borderRadius: 14,
+                padding: "11px 12px",
+                background: "var(--brand-strong)",
+                color: "var(--on-brand)",
+                fontFamily: FONT, fontWeight: 700, fontSize: 18,
+                cursor: "pointer",
+                touchAction: "manipulation",
+              }}
+            >
+              {ctx.t("playAgain")}
+            </button>
+          </div>
+        </section>
+      )}
+      </div>
+      </div>
     </GameChrome>
+  );
+}
+
+/** One number in the band: a small caption over a big value. */
+function BandCell({ label, value, color, small }: { label: string; value: number; color: string; small?: boolean }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 48 }}>
+      <span style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", opacity: 0.75 }}>{label}</span>
+      <b style={{ fontSize: small ? 17 : 21, color }}>{value}</b>
+    </div>
+  );
+}
+
+/** One number on the game-over card. */
+function CardNum({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+      <span style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.8 }}>{label}</span>
+      <b style={{ fontSize: 32, lineHeight: 1.05, color }}>{value}</b>
+    </div>
   );
 }

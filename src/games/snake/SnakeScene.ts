@@ -1,8 +1,8 @@
-import { textFor } from "@i18n/index";
 import Phaser from "phaser";
 import type { GameContext } from "@sdk/index";
 import { winMoment } from "@shared/index";
 import { newGame, step, turn, type SnakeState, type Dir } from "./logic";
+import { burst, drawApple, drawBoard, drawSnake, drawSparks, tickSparks, type Board, type Spark } from "./draw";
 
 const COLS = 17;
 const ROWS = 17;
@@ -39,7 +39,19 @@ export type SnakeStatus = {
    * still drawing its cover over a snake that had already set off.
    */
   paused: boolean;
+  /**
+   * The stored record, as of the last run that ended - what the game-over card
+   * and the band print. Read at create, raised at death. The port owns the
+   * record; this is only the number to SHOW, published so the chrome keeps no
+   * copy of its own.
+   */
+  best: number;
+  /** The run that just ended beat the record. Only the score port decides. */
+  newBest: boolean;
 };
+
+/** How long the death flash runs, ms. */
+const DEATH_FLASH_MS = 600;
 
 // Phaser scene: draws the pure SnakeState and feeds it input. The snake does not
 // move until the player's first input (ready → playing), so it never dies before
@@ -62,7 +74,12 @@ export class SnakeScene extends Phaser.Scene {
   private selectedSpeed: SpeedKey = "normal";
   private baseStepMs = SPEEDS.normal;
   private gfx!: Phaser.GameObjects.Graphics;
-  private overText!: Phaser.GameObjects.Text;
+  private best = 0;
+  private newBest = false;
+  /** Eat sparks, advanced every frame whatever the phase. */
+  private sparks: Spark[] = [];
+  /** Scene time of the last death, 0 for none - drives the red flash. */
+  private diedAt = 0;
   /** Told to the chrome on every change. Set from `init`. */
   private onStatus?: (s: SnakeStatus) => void;
   /**
@@ -100,6 +117,8 @@ export class SnakeScene extends Phaser.Scene {
       speed: this.selectedSpeed,
       phase: this.phase,
       paused: this.paused,
+      best: this.best,
+      newBest: this.newBest,
     });
   }
 
@@ -161,7 +180,11 @@ export class SnakeScene extends Phaser.Scene {
     this.ctx.audio.unlock();
     this.ctx.speech.unlock();
     if (this.phase === "over") {
+      // One press, moving snake - the same as a tap on the canvas, which
+      // restarts on pointerdown and starts on pointerup. The game-over card's
+      // Play again lands here, and it must not stop on a ready screen.
       this.restart();
+      this.startPlaying();
       return;
     }
     this.startPlaying();
@@ -192,20 +215,12 @@ export class SnakeScene extends Phaser.Scene {
   create() {
     this.state = newGame(COLS, ROWS);
     this.phase = "ready";
+    this.best = this.ctx.score?.best() ?? 0;
     this.computeCell();
     this.gfx = this.add.graphics();
-    // The score and level used to be drawn here, at 20px in the canvas corner.
-    // They live in the chrome's stat row now - one place per number, and a
-    // number a five-year-old can actually read.
-    this.overText = this.add
-      .text(this.scale.width / 2, this.scale.height / 2, "", {
-        fontFamily: "Fredoka, sans-serif",
-        fontSize: "24px",
-        color: "#ffffff",
-        align: "center",
-      })
-      .setOrigin(0.5)
-      .setDepth(10);
+    // No text on the canvas at all. The score, stage and best are in the band
+    // on top of the board, and the start and game-over cards sit over it - all
+    // DOM, in the board's own colours, so each is a real button or a real number.
 
     this.ctx.lifecycle.gameplayStart();
     this.ctx.analytics.levelStart("classic");
@@ -324,12 +339,18 @@ export class SnakeScene extends Phaser.Scene {
     // "tap to start" nobody can read or reach.
     this.paused = false;
     this.acc = 0;
+    this.newBest = false;
+    this.diedAt = 0;
     // NB: baseStepMs / selectedSpeed intentionally kept — speed persists across restarts.
     this.ctx.analytics.levelStart("classic");
     this.draw();
   }
 
   update(_time: number, delta: number) {
+    // The effects run in every phase - sparks finish flying and the death
+    // flash plays out on the game-over screen - but nothing moves while paused.
+    if (!this.paused) this.sparks = tickSparks(this.sparks, delta);
+    this.render(this.time.now);
     if (this.phase !== "playing" || this.paused) return;
     this.acc += delta;
     const stepMs = this.effectiveStep();
@@ -338,7 +359,10 @@ export class SnakeScene extends Phaser.Scene {
       const prevScore = this.state.score;
       this.state = step(this.state);
       if (this.state.score > prevScore) {
-        this.ctx.audio.play("success");
+        // A pop that climbs a step with each apple of a stage, so a run sounds
+        // like it is going somewhere.
+        this.ctx.audio.play("pop", { semitones: (this.state.score % FOOD_PER_LEVEL) * 2 });
+        this.eaten();
         // Endless game: a mid-run ping every 5 food. Coins, no star, no confetti.
         if (this.state.score % 5 === 0) {
           winMoment(this.ctx, {
@@ -351,6 +375,8 @@ export class SnakeScene extends Phaser.Scene {
       }
       if (!this.state.alive) {
         this.phase = "over";
+        this.diedAt = this.time.now;
+        this.cameras.main.shake(220, 0.012);
         this.ctx.audio.play("fail");
         this.ctx.analytics.levelFail("classic", "collision");
         // A run that beat the stored record ends on a high note. The port owns
@@ -359,6 +385,8 @@ export class SnakeScene extends Phaser.Scene {
         // Reported once, at death: snake's score only ever climbs, so asking
         // per food would put the same question dozens of times a run.
         const record = this.ctx.score?.report({ value: this.state.score, unit: "points" });
+        this.newBest = Boolean(record?.isPersonalBest);
+        this.best = Math.max(this.best, this.state.score);
         if (record?.isPersonalBest) {
           winMoment(this.ctx, {
             reason: "personal_best",
@@ -371,54 +399,52 @@ export class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private draw() {
-    const g = this.gfx;
-    const c = this.cell;
-    const boardW = COLS * c;
-    const boardH = ROWS * c;
+  private board(): Board {
     const { ox, oy } = this.boardOrigin();
-    g.clear();
-    // board: lighter fill + border so the play area reads clearly against the page
-    g.fillStyle(0x1e2240, 1).fillRoundedRect(ox - 6, oy - 6, boardW + 12, boardH + 12, 12);
-    g.lineStyle(3, 0x6c5ce7, 1).strokeRoundedRect(ox - 6, oy - 6, boardW + 12, boardH + 12, 12);
-    g.lineStyle(1, 0x2a2f58, 0.6);
-    for (let i = 1; i < COLS; i++) {
-      g.lineBetween(ox + i * c, oy, ox + i * c, oy + boardH);
-      g.lineBetween(ox, oy + i * c, ox + boardW, oy + i * c);
-    }
-    // food
-    g.fillStyle(0xff7675, 1).fillCircle(
-      ox + this.state.food.x * c + c / 2,
-      oy + this.state.food.y * c + c / 2,
-      c * 0.38,
-    );
-    // snake
-    this.state.body.forEach((p, i) => {
-      const color = i === 0 ? 0x55efc4 : 0x00cec9;
-      g.fillStyle(color, 1).fillRoundedRect(ox + p.x * c + 1, oy + p.y * c + 1, c - 2, c - 2, 5);
+    return { ox, oy, c: this.cell, cols: COLS, rows: ROWS };
+  }
+
+  /** Sparks where the head was, and a +1 that floats off it. */
+  private eaten() {
+    const b = this.board();
+    const head = this.state.body[0];
+    const x = b.ox + (head.x + 0.5) * b.c;
+    const y = b.oy + (head.y + 0.5) * b.c;
+    this.sparks = this.sparks.concat(burst(x, y, b.c * 3));
+    const plus = this.add
+      .text(x, y - b.c * 0.6, "+1", {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: `${Math.round(b.c * 0.8)}px`,
+        fontStyle: "bold",
+        color: "#ffd166",
+      })
+      .setOrigin(0.5)
+      .setDepth(11);
+    this.tweens.add({
+      targets: plus,
+      y: y - b.c * 1.8,
+      alpha: 0,
+      duration: 650,
+      onComplete: () => plus.destroy(),
     });
-    const T = textFor(
-      {
-        he: { ready: "הקישו כדי להתחיל", over: "המשחק נגמר", again: "הקישו לשחק שוב" },
-        en: { ready: "Tap to start", over: "Game over", again: "Tap to play again" },
-        es: { ready: "Toca para empezar", over: "Fin del juego", again: "Toca para jugar otra vez" },
-    sv: { ready: "Tryck för att börja", over: "Spelet är slut", again: "Tryck för att spela igen" },
-      },
-      this.ctx.locale,
-    );
-    // Keep the overlay off the snake's spawn row.
-    this.overText.setPosition(this.scale.width / 2, this.scale.height * 0.28);
-    if (this.phase === "ready") {
-      this.overText.setText(T.ready);
-    } else if (this.phase === "over") {
-      this.overText.setText(
-        T.over +
-          `\n${this.ctx.t("score")}: ${this.state.score}\n` +
-          T.again,
-      );
-    } else {
-      this.overText.setText("");
-    }
+  }
+
+  /** Every frame: the board, the breathing apple, the snake, the sparks. */
+  private render(time: number) {
+    const g = this.gfx;
+    const b = this.board();
+    g.clear();
+    drawBoard(g, b);
+    drawApple(g, b, this.state.food, (Math.sin(time / 260) + 1) / 2);
+    const since = this.diedAt ? time - this.diedAt : Infinity;
+    // Blinks three times, then settles on the snake's own colours.
+    const flash = since < DEATH_FLASH_MS && Math.floor(since / 100) % 2 === 0 ? 1 : 0;
+    drawSnake(g, b, this.state.body, this.state.dir, flash);
+    drawSparks(g, this.sparks, b.c);
+  }
+
+  private draw() {
+    this.render(this.time.now);
     // LAST in draw, so every published status reflects a frame that has already
     // been rendered - the chrome can never show a score the canvas has not.
     this.publish();
