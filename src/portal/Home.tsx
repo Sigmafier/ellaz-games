@@ -388,17 +388,6 @@ export function Home({
           allLabel={t("allCategories")}
         />
 
-        {/* ABOVE THE GRID, not under it. Operator ruling 2026-09-22, taken off
-            a render of the live page: the strip first shipped beside
-            PrintablePacks at the bottom, which measured 2,262px down on a
-            390px phone - 2.7 screens past 45 game cards. They picked "above
-            the game grid" over leaving it and over making it a card in the
-            grid, because a card sits beside games that pay coins and stars
-            and these four pay neither.
-
-            It costs no bytes to be here: same component, rendered earlier. */}
-        <ToyboxRow locale={locale} onTap={tap} />
-
         <div
           style={{
             display: "grid",
@@ -437,6 +426,14 @@ export function Home({
             );
           })}
         </div>
+
+        {/* UNDER THE GRID. Operator ruling 2026-09-26, "i want the toybox
+            area down below", which reverses the 2026-09-22 ruling that put it
+            above the grid. The games that pay coins and stars come first; the
+            four bigger Toybox games follow them, above the printables.
+
+            It costs no bytes to be here: same component, rendered later. */}
+        <ToyboxRow locale={locale} onTap={tap} />
 
         <PrintablePacks locale={locale} onTap={tap} />
 
