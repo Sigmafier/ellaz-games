@@ -27,6 +27,7 @@
     "@vitejs/plugin-react": "^4.3.2",
     "bidi-js": "^1.0.3",
     "jsdom": "^25.0.1",
+    "playwright": "1.63.0",
     "satori": "^0.29.0",
     "typescript": "^5.6.2",
     "vite": "^5.4.8",
