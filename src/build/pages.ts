@@ -32,6 +32,9 @@ import { printPage } from "./printPage";
 import { guidePage } from "./guidePage";
 import { guideIndexPage } from "./guideIndex";
 import { guideFor } from "../content/guides";
+import { TOYBOX_LIST, toyboxFor } from "../content/toybox";
+import { toyboxPage } from "./toyboxPage";
+import { toyboxArtFiles } from "./toyboxArt";
 import {
   boardsPage,
   categoryPage,
@@ -136,6 +139,19 @@ export function renderRoute(route: Route, base: string, headAssets?: HeadAssets)
       );
     }
     return guidePage({ guide, base, indexable });
+  }
+  // A TOYBOX GAME'S PAGE. A document, handled before the roster lookup below
+  // for the guide's reason: its `id` is a Toybox id, not a roster id, and
+  // `metaFor` would throw on it.
+  if (route.kind === "toybox") {
+    const entry = toyboxFor(route.id!);
+    if (!entry) {
+      throw new Error(
+        `page emitter: no Toybox page named "${route.id}" in src/content/toybox.ts. ` +
+          `The route table derives from that registry, so the two were edited apart.`,
+      );
+    }
+    return toyboxPage({ entry, base, indexable });
   }
 
   const meta = metaFor(route.id!);
@@ -643,6 +659,13 @@ export function pagesPlugin(base: string): Plugin {
         written.set(fileName, png);
         this.emitFile({ type: "asset", fileName, source: png });
       }
+
+      // The Toybox pages' own pictures. BINARY, so here beside the cards and
+      // not in `allEmittedFiles`, which is string-only by design. Each lands
+      // beside its page, under `games/`, which the precache never reaches.
+      for (const { fileName, png } of toyboxArtFiles(TOYBOX_LIST.map((t) => t.id))) {
+        this.emitFile({ type: "asset", fileName, source: png });
+      }
     },
 
     configureServer(server) {
@@ -666,9 +689,21 @@ export function pagesPlugin(base: string): Plugin {
         ),
       ]);
 
+      const toyboxArt = new Map(
+        toyboxArtFiles(TOYBOX_LIST.map((t) => t.id)).map((f) => [`/${f.fileName}`, f.png]),
+      );
+
       server.middlewares.use((req, res, next) => {
         const url = (req.url ?? "/").split("?")[0];
         const path = url.startsWith(base) ? `/${url.slice(base.length)}` : url;
+
+        // The Toybox pictures, which are binary and so cannot ride `extras`.
+        const art = toyboxArt.get(path);
+        if (art) {
+          res.setHeader("Content-Type", "image/png");
+          res.end(Buffer.from(art));
+          return;
+        }
 
         const extra = extras.get(path);
         if (extra) {

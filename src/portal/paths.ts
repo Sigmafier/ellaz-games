@@ -108,6 +108,18 @@ export function toyboxHref(): string {
   return `${BASE}toybox/`;
 }
 
-export function toyboxGameHref(dir: string): string {
-  return `${BASE}toybox/games/${dir}/page/index.html`;
+/** a Toybox game's card portrait: `public/toybox-art/<dir>.png`, emitted by `scripts/toybox/portraits.py` */
+export function toyboxArtHref(dir: string): string {
+  return `${BASE}toybox-art/${dir}.png`;
+}
+
+/**
+ * A game's CAMPAIGN, never its bare page. The page with no query opens its
+ * engine's default mode - for the Brawl a single versus match - so the home
+ * links sent every player past the levels, the shop and the save for four days
+ * (2026-09-22 to 26). `campaign` is `data/campaign/<id>.json` in that game, the
+ * same id `studio/games/hub-games.ts` carries as `campaignId`.
+ */
+export function toyboxGameHref(dir: string, campaign: string): string {
+  return `${BASE}toybox/games/${dir}/page/index.html?campaign=${campaign}`;
 }

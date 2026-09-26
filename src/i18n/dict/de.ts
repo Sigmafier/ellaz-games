@@ -164,4 +164,8 @@ export const de: Record<StringKey, string> = {
   controlArrows: "Pfeile",
   controlJoystick: "Joystick",
   controlBoard: "Auf dem Feld",
+  // the Toybox row on the home (2026-09-26): the four studio games, English inside, so only these words translate
+  toyboxTagline: "Größere Spiele, für Jugendliche und Erwachsene",
+  toyboxBrawlLine: "3 Level und ein Boss. Münzen, ein Laden und Ausrüstung zum Finden.",
+  toyboxNew: "NEU",
 };

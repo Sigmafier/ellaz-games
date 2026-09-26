@@ -168,4 +168,8 @@ export const tr: Record<StringKey, string> = {
   controlArrows: "Oklar",
   controlJoystick: "Joystick",
   controlBoard: "Tahtada",
+  // the Toybox row on the home (2026-09-26): the four studio games, English inside, so only these words translate
+  toyboxTagline: "Gençler ve üstü için daha büyük oyunlar",
+  toyboxBrawlLine: "3 bölüm ve bir boss. Paralar, bir dükkan ve bulunacak ekipman.",
+  toyboxNew: "YENİ",
 };

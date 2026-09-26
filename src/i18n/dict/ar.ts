@@ -168,4 +168,8 @@ export const ar: Record<StringKey, string> = {
   controlArrows: "أسهم",
   controlJoystick: "عصا تحكم",
   controlBoard: "على اللوحة",
+  // the Toybox row on the home (2026-09-26): the four studio games, English inside, so only these words translate
+  toyboxTagline: "ألعاب أكبر، للمراهقين فما فوق",
+  toyboxBrawlLine: "3 مراحل وزعيم. عملات ومتجر وعتاد تجده في الطريق.",
+  toyboxNew: "جديد",
 };

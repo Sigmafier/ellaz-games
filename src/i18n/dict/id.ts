@@ -171,4 +171,8 @@ export const id: Record<StringKey, string> = {
   controlArrows: "Panah",
   controlJoystick: "Joystick",
   controlBoard: "Di papan",
+  // the Toybox row on the home (2026-09-26): the four studio games, English inside, so only these words translate
+  toyboxTagline: "Game lebih besar, untuk remaja ke atas",
+  toyboxBrawlLine: "3 level dan satu bos. Koin, toko, dan perlengkapan untuk ditemukan.",
+  toyboxNew: "BARU",
 };

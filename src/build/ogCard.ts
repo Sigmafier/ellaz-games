@@ -40,6 +40,7 @@ import { dirOf } from "../i18n/locales";
 import { SITE } from "../content/site";
 import { CATEGORY_CONTENT } from "../content/categories";
 import { GUIDE_CHROME, guideFor } from "../content/guides";
+import { toyboxFor } from "../content/toybox";
 import { artGround, gameArt, registerArt } from "../ui/gameArt";
 import { GAMES } from "../portal/games";
 import { REST } from "../ui/gameArtRest";
@@ -298,10 +299,15 @@ export function ogCardText(route: Route, meta?: GameMeta): { title: string; sub:
   // Checked BEFORE `meta`, because a guide route carries a game and would
   // otherwise fall through to the game branch.
   const guide = route.kind === "guide" && route.id ? guideFor(route.id) : undefined;
+  // A TOYBOX PAGE NAMES ITS GAME. It has no roster meta, so without this it
+  // would fall through to `site.brand` and draw the home card's words.
+  const toybox = route.kind === "toybox" && route.id ? toyboxFor(route.id) : undefined;
 
   const title = guide
     ? guide.copy.cardTitle
-    : meta
+    : toybox
+      ? toybox.name
+      : meta
       ? gameName(meta.id, route.locale)
       : (group ?? screen ?? site.brand);
 
@@ -332,6 +338,13 @@ export interface ArtTile {
   h: number;
   /** `meet` shows the WHOLE composition; `slice` fills the box and crops. */
   fit: "meet" | "slice";
+  /**
+   * Where the pixels come from. Absent means a roster game's scene, by `id`;
+   * "toybox" means `toyboxArt.ts`, where `id` is a Toybox page id. A separate
+   * field rather than a prefix on `id`, so a roster game can never be read as
+   * one by the shape of its name.
+   */
+  source?: "toybox";
 }
 
 /** The bar across the foot. Everything above it is picture. */
@@ -404,6 +417,14 @@ export function cardArt(route: Route, meta?: GameMeta): ArtTile[] {
   // the letterbox is INVISIBLE because the card's ground already IS the
   // scene's own ground colour.
   if (meta) return [{ id: meta.id, x: 0, y: 0, w: OG_WIDTH, h: BAND, fit: "meet" }];
+
+  // A TOYBOX PAGE SHOWS ITS OWN HERO, the whole band, rather than falling
+  // through to the home mosaic - a card for a teen brawler drawn from twelve
+  // children's games would describe the link as the wrong site. The ground is
+  // the bar's colour, so the band and the bar read as one card.
+  if (route.kind === "toybox" && route.id) {
+    return [{ id: route.id, x: 0, y: 0, w: OG_WIDTH, h: BAND, fit: "meet", source: "toybox" }];
+  }
 
   const ids = montageIds(route);
   if (!ids.length) return [];

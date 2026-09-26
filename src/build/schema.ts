@@ -11,11 +11,15 @@ import {
   guidePath,
   guidesIndexPath,
   homePath,
+  toyboxPagePath,
+  toyboxPlayPath,
 } from "./routes";
 import { artPath } from "./artFiles";
 import { ogImagePath } from "./ogCard";
 import type { GuideEntry } from "../content/guides";
 import { GUIDE_CHROME, guidesIn } from "../content/guides";
+import type { ToyboxEntry } from "../content/toybox";
+import { toyboxArtPath } from "./toyboxArt";
 
 /**
  * The JSON-LD each page carries.
@@ -59,14 +63,10 @@ const ORGANIZATION = {
   url: `${ORIGIN}/`,
   logo: `${ORIGIN}/icon.svg`,
   description: SITE.en.tagline,
-  // The source repository went private on 2026-09-23, so it can no longer
-  // stand for this entity - a crawler following it gets a 404. What is
-  // left are the public profiles that ARE this site: its Bluesky account
-  // and the itch page that publishes its standalone games.
-  sameAs: [
-    "https://bsky.app/profile/ellazfun.bsky.social",
-    "https://ytrofr.itch.io/",
-  ],
+  // No sameAs: the repository it named went private on 2026-09-23 and
+  // answers crawlers with a 404. A replacement costs first-visit bytes the
+  // payload ceiling does not have (measured 2026-09-26: two profile URLs
+  // put the first visit 1 B over), so it waits for a ceiling decision.
 };
 
 /**
@@ -471,4 +471,85 @@ export function guideIndexGraph(locale: Locale) {
       ORGANIZATION,
     ],
   };
+}
+
+/**
+ * A Toybox game's page: the game node, its breadcrumb, and its FAQ.
+ *
+ * THE SAME CO-TYPED NODE `gameGraph` emits - `VideoGame` alone is not a Search
+ * feature, and `assert-pages.mjs` refuses one without `SoftwareApplication`
+ * beside it - and the same two pictures in the same order: the image the page
+ * embeds first, the 1200x630 share card second.
+ *
+ * WHAT IS DIFFERENT, and why:
+ *
+ *   - `typicalAgeRange` is "13-", read as thirteen and up. The Brawl is not a
+ *     children's game and must not be described as one; `gameGraph` derives
+ *     the range from a roster game's `ageBand`, which a Toybox game has none of.
+ *   - no `isFamilyFriendly`. A roster game states it; this is a fighting game
+ *     with cartoon toys in it, and saying nothing is more honest than either
+ *     answer.
+ *   - `url` is THIS page, and the place it is played is a `PlayAction` target -
+ *     the Toybox page is noindex, so it is not the URL this node should earn.
+ *   - `playMode` SinglePlayer and `offers` at 0, like every game here.
+ */
+export function toyboxGraph(entry: ToyboxEntry) {
+  const c = entry.copy;
+  const locale = entry.locale;
+  const site = SITE[locale];
+  const url = canonicalUrl(toyboxPagePath(entry.slug, locale));
+  const ogRoute = ROUTES.find(
+    (r) => r.kind === "toybox" && r.id === entry.id && r.locale === locale,
+  );
+  const graph: unknown[] = [
+    {
+      "@type": ["VideoGame", "SoftwareApplication"],
+      "@id": `${url}#game`,
+      name: entry.name,
+      url,
+      image: [
+        `${ORIGIN}${toyboxArtPath(entry.id)}`,
+        ...(ogRoute ? [`${ORIGIN}${ogImagePath(ogRoute)}`] : []),
+      ],
+      description: c.lede,
+      inLanguage: locale,
+      gamePlatform: ["Web Browser", "Mobile", "Tablet", "Desktop"],
+      playMode: "SinglePlayer",
+      applicationCategory: "GameApplication",
+      operatingSystem: "Any",
+      isAccessibleForFree: true,
+      typicalAgeRange: "13-",
+      genre: ["Action", "Beat 'em up"],
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "ILS",
+        availability: "https://schema.org/InStock",
+      },
+      potentialAction: {
+        "@type": "PlayAction",
+        target: `${ORIGIN}${toyboxPlayPath(entry.dir, entry.campaign)}`,
+      },
+      publisher: PUBLISHER,
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: site.home, item: canonicalUrl(homePath(locale)) },
+        { "@type": "ListItem", position: 2, name: entry.name, item: url },
+      ],
+    },
+  ];
+  if (c.faq.length)
+    graph.push({
+      "@type": "FAQPage",
+      inLanguage: locale,
+      mainEntity: c.faq.map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    });
+  graph.push(ORGANIZATION);
+  return { "@context": "https://schema.org", "@graph": graph };
 }

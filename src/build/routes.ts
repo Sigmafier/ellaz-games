@@ -4,6 +4,7 @@ import { PAGE_LOCALES, CANONICAL_LOCALE, localePrefix } from "../i18n/locales";
 import { ORIGIN } from "../content/site";
 import { CATEGORY_CONTENT, MIN_GAMES_FOR_A_PAGE } from "../content/categories";
 import { GUIDE_LIST, GUIDE_LOCALES } from "../content/guides";
+import { TOYBOX_LIST } from "../content/toybox";
 import { GAMES } from "../portal/games";
 
 /**
@@ -42,6 +43,15 @@ export type PageKind =
    * `.claude/rules/a-proxy-for-a-page-kind-stops-discriminating-when-the-type-grows.md`.
    */
   | "guideIndex"
+  /**
+   * The one indexable page about a TOYBOX game, at `/games/<slug>/`.
+   *
+   * A kind of its own rather than a `guide`: a guide links down to a ROSTER
+   * game and borrows its art, and a Toybox game is not on the roster. One word
+   * and lowercase on purpose, because `ogCardKey` puts the kind into a file
+   * name - see `.claude/rules/a-derived-filename-obeys-the-filename-rules-not-the-identifiers.md`.
+   */
+  | "toybox"
   | "notFound";
 
 export interface Route {
@@ -274,6 +284,45 @@ export function guidesIndexPath(locale: Locale): string {
   return `${localePrefix(locale)}/guides/`;
 }
 
+/**
+ * `/games/toybox-brawl/` - the page about one Toybox game.
+ *
+ * UNDER `/games/`, beside the roster's own pages, for two reasons and the
+ * second is the load-bearing one. It is the URL a reader would guess for a
+ * game. And `games/**` is already in the service worker's `globIgnores` in
+ * `vite.config.ts`, so this document can never reach a first visit's precache
+ * - where a page at the root (`/toybox-brawl/`) would, silently, because no
+ * entry there names it.
+ *
+ * NEVER under `/toybox/`. That directory is written by the deploy AFTER this
+ * build (`cp -r studio/dist-toybox dist/toybox`), and a `dist/toybox/` this
+ * build had already created would turn that copy into `dist/toybox/dist-toybox/`
+ * and take the whole shelf down. `toybox.test.ts` asserts the path shape.
+ *
+ * The slug may not equal a game id or a category id, which would make two
+ * routes claim one file; `toybox.test.ts` asserts that too.
+ */
+export function toyboxPagePath(slug: string, locale: Locale): string {
+  return `${localePrefix(locale)}/games/${slug}/`;
+}
+
+/**
+ * Where a Toybox game is PLAYED: `/toybox/games/fight/page/index.html?campaign=brawl`.
+ *
+ * Base-free like every path here - `href()` adds the host's base, which is what
+ * makes it `/ellaz/toybox/...` on the Pages mirror. The same shape as
+ * `toyboxGameHref` in `src/portal/paths.ts`, which this build may not import
+ * (it reads the app's `BASE` at runtime); `toybox.test.ts` reads that file and
+ * holds the two to one shape.
+ *
+ * NOT a route. Nothing in this build writes it - the deploy copies the Toybox in
+ * after `build:check` - so `assert-pages.mjs` exempts `/toybox/` by name and
+ * `assert-live.mjs` checks it on the real site.
+ */
+export function toyboxPlayPath(dir: string, campaign: string): string {
+  return `/toybox/games/${dir}/page/index.html?campaign=${campaign}`;
+}
+
 /** `dist/`-relative file for a directory-style path. `/games/x/` -> `games/x/index.html`. */
 function fileFor(path: string): string {
   return `${path.slice(1)}index.html`;
@@ -410,6 +459,22 @@ export const ROUTES: Route[] = [
       emit: true,
       indexable: true,
       locales: GUIDE_LOCALES,
+    }),
+  ),
+  // ONE PER TOYBOX GAME WITH A PAGE, in the one language the Toybox exists in.
+  // Derived from `src/content/toybox.ts`, so the URL, the sitemap row, the
+  // share card and the gate assertions all follow from writing the entry.
+  // `locales: [locale]` is the single-language shape a guide already declares.
+  ...TOYBOX_LIST.map(
+    (t): Route => ({
+      kind: "toybox",
+      locale: t.locale,
+      id: t.id,
+      path: toyboxPagePath(t.slug, t.locale),
+      file: fileFor(toyboxPagePath(t.slug, t.locale)),
+      emit: true,
+      indexable: true,
+      locales: [t.locale],
     }),
   ),
   {

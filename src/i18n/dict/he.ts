@@ -167,6 +167,10 @@ export const he = {
   controlArrows: "חצים",
   controlJoystick: "ג'ויסטיק",
   controlBoard: "על הלוח",
+  // the Toybox row on the home (2026-09-26): the four studio games, English inside, so only these words translate
+  toyboxTagline: "משחקים גדולים יותר, לבני נוער ומעלה",
+  toyboxBrawlLine: "3 שלבים ובוס. מטבעות, חנות וציוד שמוצאים בדרך.",
+  toyboxNew: "חדש",
 } as const;
 
 export type StringKey = keyof typeof he;

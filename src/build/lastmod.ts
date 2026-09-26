@@ -160,6 +160,12 @@ function sourcesFor(
   }
   // The index lists them, so it changes when the registry does.
   if (route.kind === "guideIndex") return ["src/content/guides.ts", "src/content/guides"];
+  // A TOYBOX PAGE changes when its own copy or its renderer does. Not when the
+  // game in `studio/` does - the page states what the copy states, and a
+  // `<lastmod>` moving on every engine commit would be a date that is not true.
+  if (route.kind === "toybox" && route.id) {
+    return [`src/content/toybox/${route.id}.ts`, "src/build/toyboxPage.ts"];
+  }
   // Home, world and boards are assembled from the roster and the shared copy,
   // so they change when either does.
   return ["src/portal", "src/content/site.ts", "src/build"];

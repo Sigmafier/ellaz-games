@@ -40,8 +40,10 @@ import {
   homePath,
   href,
   OG_ROUTES,
+  toyboxPagePath,
 } from "./routes";
 import { GUIDE_CHROME, GUIDE_LOCALES } from "../content/guides";
+import { TOYBOX_LIST } from "../content/toybox";
 import { OG_HEIGHT, OG_WIDTH, ogImagePath } from "./ogCard";
 import { OFFER_CSS, offerBar } from "./langOffer";
 import { consentBar } from "./consent";
@@ -1016,9 +1018,10 @@ export function icon(
  * carry none of it. Every other page that gets it is a document a reader only
  * downloads after choosing something.
  *
- * The home screen has its own link, and it is NOT free: `ToyboxShelf` in
- * `src/portal/Home.tsx` costs 139 B gz measured, which is why the payload
- * ceiling moved in the same commit. Two links, two mechanisms, on purpose -
+ * The home screen has its own way in, and it is NOT free: `ToyboxRow` in
+ * `src/portal/ToyboxRow.tsx` - a picture banner for the Brawl and three cards,
+ * which replaced a 146 B strip of text links on 2026-09-26 - costs 739 B gz
+ * measured, which is why the payload ceiling moved in that commit. Two links, two mechanisms, on purpose -
  * this one reaches a reader already inside a game, that one reaches a player
  * who has just arrived.
  *
@@ -1033,6 +1036,30 @@ export function icon(
  */
 function toyboxFooterLink(base: string): RawHtml {
   return html`<a href="${href("/toybox/", base)}">Toybox (beta)</a>`;
+}
+
+/**
+ * The footer's link to each Toybox game's OWN page, beside the shelf link.
+ *
+ * WHY IT EXISTS: the shelf link above points at `/toybox/`, which is noindex,
+ * so until 2026-09-26 every link on this site toward the Brawl ended at a page
+ * that asks not to be indexed. This one ends at the indexable page about it
+ * (`/games/toybox-brawl/`), and the footer is on every emitted document except
+ * the four app-shell homes - so a crawler following links finds it from ~260
+ * places, and `assert-links.mjs` has something to count.
+ *
+ * NO `hreflang`, deliberately, although the page is English-only. The footer's
+ * `<a hreflang>` links are its LANGUAGE links, and `build.test.ts` counts them
+ * per page against the route's own locale set - an extra one would read as a
+ * page offering a language it was never written in.
+ *
+ * SAME ON EVERY LANGUAGE SIDE, for the operator's reason on the shelf link: the
+ * Toybox is in English and a game's name is a proper noun.
+ */
+function toyboxPageLinks(base: string): RawHtml {
+  return html`${TOYBOX_LIST.map(
+    (t) => html`<a href="${href(toyboxPagePath(t.slug, t.locale), base)}">${t.name}</a>`,
+  )}`;
 }
 
 function guidesLink(locale: Locale, base: string): RawHtml {
@@ -1288,6 +1315,7 @@ export function renderDocument(opts: DocumentOptions): string {
         <span>${site.footer}</span>
         ${guidesLink(locale, base)}
         ${toyboxFooterLink(base)}
+        ${toyboxPageLinks(base)}
         ${otherLocales.map(
           (a) =>
             // The autonym, never a flag: Spanish is not Spain, Arabic is

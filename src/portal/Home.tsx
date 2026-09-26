@@ -18,7 +18,8 @@ import {
   type DailyStateV1,
   type ProfileV1,
 } from "@sdk/index";
-import { PRINT_KINDS, PRINT_PAGE_LOCALE, boardsHref, gameHref, printHref, worldHref, toyboxGameHref } from "./paths";
+import { PRINT_KINDS, PRINT_PAGE_LOCALE, boardsHref, gameHref, printHref, worldHref } from "./paths";
+import { ToyboxRow } from "./ToyboxRow";
 import { openReport } from "./openReport";
 import { inkFor } from "@ui/ink";
 import { Icon } from "@ui/icons";
@@ -396,7 +397,7 @@ export function Home({
             and these four pay neither.
 
             It costs no bytes to be here: same component, rendered earlier. */}
-        <ToyboxShelf onTap={tap} />
+        <ToyboxRow locale={locale} onTap={tap} />
 
         <div
           style={{
@@ -693,70 +694,6 @@ const PACK_LABEL: Record<string, string> = {
   wordsearch: "חיפוש מילים",
   coloring: "צביעה",
 };
-
-/**
- * The Toybox beta shelf, at `/toybox/`.
- *
- * NOT a catalogue game and deliberately not styled like one. The four games
- * there run on the studio's own engine, keep no coins and no stars, and have no
- * page in any of the four languages - so a card in the grid would promise a
- * player all three. A strip of plain links promises what is actually there.
- *
- * BASE-PREFIXED, not routed. `/toybox/` is not in the route table and no build here
- * emits it: both deploy workflows copy `studio/dist-toybox` into `dist/toybox/`
- * AFTER `build:check` runs. `assert-pages.mjs` names it as the one exception for
- * that reason, and `assert-live.mjs` fetches it on the real site - so the link is
- * checked, just at the stage that can see it.
- *
- * The labels are the games' own names, which are proper nouns in every language
- * we ship. The one word that is not - "beta" - is the same borrowed word in all
- * four, so there is no string to translate and no locale arm to forget.
- */
-/** slug -> the name the shelf itself shows; `studio/games/hub-games.ts` is the source */
-const TOYBOX_GAMES: [string, string][] = [
-  ["fight", "Toybox Brawl"],
-  ["crypt", "The Crypt"],
-  ["ember", "Ember Hollow"],
-  ["hollow", "The Hollow"],
-];
-
-export function ToyboxShelf({ onTap }: { onTap: () => void }) {
-  return (
-    <p
-      style={{
-        color: "var(--text-dim)",
-        fontSize: 13,
-        textAlign: "center",
-        marginTop: 28,
-        display: "flex",
-        flexWrap: "wrap",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: "0 4px",
-      }}
-    >
-      <span style={{ fontWeight: 700 }}>Toybox (beta)</span>
-      {TOYBOX_GAMES.map(([slug, label]) => (
-        <a
-          key={slug}
-          href={toyboxGameHref(slug)}
-          onClick={onTap}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            minHeight: "var(--tap)",
-            padding: "0 8px",
-            color: "var(--text-dim)",
-            textDecoration: "underline",
-            textUnderlineOffset: 3,
-          }}
-        >
-          {label}
-        </a>
-      ))}
-    </p>
-  );
-}
 
 export function PrintablePacks({ locale, onTap }: { locale: AppLocale; onTap: () => void }) {
   if (pageLocaleFor(locale) !== PRINT_PAGE_LOCALE) return null;

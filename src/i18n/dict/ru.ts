@@ -166,4 +166,8 @@ export const ru: Record<StringKey, string> = {
   controlArrows: "Стрелки",
   controlJoystick: "Джойстик",
   controlBoard: "На поле",
+  // the Toybox row on the home (2026-09-26): the four studio games, English inside, so only these words translate
+  toyboxTagline: "Игры побольше, для подростков и взрослых",
+  toyboxBrawlLine: "3 уровня и босс. Монеты, магазин и снаряжение, которое можно найти.",
+  toyboxNew: "НОВОЕ",
 };

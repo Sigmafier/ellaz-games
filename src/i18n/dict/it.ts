@@ -163,4 +163,8 @@ export const it: Record<StringKey, string> = {
   controlArrows: "Frecce",
   controlJoystick: "Joystick",
   controlBoard: "Sul tabellone",
+  // the Toybox row on the home (2026-09-26): the four studio games, English inside, so only these words translate
+  toyboxTagline: "Giochi più grandi, per ragazzi e adulti",
+  toyboxBrawlLine: "3 livelli e un boss. Monete, un negozio e equipaggiamento da trovare.",
+  toyboxNew: "NUOVO",
 };

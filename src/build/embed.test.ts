@@ -220,6 +220,8 @@ describe("the embed route table", () => {
       // than some other single language.
       if (r.kind === "guide") return [r.locale];
       if (r.kind === "guideIndex") return [...GUIDE_LOCALES];
+      // A Toybox page is written in the Toybox's one language, like a guide.
+      if (r.kind === "toybox") return [r.locale];
       return [...PAGE_LOCALES];
     };
     for (const r of ROUTES) {

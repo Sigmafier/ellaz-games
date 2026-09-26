@@ -168,4 +168,8 @@ export const sv: Record<StringKey, string> = {
   controlArrows: "Pilar",
   controlJoystick: "Styrspak",
   controlBoard: "På spelplanen",
+  // the Toybox row on the home (2026-09-26): the four studio games, English inside, so only these words translate
+  toyboxTagline: "Större spel, för tonåringar och äldre",
+  toyboxBrawlLine: "3 nivåer och en boss. Mynt, en butik och utrustning att hitta.",
+  toyboxNew: "NY",
 };

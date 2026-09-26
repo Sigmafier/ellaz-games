@@ -62,6 +62,15 @@ const COLOUR_EXEMPT = new Map<string, string>([
       "they describe.",
   ],
   [
+    "portal/ToyboxRow.tsx",
+    "the four Toybox cards' fills and their ink. Each fill is that game's own " +
+      "colour (studio/games/hub-games.ts, the same one its shelf card wears), the " +
+      "same kind of identity as meta.color, and the ink is fixed WITH it rather " +
+      "than following the theme: a theme ink on a literal fill is the chess defect, " +
+      "readable in one theme and 1.08:1 in the other. Measured on the built home in " +
+      "both themes, 2026-09-26: 11.15 to 13.2 : 1.",
+  ],
+  [
     "ui/gameArt.ts",
     "the 21 key-art scenes. Same reason as the room, one step further out: a " +
       "thumbnail is an illustration with its own internal light, and swapping " +

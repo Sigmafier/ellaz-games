@@ -31,6 +31,7 @@ import {
   registerOgHash,
 } from "./ogCard";
 import { OG_ROUTES, type Route } from "./routes";
+import { toyboxArtPng } from "./toyboxArt";
 
 /**
  * Heebo covers Hebrew and Latin in one family, which is why the site already
@@ -114,6 +115,9 @@ function fonts() {
  * the path both tools agree on.
  */
 function artPngUri(tile: ArtTile): string {
+  if (tile.source === "toybox") {
+    return `data:image/png;base64,${Buffer.from(toyboxArtPng(tile.id, tile.w, tile.h)).toString("base64")}`;
+  }
   const png = new Resvg(artSvgSized(tile.id, tile.w, tile.h, tile.fit), {
     // Rasterise at the tile's OWN width, not the card's. Rendering every
     // mosaic tile at 1200 and letting satori scale it down is ten full-size
@@ -237,7 +241,10 @@ export function ensureOgCard(route: Route): Promise<Uint8Array> {
     // field that means "the game this page is about" and it is set on a guide
     // for exactly this. Read first, so the two cannot be confused; falls back
     // to `id` for the three kinds where they are the same thing.
-    const meta = metaFor(route.game ?? route.id ?? "");
+    // A Toybox page is about a game that is NOT on the roster, so it never
+    // asks: an id that one day matched a roster game would silently hand the
+    // card that game's scene.
+    const meta = route.kind === "toybox" ? undefined : metaFor(route.game ?? route.id ?? "");
     png = renderOgPng(route, meta).then((bytes) => {
       // Register FIRST; `ogImageFile` reads the registry to build the name.
       registerOgHash(route, bytes);
