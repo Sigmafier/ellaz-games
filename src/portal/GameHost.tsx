@@ -248,8 +248,20 @@ export function GameHost({
       setShare({ resultLine, open: false, playAgain: hasRestart() });
     });
 
+    // THE LAYOUT LAB'S STRIP SWITCH. The strip below appears only after a run
+    // ends, so the lab (src/lab/layout) could never measure what it costs a
+    // board. It asks for it by message instead - answered only inside a frame,
+    // and only from this origin, so no player and no other site can raise it.
+    // The line is marked, because it is a lab fixture and not a result.
+    const onLab = (e: MessageEvent) => {
+      if (window === window.top || e.origin !== location.origin || e.data?.type !== "ellaz:lab-strip") return;
+      setShare(e.data.on ? { resultLine: "(layout lab preview)", open: false, playAgain: hasRestart() } : null);
+    };
+    addEventListener("message", onLab);
+
     return () => {
       cancelled = true;
+      removeEventListener("message", onLab);
       registerCurrentGame(null);
       registerShareChipHandler(null);
       // A game that has exited must not leave its last win's chip floating
@@ -464,6 +476,8 @@ export function GameHost({
           .claude/rules for "no fail-punishment". */}
       {share && !share.open && (
         <div
+          /* The hook the layout lab reads this strip by (src/lab/layout/harvest.ts). */
+          className="ellaz-end-strip"
           style={{
             flex: "0 0 auto",
             display: "flex",

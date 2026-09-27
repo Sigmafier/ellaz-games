@@ -9,69 +9,17 @@ import { armCrashReporting, watchErrors } from "./openReport";
 const LOCALE_KEY = "ellaz:locale";
 
 /**
- * The sound lab, at `#/lab`.
+ * EVERY LAB, at `#/lab` and `#/lab/<name>` - the sound lab, the design bench,
+ * the footers wall and the layout lab - through ONE lazy import.
  *
- * A FRAGMENT, not a path: a fragment never reaches the server, so this needs no
- * emitted document, joins no sitemap, and no crawler can find it. `#/lab` was
- * the old Juice Lab's address and has been an unrecognised hash since that lab
- * was deleted; giving it a destination again costs nothing and means an old
- * bookmark lands somewhere useful.
- *
- * Lazy, and carved into its own `lab-*` chunk by `manualChunks` with a matching
- * `globIgnores` entry - the documented three changes. It is NOT guarded by
- * `import.meta.env.DEV` the way the old lab was, because the whole point is
- * that it is reachable from a phone; `npm run build:check` is what proves it
- * still costs a first visit nothing.
+ * A fragment, never a path: no emitted document, no sitemap, no crawler. Each
+ * lab used to be its own `lazy()` here, and each one cost the first-visit
+ * SHELL its wrapper and its address; the fifth (the layout lab) pushed the
+ * first visit 20 B gz over its ceiling on 2026-09-27 (shell 40,487 -> 40,532,
+ * two builds of one tree). The addresses and what each one is for now live in
+ * `src/lab/route.tsx`, inside the `lab-*` chunk a first visit never loads.
  */
-const Lab = lazy(() => import("../lab/Lab").then((m) => ({ default: m.Lab })));
-
-const LAB_HASH = "#/lab";
-
-/**
- * The Design Bench's compare screen, at `#/lab/design`.
- *
- * Its own address rather than a tab inside the sound lab, for one reason that
- * is a measurement and not a preference: the lab's column is capped at 720px
- * and two phone-width arms side by side need 796. A tab would have to fight
- * that cap or shrink the arms, and an arm measured at the wrong width is worse
- * than no arm at all.
- *
- * Same chunk, so it costs a first visit exactly what the lab costs it: nothing.
- */
-const DesignCompare = lazy(() =>
-  import("../lab/design/Compare").then((m) => ({ default: m.Compare })),
-);
-
-const DESIGN_HASH = "#/lab/design";
-
-/**
- * THE BENCH, at `#/lab/buttons` - a real game page where every part of it is a
- * thing you can point at.
- *
- * It kept that address rather than taking a new one, because it is the address
- * that is bookmarked and it is still the same subject. What changed is how you
- * reach a number: it was two tabs of sliders named after CSS custom properties
- * and it is now the screen itself, chosen out of three proposals on
- * 2026-08-22. Same `lab-*` chunk, so it costs a first visit nothing.
- */
-const DesignScreen = lazy(() => import("../lab/design/Screen").then((m) => ({ default: m.Screen })));
-
-const BUTTONS_HASH = "#/lab/buttons";
-
-/**
- * The per-game footers, at `#/lab/footers`.
- *
- * The half of the old buttons bench the inspector does NOT cover: what each of
- * the 33 games draws in its own footer, which no shared rule governs, and the
- * wall that scans all of them at once. It asks a different question - "what did
- * 33 authors do" rather than "what should this one number be" - so it gets its
- * own address instead of being a tab nobody opens.
- */
-const DesignFooters = lazy(() =>
-  import("../lab/design/Buttons").then((m) => ({ default: m.Buttons })),
-);
-
-const FOOTERS_HASH = "#/lab/footers";
+const LabRoute = lazy(() => import("../lab/route").then((m) => ({ default: m.LabRoute })));
 
 /** Re-render on hash change, so leaving the lab does not need a reload. */
 function useHash(): string {
@@ -267,34 +215,10 @@ export function App({ initialLocale }: { initialLocale?: AppLocale } = {}) {
 
   // After the hooks, never before them - an early return above a hook changes
   // the hook order between renders and React crashes.
-  if (hash === FOOTERS_HASH) {
+  if (hash === "#/lab" || hash.startsWith("#/lab/")) {
     return (
       <Suspense fallback={null}>
-        <DesignFooters />
-      </Suspense>
-    );
-  }
-
-  if (hash === BUTTONS_HASH) {
-    return (
-      <Suspense fallback={null}>
-        <DesignScreen />
-      </Suspense>
-    );
-  }
-
-  if (hash === DESIGN_HASH) {
-    return (
-      <Suspense fallback={null}>
-        <DesignCompare />
-      </Suspense>
-    );
-  }
-
-  if (hash === LAB_HASH) {
-    return (
-      <Suspense fallback={null}>
-        <Lab locale={locale} />
+        <LabRoute hash={hash} locale={locale} />
       </Suspense>
     );
   }

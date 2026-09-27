@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { ROSTER_IDS } from "../../portal/shellRoster";
 import { GAMES as BUTTONS_GAMES } from "./Buttons";
 import { GAMES as COMPARE_GAMES } from "./Compare";
+import { GAMES as LAYOUT_GAMES } from "../layout/walk";
 
 /**
  * The bench must see the WHOLE catalogue, and this is the assertion that makes
@@ -53,5 +54,10 @@ describe("the design bench sees every game", () => {
     // and that is the same defect one step earlier.
     expect(BUTTONS_GAMES).toEqual([...ROSTER_IDS]);
     expect(COMPARE_GAMES).toEqual([...ROSTER_IDS]);
+  });
+  it("the layout lab walks the whole catalogue", () => {
+    // Its wall says "N games x 4 screens" off this array, so a halved roster
+    // would scan half, say so, and look complete.
+    expect(LAYOUT_GAMES).toEqual([...ROSTER_IDS]);
   });
 });
