@@ -89,6 +89,28 @@ const COLOUR_EXEMPT = new Map<string, string>([
       "cut in two, and game-art-split.test.ts is what keeps the cut honest.",
   ],
   [
+    "ui/themes/paper.css",
+    "the Paper theme's token definitions - the same thing tokens.css is for Day and Night, in the one sheet only a player who picks Paper fetches",
+  ],
+  [
+    "ui/themes/crayon.css",
+    "the Crayon theme's token definitions - the same thing tokens.css is for Day and Night, in the one sheet only a player who picks Crayon fetches",
+  ],
+  [
+    "ui/themes/flat.css",
+    "the Flat theme's token definitions - the same thing tokens.css is for Day and Night, in the one sheet only a player who picks Flat fetches",
+  ],
+  [
+    "ui/themes/arcade.css",
+    "the Arcade theme's token definitions - the same thing tokens.css is for Day and Night, in the one sheet only a player who picks Arcade fetches",
+  ],
+  [
+    "ui/themePicker.ts",
+    "the six swatch pictures in the Theme menu. Each is drawn in ITS OWN theme's " +
+      "colours, never in tokens: drawn in tokens, every picture would show the " +
+      "theme the player is already in, and the picker would be six copies of one.",
+  ],
+  [
     "juice/effects.ts",
     "the confetti fallback, used when getComputedStyle returns nothing (jsdom, or " +
       "before the stylesheet parses). Confetti with no colours is invisible confetti.",

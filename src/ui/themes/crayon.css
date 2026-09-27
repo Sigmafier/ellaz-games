@@ -1,0 +1,94 @@
+/* CRAYON NOTEBOOK - theme 2 of the style round (operator pick, 2026-09-27).
+   A ruled exercise book, everything outlined by hand in a wobbly black line,
+   headings written in a child's hand. Served only to a player who picks it.
+   Every rule is scoped to :root[data-theme="crayon"]; see paper.css. */
+@import "./fonts/gochi-hand.css";
+
+:root[data-theme="crayon"] {
+  --bg: #fdfdf6;
+  --bg-soft: #f4f4ea;
+  --surface: #ffffff;
+  --surface-2: #f3f6fb;
+  --text: #2b2b2b;
+  --text-dim: #585c63;
+  --brand: #d6453f;
+  --brand-2: #f25f5c;
+  --teal: #1f9e89;
+  --yellow: #ffd166;
+  --red: #d6453f;
+  --green: #3aa55c;
+  --pink: #ef8a8a;
+  --orange: #ff9f43;
+  --brand-ink: #b3302b;
+  --brand-2-ink: #b3302b;
+  --teal-ink: #146b5c;
+  --yellow-ink: #7a5600;
+  --red-ink: #b3302b;
+  --green-ink: #22703b;
+  --pink-ink: #a33a4a;
+  --orange-ink: #8f4410;
+  --brand-fill: var(--brand);
+  --surface-fill: var(--surface);
+  --page-bg: repeating-linear-gradient(#fdfdf6 0 31px, #c9dcf2 31px 32px);
+  --on-brand: #ffffff;
+  --brand-strong: #b3302b;
+  --badge-fill: rgba(43, 43, 43, 0.8);
+  --badge-glow: 0 1px 2px rgba(43, 43, 43, 0.45);
+  --line: #c9dcf2;
+  --stage-bg: #f4f4ea;
+  --stage-cover: rgba(20, 20, 20, 0.86);
+  /* The outline IS the shadow: a crayon line around every control, drawn by
+     the same token every shared button already paints. */
+  --shadow-1: 0 0 0 2.5px #2b2b2b;
+  --shadow-2: 0 0 0 3px #2b2b2b, 3px 4px 0 rgba(43, 43, 43, 0.2);
+  --tint-strength: 0.1;
+  --art-veil: transparent;
+  --spark-colors: #f25f5c, #1f77d0, #ffd166, #5cc896, #ff9f43;
+  --confetti-colors: #f25f5c, #1f77d0, #ffd166, #5cc896, #ff9f43, #748cff, #ef8a8a, #2b2b2b;
+
+  --font-display: "Gochi Hand", "Fredoka", "Heebo", system-ui, sans-serif;
+  --radius-pill: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --radius-3: 22px 8px 20px 10px / 10px 20px 8px 22px;
+  --radius-2: 16px 6px 14px 8px / 8px 14px 6px 16px;
+  --radius-1: 10px 4px 9px 5px / 5px 9px 4px 10px;
+}
+
+:root[data-theme="crayon"] .gname,
+:root[data-theme="crayon"] .gc-value,
+:root[data-theme="crayon"] h1,
+:root[data-theme="crayon"] h2 {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+}
+:root[data-theme="crayon"] .gc-cell { box-shadow: var(--shadow-1) !important; }
+
+/* The exercise book: ruled lines on every screen, and the red margin line. */
+:root[data-theme="crayon"] body { background: var(--page-bg); }
+:root[data-theme="crayon"] body::before {
+  content: "";
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 22px;
+  width: 2px;
+  background: #ef8a8a;
+  pointer-events: none;
+  z-index: -1;
+}
+/* The bar is the top of the page, not a band: paper, a pencil line under it,
+   and every button a hand-drawn outline. */
+:root[data-theme="crayon"] body.screen .top {
+  --hdr-ink: #2b2b2b;
+  background: #fdfdf6;
+  box-shadow: 0 3px 0 #2b2b2b;
+}
+:root[data-theme="crayon"] body.screen .top .hbtn:not(.moresheet *) {
+  background: repeating-linear-gradient(45deg, rgba(255, 209, 102, 0.55) 0 4px, #fff 4px 8px);
+  color: #2b2b2b;
+  box-shadow: 0 0 0 2.5px #2b2b2b;
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+}
+:root[data-theme="crayon"] .gc-cell:nth-child(odd) { transform: rotate(-1deg); }
+:root[data-theme="crayon"] .gname {
+  text-decoration: underline wavy #f25f5c;
+  text-underline-offset: 5px;
+}

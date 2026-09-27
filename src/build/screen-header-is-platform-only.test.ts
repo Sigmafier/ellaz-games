@@ -222,18 +222,13 @@ describe("the utility row carries the game's own control, and only there", () =>
 
 describe("the three screens are the SAME header", () => {
   it("draws the same controls in the same order", () => {
-    // The GAME page carries one control the other two do not: the phone bar's
-    // "more" button (operator ruling 2026-09-14 - on a phone a game page's two
-    // rows become one bar, and what does not fit goes behind it). It is hidden
-    // above 720px and filled by the runtime below it, so it is taken out BEFORE
-    // the three shapes are compared - and the removal is asserted to have
-    // happened, or a renamed class would make this pass by comparing nothing new.
+    // Since the themes (operator ruling 2026-09-27, "the '...' menu, every
+    // page") all three carry the "more" menu - it holds the Theme choice - so
+    // the three are compared WHOLE. The menu is asserted present on each, or a
+    // renamed class would make this pass by comparing nothing new.
     const MORE = /<details class="more">[\s\S]*?<\/details>/;
-    expect(PAGES.game).toMatch(MORE);
-    expect(PAGES.world).not.toMatch(MORE);
-    expect(PAGES.boards).not.toMatch(MORE);
-    const [game, world, boards] = [shape(PAGES.game.replace(MORE, "")), shape(PAGES.world), shape(PAGES.boards)];
-    expect(game).not.toBe(shape(PAGES.game));
+    for (const page of Object.values(PAGES)) expect(page).toMatch(MORE);
+    const [game, world, boards] = [shape(PAGES.game), shape(PAGES.world), shape(PAGES.boards)];
     expect(world).toBe(game);
     expect(boards).toBe(game);
     // A positive control: the shape has to be capable of DISAGREEING, or three

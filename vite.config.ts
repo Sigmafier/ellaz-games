@@ -6,6 +6,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { fileURLToPath, URL } from "node:url";
 import { pagesPlugin } from "./src/build/pages";
+import { themeSheetHref, themeSheetsPlugin } from "./src/build/themeSheets";
 import { DEFAULT_THEME, needsThemeBoot, themeBootScript, themeById } from "./src/ui/themes";
 // Safe to import HERE for the same reason `themes.ts` is: `locales.ts` is a
 // leaf that imports nothing. Never reach for a game module at config time -
@@ -77,7 +78,7 @@ function themeBootPlugin() {
           tags: [
             {
               tag: "script",
-              children: themeBootScript(),
+              children: themeBootScript(themeSheetHref(base)),
               injectTo: "head-prepend" as const,
             },
           ],
@@ -192,12 +193,20 @@ export default defineConfig({
     // Read by `src/report/context.ts`. A literal, so it costs the shell the
     // length of one sha and nothing else.
     __BUILD_STAMP__: JSON.stringify(buildStamp()),
+    // Read only by the lazy theme picker (src/ui/themePicker.ts), so it costs
+    // the first visit nothing: the URL of a theme's own sheet is
+    // `BASE_URL + "assets/theme-" + id + this`, the same template the boot
+    // script writes. One hash for all four sheets, from src/build/themeSheets.ts.
+    __THEME_SHEET_SUFFIX__: JSON.stringify(themeSheetHref(base).suffix),
   },
   base,
   plugins: [
     // First, so its head-prepend lands above everything else in <head>.
     themeBootPlugin(),
     react(),
+    // The four picked-only theme sheets and their fonts, emitted beside the
+    // bundle and served in dev. Nothing imports them, so no chunk carries them.
+    themeSheetsPlugin(),
     swPurgePlugin(),
     VitePWA({
       // "prompt" here means "WE decide when", not "ask the user" - there is no
@@ -341,6 +350,7 @@ export default defineConfig({
           // should carry it. Precaching it would be the whole point of the lazy
           // import, undone silently and with a green build.
           "**/lab-*.js",
+          "**/themes-*.js",
           // The card art for every game BELOW the fold. The home grid draws the
           // emoji until it lands, and it lands on browser idle. Without this
           // entry the glob above precaches it anyway, the first visit is exactly
@@ -698,6 +708,16 @@ export default defineConfig({
           // screen, and only `PageApp` imports it. Left to the catch-all it put
           // 363 B gz into every first visit (measured 2026-09-14, two builds).
           if (/\/src\/portal\/keyGuard\.ts$/.test(path)) return "page";
+          // `themeMenu.ts` fills a screen's "..." menu with the Theme choice;
+          // imported only by PageApp, so it belongs with it, not in the shell.
+          if (/\/src\/portal\/themeMenu\.ts$/.test(path)) return "page";
+          // The Theme choice itself, and the theme records it draws: lazy, its
+          // own chunk, fetched when a "..." menu first opens. globIgnores has
+          // the matching `**/themes-*.js`.
+          // themes.ts too: the picker is its only importer in the app, and a
+          // module shared by the shell and a lazy chunk lands in the shell -
+          // measured, 2026-09-27, the six records rode the first visit.
+          if (/\/src\/ui\/(themePicker|themes)\.ts$/.test(path)) return "themes";
           // `boardsView.ts` is the pure half of the boards screen and `Boards.tsx`
           // above is its ONLY importer, so the catch-all below was shipping it -
           // the ladder order, the record lookup, all of it - to every child on a

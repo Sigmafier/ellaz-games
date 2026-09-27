@@ -52,6 +52,7 @@ import { consentBar } from "./consent";
 // themes.ts imports nothing, which is what lets both the Vite config and this
 // build-time renderer read the same theme list. See src/ui/themes.ts.
 import { DEFAULT_THEME, themeBootScript, themeById } from "../ui/themes";
+import { themeSheetHref } from "./themeSheets";
 // The geometry only - never the React component. This file must stay DOM-free
 // and React-free, and the icon set exports its paths for exactly this caller.
 import { ICON_PATHS, ICON_STROKE } from "../ui/icons";
@@ -689,26 +690,28 @@ body.screen #wallet-slot>*{background:none;box-shadow:none;border:0;
    The NAME comes back on a phone game page because the breadcrumb that said it
    is gone with the row. It is still in the h1 below either way. */
 .top .more{display:none}
+/* THE "..." MENU ON EVERY SCREEN, every width, since the themes (operator
+   ruling 2026-09-27: "the '...' menu, every page"). It holds the Theme choice,
+   which src/portal/themeMenu.ts draws into .themegrid on first open; on a phone
+   game page phoneBar.ts also moves the utility row's controls in under it. */
+body.screen .top .more{display:block;position:relative;flex:0 0 auto}
+body.screen .top .more>summary{list-style:none}
+body.screen .top .more>summary::-webkit-details-marker{display:none}
+body.screen .top .more>summary::marker{content:""}
+body.screen .moresheet{position:absolute;inset-inline-end:0;
+  top:calc(var(--tap) + 6px);z-index:7;min-width:240px;max-width:min(92vw,320px);
+  padding:6px;display:flex;flex-direction:column;gap:2px;border-radius:var(--urad,14px);
+  background:var(--doc-card);border:1px solid var(--doc-line);
+  box-shadow:0 10px 30px rgba(0,0,0,.25);color:var(--doc-ink)}
 @media (max-width:719px){
   body[data-page="game"].screen{--hh:52px;--uh:0px}
   body[data-page="game"].screen .urow{display:none}
   body[data-page="game"].screen .gname{display:block}
   body[data-page="game"].screen .top .in{gap:6px;padding:0 8px}
-  body[data-page="game"].screen .top .more{display:block;position:relative;flex:0 0 auto}
-  body[data-page="game"].screen .top .more>summary{list-style:none}
-  body[data-page="game"].screen .top .more>summary::-webkit-details-marker{display:none}
-  body[data-page="game"].screen .top .more>summary::marker{content:""}
   /* Pause and restart arrive from the utility row wearing its card styling,
      which is cream on cream against this bar. */
   body[data-page="game"].screen .top .in>.ubtn{background:rgba(255,255,255,.12);
     color:var(--hdr-ink);box-shadow:none;border-radius:var(--hrad)}
-  /* The sheet: a card under the button, pinned to the inline end so it opens
-     inward in both directions, the same way the language sheet does. */
-  body[data-page="game"].screen .moresheet{position:absolute;inset-inline-end:0;
-    top:calc(var(--tap) + 6px);z-index:7;min-width:200px;max-width:min(84vw,300px);
-    padding:6px;display:flex;flex-direction:column;gap:2px;border-radius:var(--urad);
-    background:var(--doc-card);border:1px solid var(--doc-line);
-    box-shadow:0 10px 30px rgba(0,0,0,.25);color:var(--doc-ink)}
   /* Inside the sheet every control is a ROW with its own label, read off the
      aria-label it already carries, so no string is written twice. */
   body[data-page="game"].screen .moresheet .ubtn,
@@ -1213,7 +1216,7 @@ function screenChrome(
           <summary class="hbtn ico" aria-label="${chrome.moreLabel}">
             ${raw('<span class="gl"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="5.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18.5" cy="12" r="1.9"/></svg></span>')}
           </summary>
-          <div class="moresheet" role="group" aria-label="${chrome.moreLabel}"></div>
+          <div class="moresheet" role="group" aria-label="${chrome.moreLabel}"><div class="themegrid"></div></div>
         </details>`
       : raw("")}
     <div class="wallet-wrap">${slot ?? raw("")}</div>
@@ -1387,7 +1390,7 @@ export function renderDocument(opts: DocumentOptions): string {
    * out here, so adding a theme cannot leave it behind.
    */
   const themeBootTag = html`<script>
-          ${raw(themeBootScript())}
+          ${raw(themeBootScript(themeSheetHref(base)))}
         </script>`;
 
   /**

@@ -49,7 +49,9 @@ describe("the default theme is one fact, not four", () => {
   it("gives the bare :root block to DEFAULT_THEME", () => {
     // The one that paints a page whose boot script has not run.
     expect(selectorFor(TOKENS, DEFAULT_THEME)).toMatch(/(^|,)\s*:root\s*(,|$)/);
-    for (const t of THEMES) {
+    // A theme with its own sheet has no block here at all; theme-sheets.test.ts
+    // reads those.
+    for (const t of THEMES.filter((x) => !x.sheet)) {
       if (t.id === DEFAULT_THEME) continue;
       expect(selectorFor(TOKENS, t.id)).not.toMatch(/(^|,)\s*:root\s*(,|$)/);
     }
@@ -73,8 +75,9 @@ describe("the default theme is one fact, not four", () => {
 
   it("gives every theme a chrome colour that exists in its own token block", () => {
     // A browser chrome that is not the theme's own brand is a status bar that
-    // does not belong to the page under it.
-    for (const t of THEMES) {
+    // does not belong to the page under it. The sheet themes' own copy of this
+    // check reads their sheets, in theme-sheets.test.ts.
+    for (const t of THEMES.filter((x) => !x.sheet)) {
       const stripped = TOKENS.replace(/\/\*[\s\S]*?\*\//g, "");
       const at = stripped.indexOf(`[data-theme="${t.id}"]`);
       const open = stripped.indexOf("{", at);
@@ -93,7 +96,10 @@ describe("the no-flash boot script", () => {
   const script = themeBootScript();
 
   it("is generated from the theme list, so it cannot go stale", () => {
-    for (const t of THEMES) expect(script).toContain(t.id);
+    // Every theme but the default, which is "absent attribute" and so is not
+    // in the script's list at all (every byte here is in every first visit).
+    for (const t of THEMES) if (t.id !== DEFAULT_THEME) expect(script).toContain(`"${t.id}"`);
+    expect(script).not.toContain(`"${DEFAULT_THEME}"`);
     expect(script).toContain(THEME_STORAGE_KEY);
   });
 
@@ -109,13 +115,7 @@ describe("the no-flash boot script", () => {
             return stored;
           },
         },
-        document: {
-          documentElement: {
-            setAttribute: (k: string, v: string) => {
-              el.attrs[k] = v;
-            },
-          },
-        },
+        document: { documentElement: { setAttribute: (k: string, v: string) => (el.attrs[k] = v) } },
       };
       new Function("localStorage", "document", script)(sandbox.localStorage, sandbox.document);
       return el.attrs["data-theme"];

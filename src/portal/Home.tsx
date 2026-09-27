@@ -33,8 +33,6 @@ import { openReport } from "./openReport";
 import { inkFor } from "@ui/ink";
 import { Icon } from "@ui/icons";
 import { GameArt, showsArt } from "@ui/gameArtView";
-import { useTheme } from "@ui/useTheme";
-import { themeById } from "@ui/themes";
 import { attachShellJuice } from "@juice/index";
 import { LanguagePicker } from "@ui/LanguagePicker";
 import { HEADER_PILL } from "@ui/headerPill";
@@ -355,7 +353,7 @@ export function Home({
               <Icon name="trophy" />
             </a>
             <LanguagePicker locale={locale} onPick={onPickLocale} onTap={tap} />
-            <ThemeToggle locale={locale} onTap={tap} />
+            <ThemeMenu locale={locale} onTap={tap} />
           </div>
         </header>
 
@@ -494,39 +492,49 @@ export function Home({
 
 
 /**
- * Day / night, as one pill beside the language toggle.
+ * The "..." menu, where the THEME is chosen - six of them since 2026-09-27
+ * (operator ruling: "the '...' menu, every page"), replacing the day/night
+ * pill that stood here. The screens carry the same menu in their emitted
+ * header; both fill it from one lazy module, `@ui/themePicker`, so the six
+ * pictures cost a first visit nothing until the menu is opened.
  *
- * One tap, one result - the same language the rest of this app speaks. There
- * is deliberately no settings screen: a screen for two switches is a screen a
- * five-year-old has to learn to leave.
- *
- * It shows the theme it will switch TO, not the one you are in, because the
- * icon is a button label rather than a status readout. Its `aria-label` says
- * so in words, since a sun on its own is ambiguous either way.
- *
- * It draws from `@ui/icons` like every other control in this bar. It used to
- * render `next.glyph` - the characters U+2600 and U+263E - so the machine's
- * font decided the weight, and the result sat beside a 2.1 round-capped star
- * and globe looking like it came from somewhere else. It did.
+ * A button with `aria-expanded` (a <details> summary would need a marker
+ * rule in the shell stylesheet, and it could not wear the shared pill as-is).
+ * It closes on a tap outside, and NOT on a tap on a theme - the player is
+ * comparing looks behind it.
  */
-function ThemeToggle({ locale, onTap }: { locale: AppLocale; onTap: () => void }) {
-  const [theme, setTheme] = useTheme();
-  const next = themeById(theme === "night" ? "market" : "night");
+const MORE = { he: "עוד", en: "More", es: "Más", sv: "Mer" };
+function ThemeMenu({ locale, onTap }: { locale: AppLocale; onTap: () => void }) {
+  const [open, setOpen] = useState(false);
+  const slot = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const host = slot.current;
+    // The picker also closes the card on a tap outside it - that code rides
+    // the lazy chunk with the rest of the menu.
+    if (open && host) void import("@ui/themePicker").then((m) => m.mountThemePicker(host, locale, () => setOpen(false)));
+  }, [open, locale]);
   return (
-    <button
-      aria-label={`${textFor({ he: "ערכת נושא", en: "Theme", es: "Tema", sv: "Tema" }, locale)}: ${textFor(next.label, locale)}`}
-      onClick={() => {
-        onTap();
-        setTheme(next.id);
-      }}
-      // THE SHARED PILL, and this button is why it exists. Hand-written, this
-      // block omitted display/alignItems/justifyContent, so the moon rendered
-      // 15px LEFT of centre on every screen size while its two neighbours were
-      // centred. See @ui/headerPill.
-      style={HEADER_PILL}
-    >
-      <Icon name={next.icon} />
-    </button>
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <button
+        type="button"
+        aria-label={textFor(MORE, locale)}
+        aria-expanded={open}
+        onClick={() => {
+          onTap();
+          setOpen((o) => !o);
+        }}
+        style={HEADER_PILL}
+      >
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor">
+          <circle cx="5.5" cy="12" r="1.9" />
+          <circle cx="12" cy="12" r="1.9" />
+          <circle cx="18.5" cy="12" r="1.9" />
+        </svg>
+      </button>
+      {/* Styled as a floating card by the picker itself, so its looks ride
+          the lazy chunk rather than the first visit. */}
+      <div ref={slot} hidden={!open} />
+    </div>
   );
 }
 

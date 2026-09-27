@@ -1,10 +1,4 @@
-import {
-  DEFAULT_THEME,
-  THEME_STORAGE_KEY,
-  isThemeId,
-  themeById,
-  type ThemeId,
-} from "./themes";
+import { DEFAULT_THEME, THEME_STORAGE_KEY, isThemeId, type ThemeId } from "./themeIds";
 
 /**
  * The theme port: read it, set it, subscribe to it. No React here.
@@ -48,8 +42,13 @@ function apply(theme: ThemeId): void {
 
   // The phone paints its own chrome from this tag, and it does not follow CSS.
   // Without this the status bar stays night-purple over a cream page.
+  // Read back from the page rather than from `THEMES`: every theme's --brand IS
+  // its browser chrome (`theme-sync.test.ts`), and reading it here keeps the
+  // theme records - six of them, with their labels - out of the first visit.
+  // A theme with its own sheet is only ever set once that sheet has loaded.
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", themeById(theme).browserChrome);
+  const chrome = getComputedStyle(root).getPropertyValue("--brand").trim();
+  if (meta && chrome) meta.setAttribute("content", chrome);
 }
 
 let current: ThemeId = DEFAULT_THEME;
@@ -71,10 +70,6 @@ export const themePort = {
       // this one. Never let it cost them the switch they just made.
     }
     for (const l of listeners) l(theme);
-  },
-
-  toggle(): void {
-    themePort.set(current === "night" ? "market" : "night");
   },
 
   onChange(listener: Listener): () => void {

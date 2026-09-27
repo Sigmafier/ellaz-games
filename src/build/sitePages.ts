@@ -593,6 +593,9 @@ export function worldPage(opts: SitePageOptions): string {
       title: copy.h1,
       backLabel: site.chrome.back,
       soundLabel: site.chrome.sound,
+      // The "..." menu, on every screen since the themes (2026-09-27): it holds
+      // the Theme choice, which means the same thing here as on a game.
+      moreLabel: site.chrome.more,
       fullLabel: site.chrome.fullScreen,
     },
   });
@@ -650,6 +653,9 @@ export function boardsPage(opts: SitePageOptions): string {
       title: copy.h1,
       backLabel: site.chrome.back,
       soundLabel: site.chrome.sound,
+      // The "..." menu, on every screen since the themes (2026-09-27): it holds
+      // the Theme choice, which means the same thing here as on a game.
+      moreLabel: site.chrome.more,
       fullLabel: site.chrome.fullScreen,
     },
     // Same call as the room: the boards screen carries the wallet in its own

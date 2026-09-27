@@ -1,0 +1,86 @@
+/* PAPER CUT-OUT - theme 1 of the style round (operator pick, 2026-09-27).
+   Kraft paper, cards cut out and stuck down slightly crooked, hard offset
+   shadows. Served only to a player who picks it: see src/build/themeSheets.ts.
+
+   EVERY RULE IS SCOPED TO :root[data-theme="paper"]. A player who switches
+   theme twice has two sheets loaded at once, and an unscoped rule here would
+   paint Crayon's page too. `theme-sheets.test.ts` refuses one. */
+:root[data-theme="paper"] {
+  --bg: #f1e4c8;
+  --bg-soft: #ead9b6;
+  --surface: #fffaf0;
+  --surface-2: #fbf0da;
+  --text: #3b2f24;
+  --text-dim: #66553f;
+  --brand: #c8433a;
+  --brand-2: #e4574a;
+  --teal: #2a9d8f;
+  --yellow: #ffd166;
+  --red: #d6453a;
+  --green: #52a35a;
+  --pink: #f4a6a6;
+  --orange: #f08a3c;
+  --brand-ink: #a8342c;
+  --brand-2-ink: #a8342c;
+  --teal-ink: #1d6b61;
+  --yellow-ink: #7a5600;
+  --red-ink: #a8342c;
+  --green-ink: #2f6b35;
+  --pink-ink: #a0415a;
+  --orange-ink: #8f4410;
+  --brand-fill: var(--brand);
+  --surface-fill: var(--surface);
+  --page-bg: radial-gradient(circle at 20% 30%, rgba(0, 0, 0, 0.035) 0 1px, transparent 1.5px) 0 0 / 9px 9px, #f1e4c8;
+  --on-brand: #ffffff;
+  --brand-strong: #a8342c;
+  --badge-fill: rgba(59, 47, 36, 0.8);
+  --badge-glow: 0 1px 2px rgba(59, 47, 36, 0.45);
+  --line: #d8c4a0;
+  --stage-bg: #ead9b6;
+  --stage-cover: rgba(40, 30, 20, 0.86);
+  --shadow-1: 2px 3px 0 rgba(59, 47, 36, 0.28);
+  --shadow-2: 3px 5px 0 rgba(59, 47, 36, 0.24);
+  --tint-strength: 0.12;
+  --art-veil: transparent;
+  --spark-colors: #e4574a, #2a9d8f, #ffd166, #8ecae6, #52a35a;
+  --confetti-colors: #e4574a, #ffd166, #8ecae6, #f4a6a6, #b7e4a7, #2a9d8f, #f08a3c, #fffaf0;
+
+  /* Shapes: cut with scissors, not a compass. */
+  --radius-pill: 14px;
+  --radius-3: 12px;
+  --radius-2: 8px;
+  --radius-1: 5px;
+}
+
+/* Cards stuck down by hand: never quite straight, never the same way twice. */
+:root[data-theme="paper"] .gc-cell:nth-child(odd) { transform: rotate(-1.5deg); }
+:root[data-theme="paper"] .gc-cell:nth-child(even) { transform: rotate(1.2deg); }
+:root[data-theme="paper"] .gc-cell { box-shadow: var(--shadow-1) !important; }
+
+/* The textured page on every screen, not only the home shell. */
+:root[data-theme="paper"] body { background: var(--page-bg); }
+
+/* The theme owns the bar: one red strip of card, torn along the bottom. */
+:root[data-theme="paper"] body.screen .top { background: #c8433a; }
+:root[data-theme="paper"] body.screen .top .hbtn:not(.moresheet *) {
+  background: #fff6e6;
+  color: #3b2f24;
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* The screen header gets a torn bottom edge, drawn in its own colour. */
+:root[data-theme="paper"] body.screen .top::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -7px;
+  height: 7px;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, #c8433a 50%, transparent 50%) 0 0 / 12px 7px repeat-x,
+    linear-gradient(-135deg, #c8433a 50%, transparent 50%) 0 0 / 12px 7px repeat-x;
+}
+:root[data-theme="paper"] .hbtn:nth-of-type(odd),
+:root[data-theme="paper"] header a:nth-of-type(odd) { transform: rotate(-2deg); }
+:root[data-theme="paper"] .hbtn:nth-of-type(even),
+:root[data-theme="paper"] header button:nth-of-type(even) { transform: rotate(2deg); }

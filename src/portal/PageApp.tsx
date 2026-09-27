@@ -9,6 +9,7 @@ import { Boards } from "./Boards";
 import { fitStage } from "./fitStage";
 import { wirePhoneBar } from "./phoneBar";
 import { guardGameKeys } from "./keyGuard";
+import { wireThemeMenu } from "./themeMenu";
 import { GameHost } from "./GameHost";
 import { World } from "./world/World";
 import { WalletChip } from "./WalletChip";
@@ -630,6 +631,8 @@ export function bootContentPage(ctx: PageContext): void {
     // The room and the boards keep both rows - the operator's ruling was about
     // games, and neither of those screens is short of height.
     if (ctx.kind === "game") wirePhoneBar();
+    // Every screen: the "..." menu's Theme choice (2026-09-27).
+    wireThemeMenu(appLocale);
     wireEmbedCopy();
     wireEmbedPreview();
   }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { themePort } from "./theme";
-import type { ThemeId } from "./themes";
+import type { ThemeId } from "./themeIds";
 
 /**
  * The React adapter over `themePort`, and the only file in the theme layer

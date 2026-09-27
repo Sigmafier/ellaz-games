@@ -92,6 +92,8 @@ export function wirePhoneBar(doc: Document = document): () => void {
     if (!more?.open) return;
     const t = e.target as Element | null;
     if (t?.closest(".lang > summary")) return;
+    // Nor does picking a theme: the player is comparing looks behind the menu.
+    if (t?.closest(".themegrid")) return;
     if (!t?.closest(".more") || t.closest(".moresheet button, .moresheet a")) more.open = false;
   };
   doc.addEventListener("click", close);

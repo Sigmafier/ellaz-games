@@ -1,0 +1,80 @@
+/* ARCADE CABINET (PIXEL) - theme 5 of the style round (operator pick,
+   2026-09-27). A dark cabinet with scanlines, square pixel buttons with a
+   bevel, neon pink trim and a pixel font on the titles. Served only to a
+   player who picks it. Every rule is scoped to :root[data-theme="arcade"];
+   see paper.css. */
+@import "./fonts/press-start-2p.css";
+
+:root[data-theme="arcade"] {
+  --bg: #0d0221;
+  --bg-soft: #150734;
+  --surface: #1b0f3b;
+  --surface-2: #2e1e66;
+  --text: #e0e6ff;
+  --text-dim: #b0a9e0;
+  --brand: #ff2a6d;
+  --brand-2: #ff6b9a;
+  --teal: #05d9e8;
+  --yellow: #ffe45e;
+  --red: #ff5b5b;
+  --green: #3dffa2;
+  --pink: #ff71ce;
+  --orange: #ff9f43;
+  --brand-ink: var(--brand-2);
+  --brand-2-ink: var(--brand-2);
+  --teal-ink: var(--teal);
+  --yellow-ink: var(--yellow);
+  --red-ink: #ff8080;
+  --green-ink: var(--green);
+  --pink-ink: var(--pink);
+  --orange-ink: var(--orange);
+  --brand-fill: var(--brand-strong);
+  --surface-fill: var(--surface);
+  --page-bg: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.35) 0 2px, transparent 2px 4px), #0d0221;
+  --on-brand: #ffffff;
+  --brand-strong: #b8104a;
+  --badge-fill: rgba(6, 2, 18, 0.8);
+  --badge-glow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  --line: #3a2a7a;
+  --stage-bg: #0d0221;
+  --stage-cover: rgba(6, 2, 18, 0.88);
+  /* A bevel, not a drop: light top-left, dark bottom-right, like a key cap. */
+  --shadow-1: inset -3px -3px 0 rgba(0, 0, 0, 0.45), inset 3px 3px 0 rgba(255, 255, 255, 0.16);
+  --shadow-2: 0 0 0 3px #ff2a6d, 0 0 14px rgba(255, 42, 109, 0.45);
+  --tint-strength: 0.18;
+  --art-veil: rgba(13, 2, 33, 0.25);
+  --spark-colors: #ff2a6d, #05d9e8, #ffe45e, #3dffa2, #ff71ce;
+  --confetti-colors: #ff2a6d, #05d9e8, #ffe45e, #3dffa2, #ff71ce, #ff9f43, #b0a9e0, #ffffff;
+
+  --font-display: "Press Start 2P", "Fredoka", "Heebo", monospace;
+  --radius-pill: 0;
+  --radius-3: 0;
+  --radius-2: 0;
+  --radius-1: 0;
+}
+
+/* The pixel face is for SHORT words only - a title, a label - never body text:
+   it is twice as wide as Heebo and unreadable in a sentence. */
+:root[data-theme="arcade"] .gname,
+:root[data-theme="arcade"] h1 {
+  font-family: var(--font-display) !important;
+  font-size: 13px !important;
+  color: #ffe45e;
+  text-shadow: 2px 2px 0 #ff2a6d;
+}
+:root[data-theme="arcade"] .gc-label {
+  font-family: var(--font-display) !important;
+  font-size: 8px !important;
+  letter-spacing: 0.5px;
+}
+:root[data-theme="arcade"] .ellaz-board { box-shadow: var(--shadow-2) !important; }
+:root[data-theme="arcade"] body { background: var(--page-bg); }
+:root[data-theme="arcade"] body.screen .top {
+  background: #1b0f3b;
+  border-block-end: 4px solid #ff2a6d;
+}
+:root[data-theme="arcade"] body.screen .top .hbtn:not(.moresheet *) {
+  background: #2e1e66;
+  border-radius: 0;
+  box-shadow: inset -3px -3px 0 #140a33, inset 3px 3px 0 #5a45b5;
+}

@@ -233,7 +233,8 @@ describe("the home bar the operator specified", () => {
       controlGroup() + HEADER.slice(HEADER.indexOf("<LanguagePicker"), HEADER.indexOf("</header>"));
     expect(group).toMatch(/<WalletChip/);
     expect(group).toMatch(/<LanguagePicker/);
-    expect(group).toMatch(/<ThemeToggle/);
+    // The day/night pill became the "..." menu that holds six themes (2026-09-27).
+    expect(group).toMatch(/<ThemeMenu/);
     // THE TROPHY, and this assertion replaces one that could not fire.
     //
     // It read `expect(group).not.toMatch(/<BoardsButton/)` under a comment

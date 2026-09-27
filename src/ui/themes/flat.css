@@ -1,0 +1,72 @@
+/* FLAT + POP-OUT - theme 3 of the style round (operator pick, 2026-09-27).
+   Sunny flat colour, a deep indigo header, and long solid shadows that make
+   every card pop off the page. Served only to a player who picks it.
+   Every rule is scoped to :root[data-theme="flat"]; see paper.css. */
+@import "./fonts/baloo-2.css";
+
+:root[data-theme="flat"] {
+  --bg: #ffcf56;
+  --bg-soft: #ffd978;
+  --surface: #ffffff;
+  --surface-2: #fff4d6;
+  --text: #1d1b3a;
+  --text-dim: #45406b;
+  --brand: #3d348b;
+  --brand-2: #5a4fcf;
+  --teal: #247ba0;
+  --yellow: #ffe066;
+  --red: #f25f5c;
+  --green: #70c1b3;
+  --pink: #ff8fab;
+  --orange: #ff9f1c;
+  --brand-ink: #3d348b;
+  --brand-2-ink: #4a3fb8;
+  --teal-ink: #1b5f7c;
+  --yellow-ink: #6e5200;
+  --red-ink: #b8403d;
+  --green-ink: #2b6e62;
+  --pink-ink: #a8325a;
+  --orange-ink: #8a4a00;
+  --brand-fill: var(--brand);
+  --surface-fill: var(--surface);
+  --page-bg: #ffcf56;
+  --on-brand: #ffffff;
+  --brand-strong: #3d348b;
+  --badge-fill: rgba(29, 27, 58, 0.82);
+  --badge-glow: 0 1px 2px rgba(29, 27, 58, 0.45);
+  --line: #f0c248;
+  --stage-bg: #ffd978;
+  --stage-cover: rgba(29, 27, 58, 0.86);
+  --shadow-1: 3px 3px 0 rgba(29, 27, 58, 0.3);
+  --shadow-2: 1px 1px 0 #d9a93c, 2px 2px 0 #d9a93c, 3px 3px 0 #d9a93c, 4px 4px 0 #d9a93c,
+    5px 5px 0 #d9a93c, 6px 6px 0 #d9a93c, 7px 7px 0 #d9a93c, 8px 8px 0 #d9a93c;
+  --tint-strength: 0.12;
+  --art-veil: transparent;
+  --spark-colors: #f25f5c, #247ba0, #70c1b3, #3d348b, #ff9f1c;
+  --confetti-colors: #f25f5c, #247ba0, #70c1b3, #3d348b, #5a4fcf, #ff9f1c, #ff8fab, #ffffff;
+
+  --font-display: "Baloo 2", "Fredoka", "Heebo", system-ui, sans-serif;
+  --radius-3: 18px;
+  --radius-2: 12px;
+}
+
+:root[data-theme="flat"] .gname,
+:root[data-theme="flat"] .gc-value,
+:root[data-theme="flat"] h1,
+:root[data-theme="flat"] h2 {
+  font-family: var(--font-display) !important;
+  font-weight: 800 !important;
+}
+/* The long shadow is the pop-out: the board and the number cards lift off. */
+:root[data-theme="flat"] .ellaz-board,
+:root[data-theme="flat"] .gc-cell { box-shadow: var(--shadow-2) !important; }
+/* The deep header band. The emitted header paints from the --doc tokens, so
+   redefining them on the bar alone recolours everything inside it. */
+:root[data-theme="flat"] body.screen .top {
+  --doc-card: #3d348b;
+  --doc-ink: #ffffff;
+  --doc-line: #3d348b;
+  --doc-brand: #ffe066;
+  background: #3d348b;
+  color: #ffffff;
+}
