@@ -98,6 +98,7 @@ export const ROSTER_IDS: ReadonlyArray<string> = [
   "chess",
   "backgammon",
   "holdtheline",
+  "snakesurvivors",
 ];
 
 /**
@@ -159,6 +160,7 @@ export const ROSTER_CATEGORY: Readonly<Record<string, Category>> = {
   chess: "classics",
   backgammon: "classics",
   holdtheline: "speed",
+  snakesurvivors: "speed",
 };
 
 /** Full metadata for the games above the fold. The rest are in `gamesRest.ts`. */

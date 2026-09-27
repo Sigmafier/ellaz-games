@@ -634,4 +634,25 @@ export const REST: Record<string, Scene> = {
       <circle cx="172" cy="106" r="6" fill="${PAL.paper}"/></g>
     <path d="M150 44L162 56L150 68L138 56z" fill="${PAL.orchid}" stroke="${I}"
           stroke-width="3.5" stroke-linejoin="round"/>` },
+
+  /* Snake Survivors. The snake's body drawn round in a loop that is just about
+     to close, with three small shapes caught inside it - the one move the whole
+     game is about, readable before anyone has played it. */
+  snakesurvivors: { a: "#16755F", b: "#2FB892", d: "circle", s: `
+    <path d="M150 96C150 58 124 36 96 36C62 36 44 60 44 84C44 112 66 128 96 128
+             C118 128 132 120 140 108" fill="none" stroke="${I}" stroke-width="21"
+          stroke-linecap="round"/>
+    <path d="M150 96C150 58 124 36 96 36C62 36 44 60 44 84C44 112 66 128 96 128
+             C118 128 132 120 140 108" fill="none" stroke="${PAL.lime}" stroke-width="13"
+          stroke-linecap="round"/>
+    <path d="M150 96C152 116 166 132 186 136" fill="none" stroke="${I}" stroke-width="15"
+          stroke-linecap="round"/>
+    <path d="M150 96C152 116 166 132 186 136" fill="none" stroke="${PAL.indigo}" stroke-width="8"
+          stroke-linecap="round"/>
+    <circle cx="146" cy="100" r="14" fill="${PAL.jade}" stroke="${I}" stroke-width="3.5"/>
+    <circle cx="142" cy="95" r="3.4" fill="${PAL.paper}"/><circle cx="152" cy="98" r="3.4" fill="${PAL.paper}"/>
+    <g stroke="${I}" stroke-width="3" stroke-linejoin="round">
+      <path d="M76 70L86 60L96 70L86 80z" fill="${PAL.raspberry}"/>
+      <circle cx="110" cy="76" r="9" fill="${PAL.sunflower}"/>
+      <path d="M84 96h20l-10 16z" fill="${PAL.orchid}"/></g>` },
 };
