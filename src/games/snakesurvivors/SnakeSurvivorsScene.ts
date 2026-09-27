@@ -8,11 +8,15 @@ import { animKey, createStudioAnims, originFor, type PhaserAnimsLike } from "@sh
 import { burst as juiceBurst, haptic } from "@juice/index";
 import { CAST, type CastKey, type Clip } from "../survivors/sprites";
 import { knobAt, originFor as stickOriginFor, stickVector, STICK_RADIUS, type Stick } from "../survivors/stick";
-import { WALL, cameraOf } from "../survivors/world";
+import { cameraOf } from "../survivors/world";
 import { FOR_KIND, SHEETS, kindScale } from "./cast";
 import { KINDS, LEVELS } from "./crowd";
-import { INK, drawGem, drawLoop, drawSnake } from "./draw";
+import { INK, drawGem, drawGemArrow, drawGround, drawGuideRing, drawLoop, drawSnake } from "./draw";
 import { ARENA, newRun, pickCard, step } from "./logic";
+import {
+  gemTarget, guideRing, hasSeenTutorial, leaveTutorial, markTutorialSeen, newTutorial, tickTutorial, tutorialPick,
+  type Tutorial, type TutorialStep,
+} from "./tutorial";
 import type { Arena, CardId, Foe, LevelKey, Pt, Run, Steer } from "./types";
 
 // The Phaser half of Snake Survivors. It owns pixels, pointers and telling the
@@ -34,6 +38,8 @@ export interface SnakeSurvivorsStatus {
   taken: Record<CardId, number>;
   boss: { now: number; max: number } | null;
   newBest: boolean;
+  /** The guided first run's step, or null on a real run. */
+  tutorial: TutorialStep | null;
 }
 
 /** Coins, no star, every this many crushed - an endless-feeling mid-run ping. */
@@ -58,6 +64,10 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
   private onReady?: (scene: SnakeSurvivorsScene) => void;
   private rng: () => number = Math.random;
   private run!: Run;
+  /** The guided first run while it is on; `run` is then its practice run. */
+  private tut: Tutorial | null = null;
+  /** Finished or skipped on this mount - holds even when storage cannot remember it. */
+  private tutorialDone = false;
   private level: LevelKey = "normal";
   private phase: UiPhase = "ready";
   private paused = false;
@@ -104,7 +114,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       createStudioAnims(this as unknown as PhaserAnimsLike, key, CAST[key].manifest);
     }
     this.bg = this.add.graphics().setDepth(DEPTH.bg);
-    this.drawGround();
+    drawGround(this.bg, this.run.world);
     this.fg = this.add.graphics().setDepth(DEPTH.snake);
     this.hud = this.add.graphics().setDepth(DEPTH.hud).setScrollFactor(0);
     this.lvText = this.add
@@ -161,6 +171,8 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
   startFromChrome() {
     this.ctx.audio.unlock();
     if (this.phase === "playing") return;
+    // A first-ever Play walks through the tutorial first (ruling R2.5).
+    if (this.phase === "ready" && !this.tutorialDone && !hasSeenTutorial(this.ctx.storage)) return this.startTutorial();
     if (this.phase !== "ready") this.restart();
     this.phase = "playing";
     this.bestBefore = this.ctx.score?.best(this.level) ?? 0;
@@ -170,15 +182,37 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
 
   choose(id: CardId) {
     if (!this.run.choosing) return;
-    pickCard(this.run, id);
+    if (this.tut) tutorialPick(this.tut, id);
+    else pickCard(this.run, id);
     this.ctx.audio.play("pop");
+    if (this.tut?.step === "done") return this.endTutorial();
     this.publish(true);
+  }
+
+  /** The entrance's "How to play", and a first-ever Play: the practice run. */
+  startTutorial() {
+    this.ctx.audio.unlock();
+    this.restart();
+    this.tut = newTutorial(this.arena, this.rng);
+    this.run = this.tut.run;
+    this.phase = "playing";
+    this.publish(true);
+  }
+
+  /** Skip, or the last step done: remember it, and start the real run fresh. */
+  endTutorial() {
+    if (!this.tut) return;
+    this.tutorialDone = true;
+    markTutorialSeen(this.ctx.storage);
+    this.restart(leaveTutorial(this.tut, this.level, this.arena, this.rng));
+    this.startFromChrome();
   }
 
   // A restart clears everything the input is gated on - the stick, the keys,
   // the pause, the offer - not only the board.
-  private restart() {
-    this.run = newRun(this.level, this.arena, this.rng);
+  private restart(run: Run = newRun(this.level, this.arena, this.rng)) {
+    this.run = run;
+    this.tut = null;
     this.phase = "ready";
     this.paused = false;
     this.stick = null;
@@ -201,7 +235,8 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     const dt = Math.min(50, delta);
     if (this.phase === "playing" && !this.paused && !this.run.choosing) {
-      step(this.run, dt, this.steer(), this.rng);
+      if (this.tut) tickTutorial(this.tut, dt, this.steer(), this.rng);
+      else step(this.run, dt, this.steer(), this.rng);
       this.peak = Math.max(this.peak, Math.floor(this.run.len));
       this.react();
       if (this.run.choosing) this.publish(true);
@@ -314,6 +349,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       taken: { ...r.taken },
       boss: boss ? { now: boss.hp, max: KINDS.warden.hp } : null,
       newBest: this.newBest,
+      tutorial: this.tut ? this.tut.step : null,
     });
   }
 
@@ -328,6 +364,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     const pulse = (this.time?.now ?? 0) / 180;
     for (const gem of r.gems) drawGem(g, gem.x, gem.y, pulse + gem.x);
     for (const l of this.loops) drawLoop(g, l.poly, l.age, LOOP_LIFE);
+    this.drawTutorial(g);
     drawSnake(g, r, r.blink > 0 && Math.floor(r.blink / 90) % 2 === 0);
     for (const s of this.sparks) {
       g.fillStyle(s.ink, Math.min(1, s.life / 200));
@@ -335,6 +372,15 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     }
     this.syncSprites();
     this.drawHud();
+  }
+
+  /** What the tutorial's step says to show: the ring round the bat, or the arrow to the gems. */
+  private drawTutorial(g: Phaser.GameObjects.Graphics) {
+    if (!this.tut) return;
+    const ring = guideRing(this.tut);
+    if (ring) drawGuideRing(g, ring, this.tut.ms);
+    const gem = gemTarget(this.tut);
+    if (gem) drawGemArrow(g, this.run, gem, this.tut.ms);
   }
 
   /** The level bar along the bottom edge, and the stick under the thumb. */
@@ -435,21 +481,6 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.sparks = this.sparks.filter((s) => s.life > 0);
     for (const l of this.loops) l.age += dt;
     this.loops = this.loops.filter((l) => l.age < LOOP_LIFE);
-  }
-
-  /** The floor: a faint grid, scattered dots, and striped walls at the world's edge. */
-  private drawGround() {
-    const g = this.bg;
-    const { w, h } = this.run.world;
-    g.fillStyle(INK.ground, 1).fillRect(0, 0, w, h);
-    g.lineStyle(1, INK.grid, 1);
-    for (let x = 40; x < w; x += 40) g.lineBetween(x, 0, x, h);
-    for (let y = 40; y < h; y += 40) g.lineBetween(0, y, w, y);
-    const rnd = mulberry32(20260927);
-    g.fillStyle(0x2a3170, 1);
-    for (let i = 0; i < (w * h) / 6000; i++) g.fillCircle(rnd() * w, rnd() * h, 1.3);
-    g.fillStyle(INK.wall, 0.55);
-    g.fillRect(0, 0, w, WALL).fillRect(0, h - WALL, w, WALL).fillRect(0, 0, WALL, h).fillRect(w - WALL, 0, WALL, h);
   }
 
   // ---- screen points for the DOM effects ------------------------------------

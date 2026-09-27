@@ -57,6 +57,7 @@ export interface Pen {
   fillEllipse(x: number, y: number, w: number, h: number): Pen;
   lineStyle(width: number, color: number, alpha?: number): Pen;
   strokeRoundedRect(x: number, y: number, w: number, h: number, r: number): Pen;
+  fillTriangle(x0: number, y0: number, x1: number, y1: number, x2: number, y2: number): Pen;
 }
 
 export type Board = { ox: number; oy: number; c: number; cols: number; rows: number };
@@ -75,7 +76,7 @@ export function drawBoard(g: Pen, b: Board) {
   }
 }
 
-/** Today's walls: a violet block with a dark core, lit from the rim like the board. */
+/** Walls - today's, and the ones each classic stage drops: a violet block with a dark core, lit from the rim like the board. */
 export function drawWalls(g: Pen, b: Board, walls: readonly number[]) {
   const c = b.c;
   for (const w of walls) {
@@ -169,5 +170,51 @@ export function drawSparks(g: Pen, sparks: Spark[], c: number) {
   for (const s of sparks) {
     g.fillStyle(0xffd166, 0.25 * s.life).fillCircle(s.x, s.y, c * 0.2 * s.life);
     g.fillStyle(0xffd166, s.life).fillCircle(s.x, s.y, c * 0.08 * s.life + 1);
+  }
+}
+
+/**
+ * The snake is waiting for its first direction: four arrows round the head,
+ * breathing outward, in the head's own mint. A HINT, drawn on the canvas - not
+ * a button and never a disabled one; the arrows point at the four ways the
+ * next press may go (backwards included - `launch` turns the snake round).
+ * `pulse` is 0..1.
+ */
+export function drawAim(g: Pen, b: Board, head: Point, pulse: number) {
+  const { x, y } = centre(b, head);
+  const c = b.c;
+  // Sized off the cell, and big: at 390px a cell is ~18px, and arrows a third
+  // of that measured ~5px on the phone render - there, but not readable.
+  const reach = c * (0.8 + 0.35 * pulse);
+  const w = c * 0.55;
+  g.fillStyle(HEAD, 0.7 + 0.3 * pulse);
+  for (const { fx, fy } of Object.values(LOOK)) {
+    const tipX = x + fx * (reach + w);
+    const tipY = y + fy * (reach + w);
+    const baseX = x + fx * reach;
+    const baseY = y + fy * reach;
+    // Across the arrow is the heading turned a quarter.
+    g.fillTriangle(tipX, tipY, baseX - fy * w, baseY + fx * w, baseX + fy * w, baseY - fx * w);
+  }
+}
+
+/**
+ * New walls landing: a violet halo that swells and fades over each, and the
+ * block itself drawn brighter until it settles. `t` runs 0..1; nothing at 1.
+ * The wall's own colour, not white - white on this glass reads as a camera
+ * flash, not as a thing that arrived.
+ */
+export function drawWallFlash(g: Pen, b: Board, cells: readonly number[], t: number) {
+  if (t >= 1 || !cells.length) return;
+  const c = b.c;
+  const k = Math.max(0, t);
+  const blink = Math.floor(k * 6) % 2 === 0 ? 1 : 0.45;
+  for (const w of cells) {
+    const x = b.ox + (w % b.cols) * c;
+    const y = b.oy + Math.floor(w / b.cols) * c;
+    // Thick and wide: a 2px ring measured too thin to notice on a 390px phone.
+    const grow = c * 0.9 * k;
+    g.lineStyle(Math.max(3, c * 0.22), 0xa29bfe, (1 - k) * blink).strokeRoundedRect(x - grow, y - grow, c + 2 * grow, c + 2 * grow, c * 0.3);
+    g.fillStyle(0xa29bfe, 0.7 * (1 - k) * blink).fillRoundedRect(x + c * 0.12, y + c * 0.12, c * 0.76, c * 0.76, c * 0.16);
   }
 }

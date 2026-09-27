@@ -45,6 +45,8 @@ export interface Gem {
   y: number;
   /** How much it is worth, to the bar and to the snake's length. */
   v: number;
+  /** Laid on the floor by the clock (`floor.ts`), not dropped by a crushed shape. */
+  floor?: true;
 }
 
 /**
@@ -99,6 +101,13 @@ export interface Run {
   t: number;
   /** ms until the next shape is sent. */
   spawnIn: number;
+  /** ms until the next floor gem is laid (`floor.ts`). */
+  floorIn: number;
+  /**
+   * While `t` is under this, shapes wander slowly instead of chasing the head -
+   * the safe start. `SAFE_START_MS` on a real run; the tutorial holds it open.
+   */
+  calmMs: number;
   xp: number;
   need: number;
   lv: number;

@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { dailyRng, shiftDateKey } from "@sdk/daily";
-import { newGame, placeFood, step, turn, type SnakeState } from "./logic";
-import { SPAWN_CLEAR, buildWalls } from "./todayBoard";
+import { newGame, placeFood, step, turn, type Dir, type SnakeState } from "./logic";
+import { SPAWN_CLEAR, buildWalls, dealBoard } from "./todayBoard";
+import { launch } from "./flow";
 
 /**
  * Today's board: the same walls for everyone on a given day.
@@ -44,6 +45,34 @@ describe("today's walls", () => {
     for (const d of DAYS) {
       const walls = new Set(buildWalls(COLS, ROWS, dailyRng(d, "snake")));
       for (const i of SPAWN_CLEAR(COLS, ROWS)) expect(walls.has(i), `${d}: wall in the start zone at ${i}`).toBe(false);
+    }
+  });
+
+  it("never block the first press, whichever way it goes - all four, every day", () => {
+    // Since 2026-09-27 the snake waits for the player's first direction and a
+    // backwards press turns it round, so the start zone written for a snake
+    // that always set off right has to hold in all four directions: the whole
+    // line to the edge, and a free first turn on each of the first 3 cells.
+    const DELTA: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    for (const d of DAYS) {
+      const { state } = dealBoard("today", () => dailyRng(d, "snake"), COLS, ROWS);
+      const walls = new Set(state.walls);
+      for (const dir of Object.keys(DELTA) as Dir[]) {
+        let s: SnakeState = { ...launch(state, dir), food: { x: -9, y: -9 } };
+        const [dx, dy] = DELTA[dir];
+        const h = s.body[0];
+        const room = dx > 0 ? COLS - 1 - h.x : dx < 0 ? h.x : dy > 0 ? ROWS - 1 - h.y : h.y;
+        for (let k = 0; k < room; k++) s = step(s);
+        expect(s.alive, `${d} ${dir}: a wall on the line ahead`).toBe(true);
+        expect(step(s).alive, `${d} ${dir}: only the edge ends the line`).toBe(false);
+        for (let k = 1; k <= 3; k++) {
+          for (const side of [-1, 1]) {
+            const x = h.x + dx * k + dy * side;
+            const y = h.y + dy * k + dx * side;
+            expect(walls.has(idx(x, y)), `${d} ${dir}: first turn blocked ${k} ahead`).toBe(false);
+          }
+        }
+      }
     }
   });
 

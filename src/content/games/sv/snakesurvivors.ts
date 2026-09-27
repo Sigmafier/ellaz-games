@@ -31,7 +31,7 @@ export const snakesurvivorsSv: GameCopy = {
     { title: "Styr", body: "På telefon lägger du tummen var som helst på arenan och drar, så dyker en liten spak upp under fingret och ormen följer efter. På dator styr du med piltangenterna eller WASD. Ormen stannar aldrig och svänger i mjuka bågar, inte i räta vinklar." },
     { title: "Slut öglan", body: "För tillbaka huvudet tills det nuddar din egen kropp. Varje form inne i öglan du just ritat blir krossad, och öglan måste vara vid: att snurra tätt på stället räknas inte." },
     { title: "Skydda huvudet", body: "Bara huvudet kan skadas. En form som når det kostar 2 segment, och sedan blinkar ormen en stund så att du hinner undan." },
-    { title: "Väx tillbaka", body: "Krossade former lämnar ädelstenar. Glid över dem för att bli längre och fylla nivåmätaren." },
+    { title: "Väx tillbaka", body: "Krossade former lämnar ädelstenar, och några fler ligger på golvet, så du kan växa innan din första ögla. Glid över dem för att bli längre och fylla nivåmätaren." },
     { title: "Välj ett kort", body: "När mätaren är full stannar spelet och visar tre kort. Tryck på ett så börjar flocken röra sig igen." },
   ],
 

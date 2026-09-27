@@ -78,19 +78,17 @@ describe("the game-over card", () => {
   });
 
   it("Play again starts the next run, it does not stop on a ready screen", () => {
-    // A canvas tap on the game-over screen restarts on pointerdown and starts
-    // on pointerup - one tap, moving snake. The card's button must do the same
-    // in one press, so startFromChrome restarts AND starts when the run is over.
-    const start = SCENE.indexOf("\n  startFromChrome() {");
-    const body = SCENE.slice(start, SCENE.indexOf("\n  }", start));
-    // Only the over BRANCH, up to its own `return` - the start that follows
-    // the branch is the ready path, and reading past the return let a planted
-    // "restart and stop" survive on the first mutation run.
-    const from = body.indexOf('this.phase === "over"');
+    // One press on the card and the next run is on the board, waiting for its
+    // first direction (flow.ts) - never back on the start card. So press's
+    // "again" branch restarts and THEN sets the aim phase, up to its break.
+    const at = SCENE.indexOf("\n  private press(");
+    expect(at).toBeGreaterThan(0);
+    const press = SCENE.slice(at, SCENE.indexOf("\n  }\n", at));
+    const from = press.indexOf('case "again":');
     expect(from).toBeGreaterThan(0);
-    const over = body.slice(from, body.indexOf("return;", from));
-    expect(over.indexOf("this.restart()")).toBeGreaterThan(0);
-    expect(over.indexOf("this.startPlaying()")).toBeGreaterThan(over.indexOf("this.restart()"));
+    const again = press.slice(from, press.indexOf("break;", from));
+    expect(again.indexOf("this.restart()")).toBeGreaterThan(0);
+    expect(again.indexOf('this.phase = "aim"')).toBeGreaterThan(again.indexOf("this.restart()"));
   });
 });
 

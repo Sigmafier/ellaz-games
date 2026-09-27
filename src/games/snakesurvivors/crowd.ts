@@ -34,6 +34,37 @@ const WEIGHT: Record<Exclude<Kind, "warden">, number> = { runner: 3, orb: 2, bru
 /** The warden's lunge: how long, how much faster, how often, from how near. */
 const LUNGE = { ms: 600, boost: 2.6, every: 4000, from: 200 };
 
+/**
+ * THE SAFE START (operator ruling R2.4): for this long at the start of a run the
+ * shapes wander slowly instead of chasing the head. A first-time player learns
+ * the loop on a crowd that is not biting - the reviewer who asked for it circled
+ * the bats, was bitten on the way round and never got a loop closed at all.
+ */
+export const SAFE_START_MS = 20_000;
+/** How fast a wandering shape moves, as a fraction of its chasing speed. */
+export const CALM_PACE = 0.35;
+/**
+ * How fast a wandering shape turns, radians/s. A shape moving at a steady speed
+ * and turning at a steady rate walks a CIRCLE of radius speed / turn - so a
+ * wanderer mills about where it is (a runner on a circle ~54 units across)
+ * instead of drifting off, with no state kept for it at all.
+ */
+const WANDER_TURN = 0.8;
+
+/** Is the crowd still wandering? */
+export const isCalm = (run: Pick<Run, "t" | "calmMs">) => run.t < run.calmMs;
+
+/**
+ * Which way a wandering shape faces: its own start angle (from its id), turned
+ * at `WANDER_TURN`, clockwise or not by the id's parity. A pure function of the
+ * shape and the clock, so wandering spends no random draws and a seeded run
+ * replays exactly.
+ */
+export function wanderHeading(f: Pick<Foe, "id">, t: number): number {
+  const spin = f.id % 2 === 0 ? 1 : -1;
+  return f.id * 2.399963 + spin * WANDER_TURN * (t / 1000);
+}
+
 const progress = (run: Run) => Math.min(1, run.t / LEVELS[run.level].stageMs);
 
 /** The shapes the clock may send right now. Never the warden. */
@@ -83,7 +114,7 @@ export function startBoss(run: Run, rng: () => number): void {
 }
 
 /**
- * Every shape walks at the head. A stunned one stands; one left a whole view
+ * Every shape walks at the head - or, in the safe start, wanders. A stunned one stands; one left a whole view
  * behind is walked back in from the edge, or the cap fills with shapes that
  * never arrive (Neon Survival measured exactly that on its big map).
  */
@@ -102,6 +133,10 @@ export function moveFoes(run: Run, dt: number, rng: () => number): void {
       f.y = at.y;
       continue;
     }
+    if (isCalm(run)) {
+      wander(f, run.t, (KINDS[f.kind].speed * pace * CALM_PACE * dt) / 1000);
+      continue;
+    }
     const dx = run.x - f.x;
     const dy = run.y - f.y;
     const d = Math.hypot(dx, dy) || 1;
@@ -111,6 +146,13 @@ export function moveFoes(run: Run, dt: number, rng: () => number): void {
     f.y += (dy / d) * Math.min(v, d);
   }
   separate(run);
+}
+
+/** One step of wandering: `v` units along the shape's own turning heading. */
+function wander(f: Foe, t: number, v: number): void {
+  const a = wanderHeading(f, t);
+  f.x += Math.cos(a) * v;
+  f.y += Math.sin(a) * v;
 }
 
 function lunge(run: Run, f: Foe, d: number, dt: number): void {

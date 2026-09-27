@@ -261,7 +261,8 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
   const card = overCard(status);
   const day = dayLabel(status.today, ctx.locale);
   const title = textFor(meta.title, ctx.locale);
-  // Choosing a board is two asks of the scene, in order: deal it, then go.
+  // Choosing a board is two asks of the scene, in order: deal it, then take
+  // the card away. The snake then waits on the board for its first direction.
   const startOn = (mode: BoardMode) => {
     sceneRef.current?.setMode(mode);
     sceneRef.current?.startFromChrome();
@@ -364,9 +365,11 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
       </BoardStick>
       {/* THE CARDS (SnakeCards.tsx). Each button asks the scene - the canvas
           is this game's single owner of input - and walks the same path as a
-          tap on the board. Start: Play deals the classic board and goes,
-          Today's board deals today's and goes. Over: Play again keeps the
-          board and goes; Back to classic deals the classic board and waits. */}
+          tap on the board. Start: Play deals the classic board, Today's board
+          deals today's, and either way the snake then waits for a direction.
+          Over: Play again keeps the board and waits the same way (and not
+          inside the grace after a death); Back to classic deals the classic
+          board and shows the start card. */}
       {status.phase === "ready" && (
         <StartCard
           words={{ title, play: T.play, ready: T.ready, todayBoard: T.todayBoard, sameWalls: T.sameWalls, hint: T.hint }}

@@ -3,8 +3,9 @@
 // BUILT, never scattered and hoped over - the same law as every puzzle board
 // here. A piece is only accepted if the board it leaves behind still has:
 //
-//   1. the start zone open (the snake's row, and the rows either side of its
-//      head), so nobody dies before they have touched anything;
+//   1. the start zone open (the snake's row and its head's column, and the
+//      cells beside the first three steps whichever way the first press
+//      goes), so nobody dies before they have touched anything;
 //   2. every open cell reachable from every other - no sealed room an apple
 //      could land in;
 //   3. no dead end - no open cell walled in on three sides, the one shape a
@@ -37,13 +38,34 @@ export function dealBoard(
 export function SPAWN_CLEAR(cols: number, rows: number): number[] {
   const cx = Math.floor(cols / 2);
   const cy = Math.floor(rows / 2);
-  const out: number[] = [];
-  // The whole row the snake starts on, heading right: a player who does not
-  // turn at once still gets the full width before anything is in the way.
-  for (let x = 0; x < cols; x++) out.push(cy * cols + x);
+  const out = new Set<number>();
+  const add = (x: number, y: number) => {
+    if (x >= 0 && y >= 0 && x < cols && y < rows) out.add(y * cols + x);
+  };
+  // The whole row the snake starts on: a player who does not turn at once
+  // still gets the full width before anything is in the way.
+  for (let x = 0; x < cols; x++) add(x, cy);
   // And the rows either side, around the head, so the first turn is free.
-  for (const y of [cy - 1, cy + 1]) for (let x = cx - 3; x <= cx + 3; x++) out.push(y * cols + x);
-  return out;
+  for (const y of [cy - 1, cy + 1]) for (let x = cx - 3; x <= cx + 3; x++) add(x, y);
+  // Since 2026-09-27 the snake waits for the player's first direction, and a
+  // backwards press turns it round (`launch` in flow.ts). So the same promise
+  // holds all four ways: the whole line ahead to the edge, and a free first
+  // turn beside each of its first 3 cells. Right and left run along the row
+  // (left from the tail, which becomes the head); up and down along the
+  // head's column.
+  const starts: [number, number, number, number][] = [
+    [cx, cy, 1, 0],
+    [cx - 2, cy, -1, 0],
+    [cx, cy, 0, -1],
+    [cx, cy, 0, 1],
+  ];
+  for (const [hx, hy, dx, dy] of starts) {
+    for (let k = 1; hx + dx * k >= 0 && hy + dy * k >= 0 && hx + dx * k < cols && hy + dy * k < rows; k++) {
+      add(hx + dx * k, hy + dy * k);
+      if (k <= 3) for (const side of [-1, 1]) add(hx + dx * k + dy * side, hy + dy * k + dx * side);
+    }
+  }
+  return [...out];
 }
 
 /** The pieces a wall is made of, as offsets from its first cell. */
@@ -115,7 +137,7 @@ function neighbours(i: number, cols: number, rows: number): number[] {
 }
 
 /** A new piece may not touch another piece, diagonals included, so pieces stay pieces. */
-function touchesWall(i: number, walls: Set<number>, cols: number, rows: number): boolean {
+export function touchesWall(i: number, walls: Set<number>, cols: number, rows: number): boolean {
   const x = i % cols;
   const y = Math.floor(i / cols);
   for (let dy = -1; dy <= 1; dy++)
@@ -127,7 +149,7 @@ function touchesWall(i: number, walls: Set<number>, cols: number, rows: number):
   return false;
 }
 
-function allConnected(walls: Set<number>, n: number, cols: number, rows: number): boolean {
+export function allConnected(walls: Set<number>, n: number, cols: number, rows: number): boolean {
   let start = -1;
   let open = 0;
   for (let i = 0; i < n; i++) if (!walls.has(i)) (open++, start < 0 && (start = i));
@@ -144,7 +166,7 @@ function allConnected(walls: Set<number>, n: number, cols: number, rows: number)
   return seen.size === open;
 }
 
-function hasDeadEnd(walls: Set<number>, n: number, cols: number, rows: number): boolean {
+export function hasDeadEnd(walls: Set<number>, n: number, cols: number, rows: number): boolean {
   for (let i = 0; i < n; i++) {
     if (walls.has(i)) continue;
     const open = neighbours(i, cols, rows).filter((nb) => !walls.has(nb)).length;

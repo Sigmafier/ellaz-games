@@ -2,8 +2,10 @@ import Phaser from "phaser";
 import type { GameContext } from "@sdk/index";
 import { winMoment } from "@shared/index";
 import { step, turn, type SnakeState, type Dir } from "./logic";
-import { burst, drawApple, drawBoard, drawSnake, drawSparks, drawWalls, tickSparks, type Board, type Spark } from "./draw";
+import { burst, drawAim, drawApple, drawBoard, drawSnake, drawSparks, drawWallFlash, drawWalls, tickSparks, type Board, type Spark } from "./draw";
 import { dealBoard } from "./todayBoard";
+import { decide, keyPress, launch, type Phase, type Press } from "./flow";
+import { FOOD_PER_LEVEL, addStageWalls, stageOf } from "./stageWalls";
 
 const COLS = 17;
 const ROWS = 17;
@@ -12,13 +14,11 @@ const ROWS = 17;
 export type SpeedKey = "slow" | "normal" | "fast";
 const SPEEDS: Record<SpeedKey, number> = { slow: 170, normal: 130, fast: 90 };
 
-// Progressive difficulty: every FOOD_PER_LEVEL food eaten bumps the level; each
-// level shaves STEP_DECAY_MS off the effective tick, never faster than STEP_FLOOR.
-const FOOD_PER_LEVEL = 5;
+// Progressive difficulty: every FOOD_PER_LEVEL food eaten bumps the stage; each
+// stage shaves STEP_DECAY_MS off the effective tick, never faster than STEP_FLOOR,
+// and on the classic board drops a little wall (stageWalls.ts).
 const STEP_DECAY_MS = 8;
 const STEP_FLOOR = 60;
-
-type Phase = "ready" | "playing" | "over";
 
 /**
  * Which board. `classic` is the open 17x17 it has always been; `today` is the
@@ -61,12 +61,15 @@ export type SnakeStatus = {
   today: string;
 };
 
-/** How long the death flash runs, ms. */
+/** How long the death flash runs, ms. `RESTART_GRACE_MS` in flow.ts outlasts it. */
 const DEATH_FLASH_MS = 600;
+/** How long a stage's new walls flash as they land, ms. */
+const WALL_FLASH_MS = 900;
 
 // Phaser scene: draws the pure SnakeState and feeds it input. The snake does not
-// move until the player's first input (ready → playing), so it never dies before
-// they're looking. All game rules live in logic.ts; this class is render + input.
+// move until the player's first DIRECTION (ready/aim -> playing), so it never
+// dies before they have chosen a way. Rules live in logic.ts, what each input
+// means in flow.ts, the stage walls in stageWalls.ts; this class is render + input.
 export class SnakeScene extends Phaser.Scene {
   private ctx!: GameContext;
   private state!: SnakeState;
@@ -94,6 +97,9 @@ export class SnakeScene extends Phaser.Scene {
   private sparks: Spark[] = [];
   /** Scene time of the last death, 0 for none - drives the red flash. */
   private diedAt = 0;
+  /** The walls the last stage dropped, and when - drives their flash. */
+  private freshWalls: number[] = [];
+  private wallsAt = 0;
   /** Told to the chrome on every change. Set from `init`. */
   private onStatus?: (s: SnakeStatus) => void;
   /**
@@ -182,56 +188,61 @@ export class SnakeScene extends Phaser.Scene {
   }
 
   /**
-   * The footer strip, tapped while it is telling the player to tap.
-   *
-   * The strip says "Tap to start" on the ready screen and "tap to play again"
-   * after a game over, and until 2026-08-30 it did neither: it is a card with
-   * a bold imperative directly under the board, and only the CANVAS answered.
-   * Measured on the published itch bundle - two taps on the strip, nothing;
-   * one tap on the board, away it went.
-   *
-   * Deliberately the same path as a canvas tap rather than a second one, so
-   * the two cannot drift: unlock, restart when the run is over, otherwise
-   * start. Kept in the scene because the canvas is this game's single owner
-   * of input (see `steer`); the chrome asks, it does not decide.
-   *
-   * A no-op while playing, on purpose - mid-run the strip is a hint, not an
-   * instruction, and the chrome does not offer it as a button then.
+   * A card's button: the start card's Play / Today's board, the game-over
+   * card's Play again, the on-board stick's tap. The same CONFIRM a tap on the
+   * canvas or Space is, through the same `press` - so a button and the board
+   * cannot drift, and Play again waits out the same grace after a death.
+   * (Until 2026-08-30 the thing saying "tap" did not answer a tap; see
+   * a-control-that-carries-an-imperative-must-be-a-control.md.)
    */
   startFromChrome() {
     if (this.paused) return;
-    this.ctx.audio.unlock();
-    this.ctx.speech.unlock();
-    if (this.phase === "over") {
-      // One press, moving snake - the same as a tap on the canvas, which
-      // restarts on pointerdown and starts on pointerup. The game-over card's
-      // Play again lands here, and it must not stop on a ready screen.
-      this.restart();
-      this.startPlaying();
-      return;
-    }
-    this.startPlaying();
+    this.press({ kind: "confirm" });
+  }
+
+  /** An on-screen D-pad, stick or on-board stick press: a direction, like an arrow key. */
+  steer(dir: Dir) {
+    // Behind the cover, and that is the whole point of checking here: the
+    // D-pad is in the FOOTER, outside the cover the chrome draws, so it stays
+    // tappable. Without this a paused snake can be steered into a wall the
+    // player cannot see.
+    if (this.paused) return;
+    this.press({ kind: "direction", dir });
   }
 
   /**
-   * An on-screen D-pad press. Same path as an arrow key: unlock audio, restart
-   * from the game-over screen, otherwise start play on the first press and turn.
-   * Kept here (not in the chrome) so the canvas stays the single owner of input.
+   * EVERY input lands here - keys, taps, swipes, the pad, the stick, the cards
+   * - and `decide` (flow.ts) says what it means. Nothing else in this file
+   * restarts a finished run except the platform bar and a board change.
+   *
+   * It does not check the pause itself: each of the five surfaces calling it
+   * does, one guard each (pause-stops-the-game.test.ts counts them, so a new
+   * surface cannot arrive without saying it thought about the pause).
    */
-  steer(dir: Dir) {
-    // Behind the cover, and that is the whole point of checking here rather
-    // than in the chrome: the D-pad is in the FOOTER, outside the cover the
-    // chrome draws, so it stays tappable. Without this a paused snake can be
-    // steered into a wall the player cannot see.
-    if (this.paused) return;
+  private press(p: Press) {
     this.ctx.audio.unlock();
     this.ctx.speech.unlock();
-    if (this.phase === "over") {
-      this.restart();
-      return;
+    const since = this.phase === "over" ? this.time.now - this.diedAt : Infinity;
+    switch (decide(this.phase, p.kind, since)) {
+      case "aim":
+        this.phase = "aim";
+        break;
+      case "again":
+        // One press, and the next run is waiting for its first direction - it
+        // never stops on the start card, and never sets off on its own.
+        this.restart();
+        this.phase = "aim";
+        break;
+      case "go":
+        if (p.kind === "direction") this.state = launch(this.state, p.dir);
+        this.phase = "playing";
+        break;
+      case "turn":
+        if (p.kind === "direction") this.state = turn(this.state, p.dir);
+        break;
+      default:
+        return;
     }
-    this.startPlaying();
-    this.state = turn(this.state, dir);
     this.draw();
   }
 
@@ -248,55 +259,31 @@ export class SnakeScene extends Phaser.Scene {
     this.ctx.analytics.levelStart("classic");
 
     this.input.keyboard?.on("keydown", (e: KeyboardEvent) => {
-      const map: Record<string, Dir> = {
-        ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
-        w: "up", s: "down", a: "left", d: "right",
-      };
-      const dir = map[e.key];
       if (this.paused) return;
-      this.ctx.audio.unlock();
-      this.ctx.speech.unlock();
-      if (this.phase === "over") {
-        this.restart();
-        return;
-      }
-      if (dir) {
-        this.startPlaying(); // first arrow starts at the selected speed
-        this.state = turn(this.state, dir);
-      } else {
-        this.startPlaying();
-      }
+      const p = keyPress(e.key);
+      // A HELD Space auto-repeats; only a fresh press confirms anything.
+      if (!p || (p.kind === "confirm" && e.repeat)) return;
+      this.press(p);
     });
 
-    // Swipe via pointer; a plain tap starts the game (or restarts after game over).
+    // Tap or swipe is decided on pointerUP, never down: a swipe that began as
+    // the snake died is a direction, and a direction never restarts a run.
     let sx = 0, sy = 0;
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      // The canvas IS covered while paused, so these two should never fire.
-      // They are guarded anyway because Phaser's input runs off the canvas
-      // element rather than off the DOM node the cover sits over, and a
-      // pointer the cover lets through would restart a finished run.
+      // The canvas IS covered while paused; guarded anyway, because Phaser's
+      // input runs off the canvas element rather than the DOM node the cover
+      // sits over.
       if (this.paused) return;
       sx = p.x;
       sy = p.y;
-      this.ctx.audio.unlock();
-      this.ctx.speech.unlock();
-      if (this.phase === "over") this.restart();
     });
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => {
       if (this.paused) return;
       const dx = p.x - sx;
       const dy = p.y - sy;
-      if (Math.abs(dx) < 18 && Math.abs(dy) < 18) {
-        this.startPlaying(); // tap = start at the selected (default normal) speed
-        return;
-      }
-      this.startPlaying();
-      if (this.phase === "playing") {
-        this.state =
-          Math.abs(dx) > Math.abs(dy)
-            ? turn(this.state, dx > 0 ? "right" : "left")
-            : turn(this.state, dy > 0 ? "down" : "up");
-      }
+      if (Math.abs(dx) < 18 && Math.abs(dy) < 18) return this.press({ kind: "confirm" });
+      const dir: Dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
+      this.press({ kind: "direction", dir });
     });
 
     this.scale.on("resize", () => this.computeCell());
@@ -338,19 +325,12 @@ export class SnakeScene extends Phaser.Scene {
     };
   }
 
-  // Current level (1-based) and the effective tick after progressive speed-up.
+  // Current stage (1-based) and the effective tick after progressive speed-up.
   private level(): number {
-    return 1 + Math.floor(this.state.score / FOOD_PER_LEVEL);
+    return stageOf(this.state.score);
   }
   private effectiveStep(): number {
     return Math.max(STEP_FLOOR, this.baseStepMs - (this.level() - 1) * STEP_DECAY_MS);
-  }
-
-  // Single entry for every ready → playing transition.
-  private startPlaying() {
-    if (this.phase !== "ready") return;
-    this.phase = "playing";
-    this.draw();
   }
 
   private today(): string {
@@ -382,6 +362,7 @@ export class SnakeScene extends Phaser.Scene {
     this.acc = 0;
     this.newBest = false;
     this.diedAt = 0;
+    this.freshWalls = [];
     // NB: baseStepMs / selectedSpeed intentionally kept — speed persists across restarts.
     this.ctx.analytics.levelStart(this.mode);
     this.draw();
@@ -399,6 +380,12 @@ export class SnakeScene extends Phaser.Scene {
       this.acc -= stepMs;
       const prevScore = this.state.score;
       this.state = step(this.state, this.foodRng);
+      if (this.mode === "classic" && stageOf(this.state.score) > stageOf(prevScore)) {
+        const grown = addStageWalls(this.state, Math.random);
+        this.state = grown.state;
+        this.freshWalls = grown.added;
+        this.wallsAt = this.time.now;
+      }
       if (this.state.score > prevScore) {
         // A pop that climbs a step with each apple of a stage, so a run sounds
         // like it is going somewhere.
@@ -481,11 +468,13 @@ export class SnakeScene extends Phaser.Scene {
     g.clear();
     drawBoard(g, b);
     drawWalls(g, b, this.state.walls);
+    drawWallFlash(g, b, this.freshWalls, (time - this.wallsAt) / WALL_FLASH_MS);
     drawApple(g, b, this.state.food, (Math.sin(time / 260) + 1) / 2);
     const since = this.diedAt ? time - this.diedAt : Infinity;
     // Blinks three times, then settles on the snake's own colours.
     const flash = since < DEATH_FLASH_MS && Math.floor(since / 100) % 2 === 0 ? 1 : 0;
     drawSnake(g, b, this.state.body, this.state.dir, flash);
+    if (this.phase === "aim") drawAim(g, b, this.state.body[0], (Math.sin(time / 180) + 1) / 2);
     drawSparks(g, this.sparks, b.c);
   }
 

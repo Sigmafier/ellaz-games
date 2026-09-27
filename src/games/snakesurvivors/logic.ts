@@ -13,7 +13,8 @@ import {
   advance, centreOf, findLoop, inside, trimTrail,
 } from "./body";
 import { applyCard, biteOf, noneTaken, offerCards, pullOf, regrowEvery, shockOf, spikeEvery } from "./cards";
-import { KINDS, LEVELS, moveFoes, startBoss, tickSpawns } from "./crowd";
+import { KINDS, LEVELS, SAFE_START_MS, moveFoes, startBoss, tickSpawns } from "./crowd";
+import { FLOOR_GEMS, tickFloorGems } from "./floor";
 import type { Arena, CardId, Foe, LevelKey, Pt, Run, Steer } from "./types";
 
 export type { Arena, CardId, Foe, LevelKey, Run, Steer } from "./types";
@@ -57,6 +58,8 @@ export function newRun(level: LevelKey, arena: Arena = ARENA, rng: () => number 
     t: 0,
     // A first shape a second or so in, jittered so two runs do not open alike.
     spawnIn: 900 + rng() * 600,
+    floorIn: FLOOR_GEMS.firstMs,
+    calmMs: SAFE_START_MS,
     xp: 0, need: needFor(1), lv: 1,
     choosing: null,
     taken: noneTaken(),
@@ -79,6 +82,7 @@ export function step(run: Run, dt: number, steer: Steer, rng: () => number = Mat
   advance(run, dt, steer);
   if (run.phase === "stage" && run.t >= LEVELS[run.level].stageMs) startBoss(run, rng);
   tickSpawns(run, dt, rng);
+  tickFloorGems(run, dt, rng);
   moveFoes(run, dt, rng);
   bodyContacts(run, rng);
   if (run.loopCool === 0) {

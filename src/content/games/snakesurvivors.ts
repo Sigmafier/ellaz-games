@@ -43,7 +43,7 @@ export const snakesurvivors: GameContent = {
         { title: "לנווט", body: "בטלפון שמים אגודל איפה שרוצים על הזירה וגוררים, ומקל מופיע מתחת לאצבע. במחשב מנווטים בחצים או ב-WASD. הנחש לא עוצר אף פעם, והוא מסתובב בעקומה חלקה ולא בזוויות ישרות." },
         { title: "לסגור לולאה", body: "מחזירים את הראש עד שהוא נוגע בגוף שלכם. כל צורה בתוך הלולאה שציירתם חוטפת מחיצה, והלולאה צריכה להיות רחבה: סיבוב צפוף במקום לא נחשב." },
         { title: "לשמור על הראש", body: "רק הראש נפגע. צורה שמגיעה אליו עולה 2 חוליות, ואחר כך יש רגע קצר של הבהוב שבו אפשר לברוח." },
-        { title: "לגדול בחזרה", body: "צורות שנמחצו משאירות יהלומים. גולשים מעליהם כדי להתארך ולמלא את פס הדרגה." },
+        { title: "לגדול בחזרה", body: "צורות שנמחצו משאירות יהלומים, ועוד כמה מפוזרים על הרצפה, כך שאפשר לגדול עוד לפני הלולאה הראשונה. גולשים מעליהם כדי להתארך ולמלא את פס הדרגה." },
         { title: "לבחור קלף", body: "כשהפס מתמלא המשחק עוצר ומציע שלושה קלפים. בוחרים אחד, והקהל ממשיך לזוז." },
       ],
 
@@ -114,7 +114,7 @@ export const snakesurvivors: GameContent = {
         { title: "Steer", body: "On a phone, put your thumb anywhere on the arena and drag; a stick appears under it and the snake follows. On a PC, the arrow keys or WASD steer. The snake never stops, and it turns in smooth curves rather than right angles." },
         { title: "Close a loop", body: "Bring your head back round until it touches your own body. Every shape inside the loop you just drew takes a crush, and the loop has to be a wide one: a tight spin in place does not count." },
         { title: "Guard the head", body: "Only your head can be hurt. A shape reaching it costs 2 segments, and the snake blinks for a moment while you get away." },
-        { title: "Grow back", body: "Crushed shapes drop gems. Glide over them to grow longer and fill the level bar." },
+        { title: "Grow back", body: "Crushed shapes drop gems, and a few more lie on the floor, so you can grow before your first loop. Glide over them to grow longer and fill the level bar." },
         { title: "Pick a card", body: "When the bar is full the game stops and offers three cards. Tap one and the crowd starts moving again." },
       ],
 
@@ -185,7 +185,7 @@ export const snakesurvivors: GameContent = {
         { title: "Guiar", body: "En el móvil, pon el pulgar en cualquier punto de la arena y arrastra; aparece un mando bajo el dedo y la serpiente lo sigue. En el ordenador, se guía con las flechas o con WASD. La serpiente nunca se para y gira en curvas suaves, no en ángulos rectos." },
         { title: "Cerrar el lazo", body: "Vuelve con la cabeza hasta tocar tu propio cuerpo. Todas las formas que queden dentro del lazo reciben un aplastamiento, y tiene que ser un lazo amplio: girar cerrado en el sitio no cuenta." },
         { title: "Cuidar la cabeza", body: "Solo la cabeza recibe daño. Una forma que llega hasta ella cuesta 2 segmentos, y luego la serpiente parpadea un momento para que puedas escapar." },
-        { title: "Volver a crecer", body: "Las formas aplastadas sueltan gemas. Pasa por encima para alargarte y llenar la barra de nivel." },
+        { title: "Volver a crecer", body: "Las formas aplastadas sueltan gemas, y hay algunas más por el suelo, así que puedes crecer antes de tu primer lazo. Pasa por encima para alargarte y llenar la barra de nivel." },
         { title: "Elegir carta", body: "Cuando la barra se llena, el juego se para y ofrece tres cartas. Toca una y la multitud vuelve a moverse." },
       ],
 

@@ -5,9 +5,11 @@
 // runs mint to violet from head to tail, and a head whose eyes face where it is
 // going. `bodyColor` is borrowed from it so the two games are one family.
 
+import { mulberry32 } from "@shared/rng";
 import { bodyColor } from "../snake/draw";
+import { WALL } from "../survivors/world";
 import { BODY_R, HEAD_R } from "./body";
-import type { Pt, Run } from "./types";
+import type { Arena, Pt, Run } from "./types";
 
 export interface Pen {
   fillStyle(color: number, alpha?: number): unknown;
@@ -110,4 +112,75 @@ export function drawLoop(g: Pen, poly: Pt[], age: number, life: number): void {
   g.fillPoints(poly, true);
   g.lineStyle(3, 0xffffff, 0.9 * k);
   g.strokePoints(poly, true);
+}
+
+/** Dots on the tutorial's ring, and how fast they march round it (radians/s). */
+const RING_DOTS = 22;
+const RING_SPIN = 0.9;
+
+/**
+ * Tutorial step 1: a dotted ring round the bat - the path to drive. The dots
+ * march clockwise, the way a loop is easiest to close from the start, so the
+ * ring reads as a route and not as a target.
+ */
+export function drawGuideRing(g: Pen, ring: { x: number; y: number; r: number }, ms: number): void {
+  const turn = (ms / 1000) * RING_SPIN;
+  for (let i = 0; i < RING_DOTS; i++) {
+    const a = turn + (i / RING_DOTS) * 2 * Math.PI;
+    const lead = i % 2 === 0;
+    g.fillStyle(lead ? INK.mint : 0xffffff, lead ? 1 : 0.7);
+    g.fillCircle(ring.x + Math.cos(a) * ring.r, ring.y + Math.sin(a) * ring.r, lead ? 3.2 : 2.2);
+  }
+}
+
+/** Where tutorial step 2's arrowhead sits: just past the head, on the line to the gem. */
+export function arrowPoints(head: Pt, to: Pt): { tip: Pt; left: Pt; right: Pt } | null {
+  const dx = to.x - head.x;
+  const dy = to.y - head.y;
+  const d = Math.hypot(dx, dy);
+  if (d < HEAD_R * 3) return null; // on top of it already: nothing to point at
+  const ux = dx / d;
+  const uy = dy / d;
+  const base = HEAD_R + 12;
+  const tip = { x: head.x + ux * (base + 12), y: head.y + uy * (base + 12) };
+  return {
+    tip,
+    left: { x: head.x + ux * base - uy * 7, y: head.y + uy * base + ux * 7 },
+    right: { x: head.x + ux * base + uy * 7, y: head.y + uy * base - ux * 7 },
+  };
+}
+
+/** Tutorial step 2: an arrow from the head toward the gem, and a pulsing ring on the gem. */
+export function drawGemArrow(g: Pen, head: Pt, to: Pt, ms: number): void {
+  const pulse = 0.5 + 0.5 * Math.sin(ms / 160);
+  const arrow = arrowPoints(head, to);
+  if (arrow) {
+    g.fillStyle(INK.gold, 0.75 + 0.25 * pulse);
+    g.fillTriangle(arrow.tip.x, arrow.tip.y, arrow.left.x, arrow.left.y, arrow.right.x, arrow.right.y);
+  }
+  const r = 10 + 4 * pulse;
+  const rim = Array.from({ length: 16 }, (_, i) => ({ x: to.x + Math.cos((i / 16) * 2 * Math.PI) * r, y: to.y + Math.sin((i / 16) * 2 * Math.PI) * r }));
+  g.lineStyle(2, INK.gold, 0.85);
+  g.strokePoints(rim, true);
+}
+
+/** The two calls the floor needs on top of a `Pen`'s. */
+export interface GroundPen extends Pen {
+  fillRect(x: number, y: number, w: number, h: number): unknown;
+  lineBetween(x1: number, y1: number, x2: number, y2: number): unknown;
+}
+
+/** The floor: a faint grid, scattered dots, and striped walls at the world's edge. */
+export function drawGround(g: GroundPen, world: Arena): void {
+  const { w, h } = world;
+  g.fillStyle(INK.ground, 1);
+  g.fillRect(0, 0, w, h);
+  g.lineStyle(1, INK.grid, 1);
+  for (let x = 40; x < w; x += 40) g.lineBetween(x, 0, x, h);
+  for (let y = 40; y < h; y += 40) g.lineBetween(0, y, w, y);
+  const rnd = mulberry32(20260927);
+  g.fillStyle(0x2a3170, 1);
+  for (let i = 0; i < (w * h) / 6000; i++) g.fillCircle(rnd() * w, rnd() * h, 1.3);
+  g.fillStyle(INK.wall, 0.55);
+  for (const [x, y, rw, rh] of [[0, 0, w, WALL], [0, h - WALL, w, WALL], [0, 0, WALL, h], [w - WALL, 0, WALL, h]]) g.fillRect(x, y, rw, rh);
 }

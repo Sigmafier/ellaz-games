@@ -14,6 +14,7 @@ import { LEVELS } from "./crowd";
 import { ARENA, ARENA_WIDE, hitsLeft } from "./logic";
 import type { Arena, CardId, LevelKey } from "./types";
 import type { SnakeSurvivorsScene, SnakeSurvivorsStatus } from "./SnakeSurvivorsScene";
+import { TUTORIAL_TEXT, TutorialBanner } from "./TutorialBanner";
 
 // Snake Survivors' chrome: the arcade HUD, the entrance, and the card picker,
 // all drawn by the shared showcase components over a Phaser arena. Same shape
@@ -40,12 +41,27 @@ const LENGTH_ART = (
   </svg>
 );
 
+/** The entrance's "How to play": quieter than Play, and still plainly a button. */
+const HOW_TO_STYLE = {
+  minHeight: 40,
+  padding: "0 16px",
+  borderRadius: "var(--radius-pill)",
+  border: "2px solid rgba(216, 251, 255, 0.55)",
+  background: "transparent",
+  color: "#fff",
+  font: "inherit",
+  fontWeight: 700,
+  fontSize: 14,
+  cursor: "pointer",
+  touchAction: "manipulation",
+} as const;
+
 /** The two weapons get the HUD's slots, so a player sees which they carry. */
 const weapons = new Set<CardId>(WEAPONS);
 
 export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<Pick<SnakeSurvivorsScene, "setLevel" | "setPaused" | "restartFromChrome" | "startFromChrome" | "choose"> | null>(null);
+  const sceneRef = useRef<Pick<SnakeSurvivorsScene, "setLevel" | "setPaused" | "restartFromChrome" | "startFromChrome" | "choose" | "startTutorial" | "endTutorial"> | null>(null);
   const [level, setLevel] = useRememberedLevel(ctx, LEVEL_OPTIONS.map((o) => o.id), "normal");
   const levelRef = useRef(level);
   levelRef.current = level;
@@ -63,6 +79,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
     taken: { fangs: 0, spikes: 0, magnet: 0, swift: 0, regrow: 0, shockwave: 0 },
     boss: null,
     newBest: false,
+    tutorial: null,
   });
   const best = ctx.score?.best(status.level) ?? 0;
 
@@ -226,6 +243,8 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
     ctx.locale,
   );
 
+  const HOW_TO = textFor(TUTORIAL_TEXT, ctx.locale).label;
+  const tutoring = status.tutorial !== null && status.tutorial !== "done";
   const asking = status.phase !== "playing";
   const choosing = status.offer.length > 0;
   const score = status.crushed;
@@ -247,8 +266,10 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         chip: { art: LENGTH_ART, text: `${T.length} ${status.len}`, ready: true },
         score,
         best: Math.max(best, score),
-        clock: clock(status.left),
-        slots: WEAPONS.map((id) => ({
+        // The tutorial's run has no stage clock and no weapons, and its words sit
+        // where these two would: on a phone they would cover both (2026-09-27).
+        clock: tutoring ? "" : clock(status.left),
+        slots: tutoring ? [] : WEAPONS.map((id) => ({
           id,
           art: status.taken[id] ? <span style={{ display: "flex", transform: "scale(0.55)" }}>{CARD_ART[id]()}</span> : null,
         })),
@@ -272,7 +293,15 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
               action: status.phase === "ready" ? T.play : T.playAgain,
               result,
               onAction: () => sceneRef.current?.startFromChrome(),
-              extra: <span style={{ color: "#fff", opacity: 0.8, fontSize: 13 }}>{T.hint}</span>,
+              extra: (
+                <>
+                  <span style={{ color: "#fff", opacity: 0.8, fontSize: 13 }}>{T.hint}</span>
+                  {/* A real button: it starts the guided run (ruling R2.5). */}
+                  <button type="button" onClick={() => sceneRef.current?.startTutorial()} style={HOW_TO_STYLE}>
+                    {HOW_TO}
+                  </button>
+                </>
+              ),
             }
           : null
       }
@@ -301,6 +330,9 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
             touchAction: "none",
           }}
         />
+        {tutoring && status.tutorial !== "done" && status.tutorial && (
+          <TutorialBanner step={status.tutorial} locale={ctx.locale} onSkip={() => sceneRef.current?.endTutorial()} />
+        )}
         {choosing && (
           <div
             role="group"

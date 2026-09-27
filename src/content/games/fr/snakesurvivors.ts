@@ -39,7 +39,7 @@ export const snakesurvivorsFr: GameCopy = {
     { title: "Diriger", body: "Sur téléphone, posez le pouce n'importe où sur l'arène et faites glisser : un petit manche apparaît sous le doigt et le serpent suit. Sur ordinateur, les flèches ou WASD suffisent. Le serpent ne s'arrête jamais et tourne en courbes douces, pas à angle droit." },
     { title: "Fermer la boucle", body: "Ramenez la tête jusqu'à ce qu'elle touche votre corps. Chaque forme prise dans la boucle que vous venez de tracer est écrasée, à condition que la boucle soit large : tourner serré sur place ne compte pas." },
     { title: "Protéger la tête", body: "Seule la tête peut être blessée. Une forme qui l'atteint coûte 2 segments, puis le serpent clignote un instant pour vous laisser fuir." },
-    { title: "Regrandir", body: "Les formes écrasées laissent des gemmes. Passez dessus pour grandir et remplir la barre de niveau." },
+    { title: "Regrandir", body: "Les formes écrasées laissent des gemmes, et quelques autres traînent au sol, pour grandir avant votre première boucle. Passez dessus pour grandir et remplir la barre de niveau." },
     { title: "Choisir une carte", body: "Quand la barre est pleine, le jeu s'arrête et propose trois cartes. Appuyez sur l'une d'elles et la foule repart." },
   ],
 

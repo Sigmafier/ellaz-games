@@ -80,7 +80,7 @@ describe("the card that asks the player to tap", () => {
     expect(footer, "a leftover strip would be a second start button").not.toContain("<button");
   });
 
-  it("does not fork the start logic - the strip walks the canvas's path", () => {
+  it("does not fork the start logic - the card walks the canvas's path", () => {
     // ANCHORED on the newline and indent. `restartFromChrome` CONTAINS
     // `startFromChrome` as a substring, so an unanchored indexOf finds the
     // wrong method and reads its one-line body - which it did, on the first
@@ -88,13 +88,22 @@ describe("the card that asks the player to tap", () => {
     const start = SCENE.indexOf("\n  startFromChrome() {");
     expect(start, "the scene must expose startFromChrome").toBeGreaterThan(0);
     const body = SCENE.slice(start, SCENE.indexOf("\n  }", start));
-    // The canvas tap unlocks audio and speech, restarts when the run is over,
-    // and otherwise starts. Anything less is a second, drifting copy.
-    for (const call of ["audio.unlock()", "speech.unlock()", "this.restart()", "this.startPlaying()"]) {
-      expect(body, `startFromChrome must ${call} exactly as a canvas tap does`).toContain(call);
-    }
+    // Since 2026-09-27 every input - a canvas tap included - goes through ONE
+    // method, `press`, as a CONFIRM. So the card is the canvas tap by
+    // construction, and `press` is what must unlock, respect the pause cover,
+    // and restart a finished run.
+    expect(body).toContain('this.press({ kind: "confirm" });');
     expect(body, "and it must respect the pause cover, like every other entry point").toContain(
-      "this.paused",
+      "if (this.paused) return;",
+    );
+    const at = SCENE.indexOf("\n  private press(");
+    expect(at, "the scene must have press").toBeGreaterThan(0);
+    const press = SCENE.slice(at, SCENE.indexOf("\n  }\n", at));
+    for (const call of ["audio.unlock()", "speech.unlock()", "this.restart()"]) {
+      expect(press, `press must ${call} for a card exactly as for a canvas tap`).toContain(call);
+    }
+    expect(SCENE, "and the canvas tap is that same confirm").toContain(
+      'return this.press({ kind: "confirm" });',
     );
   });
 
