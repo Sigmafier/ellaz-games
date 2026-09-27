@@ -19,6 +19,7 @@ import type { SnakeStatus } from "./SnakeScene";
 
 const GAME = readFileSync(new URL("./SnakeGame.tsx", import.meta.url), "utf8");
 const SCENE = readFileSync(new URL("./SnakeScene.ts", import.meta.url), "utf8");
+const CARDS = readFileSync(new URL("./SnakeCards.tsx", import.meta.url), "utf8");
 const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
 
 const base: SnakeStatus = {
@@ -29,6 +30,8 @@ const base: SnakeStatus = {
   paused: false,
   best: 41,
   newBest: false,
+  mode: "classic",
+  today: "2026-09-27",
 };
 
 describe("the game-over card", () => {
@@ -39,7 +42,11 @@ describe("the game-over card", () => {
   });
 
   it("says the run's score AND the best - the reviewer's exact question", () => {
-    expect(overCard(base)).toEqual({ score: 23, best: 41, newBest: false });
+    expect(overCard(base)).toEqual({ score: 23, best: 41, newBest: false, today: false });
+  });
+
+  it("says which board it was, so a daily best is never read as the all-time one", () => {
+    expect(overCard({ ...base, mode: "today" })?.today).toBe(true);
   });
 
   it("calls it a new best only when the score port said so", () => {
@@ -55,16 +62,19 @@ describe("the game-over card", () => {
   });
 
   it("is a real button, walking the canvas's own path", () => {
-    const at = GAME.indexOf("snake-over-card");
+    const at = CARDS.indexOf("snake-over-card");
     expect(at, "the card must be rendered, and named").toBeGreaterThan(0);
-    const card = code(GAME.slice(at, GAME.indexOf("</section>", at)));
+    const card = code(CARDS.slice(CARDS.lastIndexOf("export function OverCard", at), CARDS.indexOf("</section>", at)));
     expect(card).toContain("<button");
-    // Anchored on `?.` - `restartFromChrome` CONTAINS `startFromChrome`.
-    expect(card, "Play again goes through the scene, like a canvas tap").toContain(
-      "?.startFromChrome()",
-    );
-    expect(card).not.toContain("?.restartFromChrome()");
     expect(card, "never disabled").not.toMatch(/\bdisabled[=}]/);
+    // The wiring, in SnakeGame. Anchored on `?.` - `restartFromChrome`
+    // CONTAINS `startFromChrome`.
+    expect(GAME, "Play again goes through the scene, like a canvas tap").toContain(
+      "onPlayAgain={() => sceneRef.current?.startFromChrome()}",
+    );
+    expect(GAME, "Back to classic deals the classic board and waits").toContain(
+      'onClassic={() => sceneRef.current?.setMode("classic")}',
+    );
   });
 
   it("Play again starts the next run, it does not stop on a ready screen", () => {
@@ -86,7 +96,8 @@ describe("the game-over card", () => {
 
 describe("the score band", () => {
   it("is part of the board, and the cream stat cards are gone", () => {
-    expect(GAME, "the band must be rendered, and named").toContain("snake-band");
+    expect(CARDS, "the band must be named").toContain("snake-band");
+    expect(GAME, "and rendered").toContain("<Band");
     const stats = GAME.slice(GAME.indexOf("stats={"), GAME.indexOf("levels={"));
     expect(code(stats), "score and stage live on the board now, not in the page's cards").not.toMatch(
       /status\.(score|level)/,
@@ -107,5 +118,27 @@ describe("the body colour", () => {
     expect(bodyColor(-1)).toBe(bodyColor(0));
     expect(bodyColor(2)).toBe(bodyColor(1));
     expect(bodyColor(Number.NaN)).toBe(bodyColor(0));
+  });
+});
+
+describe("a personal best has to be one", () => {
+  // Measured 2026-09-27 on the built page: the score port rates ANY first score
+  // a personal best, 0 included, so a zero-apple run on a fresh record said
+  // "New best" and paid a star. On the classic board that was once per device;
+  // on today's board, a fresh record every day, it was a free star a day for
+  // dying on the first tick.
+  const at = SCENE.indexOf("const record = this.ctx.score");
+  const block = SCENE.slice(at, SCENE.indexOf("this.draw();", at));
+
+  it("needs at least one apple", () => {
+    expect(block).toMatch(/const pb = Boolean\(record\?\.isPersonalBest\) && this\.state\.score > 0;/);
+    expect(block).toContain("this.newBest = pb;");
+  });
+
+  it("pays only on the classic board - today's best is shown, not paid", () => {
+    // A star is for finishing something (rewards-economy-convention.md), and a
+    // record that resets every day is not a thing finished.
+    expect(block).toContain('if (pb && this.mode === "classic") {');
+    expect(block).not.toMatch(/if \(record\?\.isPersonalBest\)/);
   });
 });

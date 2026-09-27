@@ -1,8 +1,9 @@
 import Phaser from "phaser";
 import type { GameContext } from "@sdk/index";
 import { winMoment } from "@shared/index";
-import { newGame, step, turn, type SnakeState, type Dir } from "./logic";
-import { burst, drawApple, drawBoard, drawSnake, drawSparks, tickSparks, type Board, type Spark } from "./draw";
+import { step, turn, type SnakeState, type Dir } from "./logic";
+import { burst, drawApple, drawBoard, drawSnake, drawSparks, drawWalls, tickSparks, type Board, type Spark } from "./draw";
+import { dealBoard } from "./todayBoard";
 
 const COLS = 17;
 const ROWS = 17;
@@ -18,6 +19,13 @@ const STEP_DECAY_MS = 8;
 const STEP_FLOOR = 60;
 
 type Phase = "ready" | "playing" | "over";
+
+/**
+ * Which board. `classic` is the open 17x17 it has always been; `today` is the
+ * same walls and the same apple order for everyone on a given day, seeded by
+ * `ctx.daily` - the platform's one definition of "a day".
+ */
+export type BoardMode = "classic" | "today";
 
 /**
  * What the scene tells the React chrome around it. Read-only - the chrome never
@@ -48,6 +56,9 @@ export type SnakeStatus = {
   best: number;
   /** The run that just ended beat the record. Only the score port decides. */
   newBest: boolean;
+  mode: BoardMode;
+  /** Today's date key from `ctx.daily`, e.g. "2026-09-27". The chrome formats it. */
+  today: string;
 };
 
 /** How long the death flash runs, ms. */
@@ -76,6 +87,9 @@ export class SnakeScene extends Phaser.Scene {
   private gfx!: Phaser.GameObjects.Graphics;
   private best = 0;
   private newBest = false;
+  private mode: BoardMode = "classic";
+  /** Apples come from this. Math.random on the classic board, the day's generator on today's. */
+  private foodRng: () => number = Math.random;
   /** Eat sparks, advanced every frame whatever the phase. */
   private sparks: Spark[] = [];
   /** Scene time of the last death, 0 for none - drives the red flash. */
@@ -119,6 +133,8 @@ export class SnakeScene extends Phaser.Scene {
       paused: this.paused,
       best: this.best,
       newBest: this.newBest,
+      mode: this.mode,
+      today: this.today(),
     });
   }
 
@@ -151,6 +167,13 @@ export class SnakeScene extends Phaser.Scene {
     this.selectedSpeed = key;
     this.baseStepMs = SPEEDS[key];
     this.draw();
+  }
+
+  /** Pick the board. Deals it and waits on the ready screen: a choice is not a "go". */
+  setMode(mode: BoardMode) {
+    if (mode === this.mode && this.phase === "ready") return;
+    this.mode = mode;
+    this.restart();
   }
 
   /** The chrome's restart button. */
@@ -213,9 +236,8 @@ export class SnakeScene extends Phaser.Scene {
   }
 
   create() {
-    this.state = newGame(COLS, ROWS);
+    this.deal();
     this.phase = "ready";
-    this.best = this.ctx.score?.best() ?? 0;
     this.computeCell();
     this.gfx = this.add.graphics();
     // No text on the canvas at all. The score, stage and best are in the band
@@ -331,8 +353,27 @@ export class SnakeScene extends Phaser.Scene {
     this.draw();
   }
 
+  private today(): string {
+    try {
+      return this.ctx.daily?.today ?? "";
+    } catch {
+      return "";
+    }
+  }
+
+  /** Today's board keeps its own record, one per day; the classic keeps the old one. */
+  private recordBoard(): string | undefined {
+    return this.mode === "today" ? `today-${this.today()}` : undefined;
+  }
+
+  /** A fresh board of the current kind (see `dealBoard`), and its record. */
+  private deal() {
+    ({ state: this.state, foodRng: this.foodRng } = dealBoard(this.mode, () => this.ctx.daily.rng(), COLS, ROWS));
+    this.best = this.ctx.score?.best(this.recordBoard()) ?? 0;
+  }
+
   private restart() {
-    this.state = newGame(COLS, ROWS);
+    this.deal();
     this.phase = "ready";
     // A new run is never a paused one. Restarting from behind the cover
     // otherwise leaves the chrome holding a lid over a ready screen whose
@@ -342,7 +383,7 @@ export class SnakeScene extends Phaser.Scene {
     this.newBest = false;
     this.diedAt = 0;
     // NB: baseStepMs / selectedSpeed intentionally kept — speed persists across restarts.
-    this.ctx.analytics.levelStart("classic");
+    this.ctx.analytics.levelStart(this.mode);
     this.draw();
   }
 
@@ -357,7 +398,7 @@ export class SnakeScene extends Phaser.Scene {
     while (this.acc >= stepMs) {
       this.acc -= stepMs;
       const prevScore = this.state.score;
-      this.state = step(this.state);
+      this.state = step(this.state, this.foodRng);
       if (this.state.score > prevScore) {
         // A pop that climbs a step with each apple of a stage, so a run sounds
         // like it is going somewhere.
@@ -378,16 +419,20 @@ export class SnakeScene extends Phaser.Scene {
         this.diedAt = this.time.now;
         this.cameras.main.shake(220, 0.012);
         this.ctx.audio.play("fail");
-        this.ctx.analytics.levelFail("classic", "collision");
+        this.ctx.analytics.levelFail(this.mode, "collision");
         // A run that beat the stored record ends on a high note. The port owns
         // the record outright now — it compares, persists and answers, so the
         // scene keeps no copy to drift out of sync (snake never displays it).
         // Reported once, at death: snake's score only ever climbs, so asking
         // per food would put the same question dozens of times a run.
-        const record = this.ctx.score?.report({ value: this.state.score, unit: "points" });
-        this.newBest = Boolean(record?.isPersonalBest);
+        const record = this.ctx.score?.report({ value: this.state.score, unit: "points", board: this.recordBoard() });
+        // A first score on a fresh record is always "better", 0 included - so
+        // a best needs an apple, and only the classic board pays for one:
+        // today's record resets daily, so paying it would be a star a day.
+        const pb = Boolean(record?.isPersonalBest) && this.state.score > 0;
+        this.newBest = pb;
         this.best = Math.max(this.best, this.state.score);
-        if (record?.isPersonalBest) {
+        if (pb && this.mode === "classic") {
           winMoment(this.ctx, {
             reason: "personal_best",
             level: `score-${this.state.score}`,
@@ -435,6 +480,7 @@ export class SnakeScene extends Phaser.Scene {
     const b = this.board();
     g.clear();
     drawBoard(g, b);
+    drawWalls(g, b, this.state.walls);
     drawApple(g, b, this.state.food, (Math.sin(time / 260) + 1) / 2);
     const since = this.diedAt ? time - this.diedAt : Infinity;
     // Blinks three times, then settles on the snake's own colours.

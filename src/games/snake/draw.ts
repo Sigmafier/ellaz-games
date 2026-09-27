@@ -4,7 +4,7 @@
 import type { SnakeStatus } from "./SnakeScene";
 import type { Dir, Point } from "./logic";
 
-export type OverCard = { score: number; best: number; newBest: boolean };
+export type OverCard = { score: number; best: number; newBest: boolean; today: boolean };
 
 /**
  * What the game-over card says, or null while there is no card to draw.
@@ -16,7 +16,22 @@ export type OverCard = { score: number; best: number; newBest: boolean };
  */
 export function overCard(s: SnakeStatus): OverCard | null {
   if (s.phase !== "over") return null;
-  return { score: s.score, best: Math.max(s.best, s.score), newBest: s.newBest };
+  return { score: s.score, best: Math.max(s.best, s.score), newBest: s.newBest, today: s.mode === "today" };
+}
+
+/**
+ * "27 Sep" for a `YYYY-MM-DD` day key, in the player's language, or "" for a
+ * key that is not one. Formatted at UTC midnight: the key already IS the local
+ * day (`ctx.daily` decided it), and formatting it in the device zone would move
+ * it back a day everywhere west of Greenwich.
+ */
+export function dayLabel(key: string, locale: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return "";
+  try {
+    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${key}T00:00:00Z`));
+  } catch {
+    return key;
+  }
 }
 
 const HEAD = 0x55efc4;
@@ -57,6 +72,18 @@ export function drawBoard(g: Pen, b: Board) {
     for (let y = 0; y < b.rows; y++) {
       g.fillCircle(b.ox + (x + 0.5) * b.c, b.oy + (y + 0.5) * b.c, Math.max(1, b.c * 0.06));
     }
+  }
+}
+
+/** Today's walls: a violet block with a dark core, lit from the rim like the board. */
+export function drawWalls(g: Pen, b: Board, walls: readonly number[]) {
+  const c = b.c;
+  for (const w of walls) {
+    const x = b.ox + (w % b.cols) * c;
+    const y = b.oy + Math.floor(w / b.cols) * c;
+    g.fillStyle(0x6c5ce7, 0.22).fillRoundedRect(x, y, c, c, c * 0.2);
+    g.fillStyle(0x6c5ce7, 1).fillRoundedRect(x + c * 0.12, y + c * 0.12, c * 0.76, c * 0.76, c * 0.16);
+    g.fillStyle(0x2a2f63, 1).fillRoundedRect(x + c * 0.3, y + c * 0.3, c * 0.4, c * 0.4, c * 0.08);
   }
 }
 

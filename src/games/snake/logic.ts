@@ -17,6 +17,12 @@ export interface SnakeState {
   alive: boolean;
   score: number;
   grow: number; // remaining segments to add
+  /**
+   * Blocked cells, as `y * cols + x`, sorted. Empty on the classic board.
+   * Today's board fills it from `todayBoard.ts`; the rules here only ever
+   * read it - a wall kills like the edge does, and no apple lands on one.
+   */
+  walls: readonly number[];
 }
 
 const DELTAS: Record<Dir, Point> = {
@@ -28,7 +34,12 @@ const DELTAS: Record<Dir, Point> = {
 
 const OPPOSITE: Record<Dir, Dir> = { up: "down", down: "up", left: "right", right: "left" };
 
-export function newGame(cols = 17, rows = 17, rng: () => number = Math.random): SnakeState {
+export function newGame(
+  cols = 17,
+  rows = 17,
+  rng: () => number = Math.random,
+  walls: readonly number[] = [],
+): SnakeState {
   const cx = Math.floor(cols / 2);
   const cy = Math.floor(rows / 2);
   const body: Point[] = [
@@ -46,6 +57,7 @@ export function newGame(cols = 17, rows = 17, rng: () => number = Math.random): 
     alive: true,
     score: 0,
     grow: 0,
+    walls,
   };
   state.food = placeFood(state, rng);
   return state;
@@ -53,6 +65,7 @@ export function newGame(cols = 17, rows = 17, rng: () => number = Math.random): 
 
 export function placeFood(state: SnakeState, rng: () => number = Math.random): Point {
   const occupied = new Set(state.body.map((p) => `${p.x},${p.y}`));
+  for (const w of state.walls) occupied.add(`${w % state.cols},${Math.floor(w / state.cols)}`);
   const free: Point[] = [];
   for (let y = 0; y < state.rows; y++)
     for (let x = 0; x < state.cols; x++) if (!occupied.has(`${x},${y}`)) free.push({ x, y });
@@ -76,6 +89,10 @@ export function step(state: SnakeState, rng: () => number = Math.random): SnakeS
 
   // Wall collision.
   if (next.x < 0 || next.y < 0 || next.x >= state.cols || next.y >= state.rows) {
+    return { ...state, dir, alive: false };
+  }
+  // A wall on today's board kills exactly like the edge.
+  if (state.walls.includes(next.y * state.cols + next.x)) {
     return { ...state, dir, alive: false };
   }
   // Self collision (excluding the tail cell that will move away, unless growing).

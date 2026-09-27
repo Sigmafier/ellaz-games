@@ -21,9 +21,11 @@ import { measureBoxUnscaled, type ScaleManagerLike } from "@shared/phaserBox";
 // statically imported ... will not move module into another chunk". The scene
 // pulls Phaser, so that one convenience import un-deferred 380 KB of engine
 // while every comment here still claimed it was lazy.
-import type { SnakeStatus, SpeedKey } from "./SnakeScene";
+import type { BoardMode, SnakeStatus, SpeedKey } from "./SnakeScene";
 import type { Dir } from "./logic";
-import { overCard } from "./draw";
+import { dayLabel, overCard } from "./draw";
+import { BAND_H, Band, INK, OverCard, StartCard } from "./SnakeCards";
+import { meta } from "./meta";
 
 // The one Phaser game in the roster, wearing the same chrome as the other
 // twenty. Its score, level and speed used to be drawn INSIDE the canvas at
@@ -58,17 +60,6 @@ const SPEED_OPTIONS: DifficultyOption<SpeedKey>[] = [
 // includes padding - so the canvas was born slightly too big and FIT quietly
 // corrected it. A constant cannot be measured wrong.
 const LOGICAL = 440;
-/** The start strip's height in both of its states: the ready button's measured
- *  49px, so the ready screen - and the phone frame baseline - are unchanged. */
-const STRIP_H = 49;
-/** The score band on top of the board. Fixed, so the frame never moves with a digit. */
-const BAND_H = 44;
-/** The board's own colours, shared by the canvas, the band and the card. */
-/** A family LIST, never `inherit` inside one: "Fredoka, inherit" is an invalid
- *  declaration and the browser drops it whole, which is how the first build of
- *  the card rendered its button in the default face. */
-const FONT = "Fredoka, Heebo, sans-serif";
-const INK = { bg: "#0b0e22", rim: "#6c5ce7", mint: "#55efc4", gold: "#ffd166", text: "#f5f6ff", red: "#ff7675" };
 
 export function SnakeGame({ ctx }: { ctx: GameContext }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -79,6 +70,7 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
     setPaused: (p: boolean) => void;
     restartFromChrome: () => void;
     startFromChrome: () => void;
+    setMode: (mode: BoardMode) => void;
     steer: (dir: Dir) => void;
   } | null>(null);
   // Snake is the one game whose level lives inside the engine rather than in
@@ -102,6 +94,8 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
     // Phaser has even downloaded - already shows the record.
     best: ctx.score?.best() ?? 0,
     newBest: false,
+    mode: "classic",
+    today: "",
   });
   // Arrows (the default), one big stick, or a stick born under the thumb on
   // the board. Keyboard arrows and WASD steer in all three.
@@ -208,24 +202,52 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
         newBest: "שיא חדש",
         ready: "הקישו כדי להתחיל",
         hint: "כפתורים, החלקה או חצים",
+        play: "שחקו",
+        today: "היום",
+        todayBoard: "הלוח של היום",
+        sameWalls: "אותם קירות לכולם",
+        todayBest: "השיא של היום",
+        newBestToday: "שיא חדש היום",
+        backToClassic: "חזרה ללוח הרגיל",
       },
       en: {
         over: "Game over",
         newBest: "New best",
         ready: "Tap to start",
         hint: "Buttons, swipe or arrow keys",
+        play: "Play",
+        today: "Today",
+        todayBoard: "Today's board",
+        sameWalls: "same walls for everyone",
+        todayBest: "Today's best",
+        newBestToday: "New best today",
+        backToClassic: "Back to classic",
       },
       es: {
         over: "Fin del juego",
         newBest: "Nuevo récord",
         ready: "Toca para empezar",
         hint: "Botones, desliza o flechas",
+        play: "Jugar",
+        today: "Hoy",
+        todayBoard: "El tablero de hoy",
+        sameWalls: "los mismos muros para todos",
+        todayBest: "Récord de hoy",
+        newBestToday: "Nuevo récord de hoy",
+        backToClassic: "Volver al clásico",
       },
       sv: {
         over: "Spelet är slut",
         newBest: "Nytt rekord",
         ready: "Tryck för att börja",
         hint: "Knappar, svep eller pilar",
+        play: "Spela",
+        today: "I dag",
+        todayBoard: "Dagens bana",
+        sameWalls: "samma väggar för alla",
+        todayBest: "Dagens rekord",
+        newBestToday: "Nytt rekord i dag",
+        backToClassic: "Tillbaka till klassisk",
       },
     },
     ctx.locale,
@@ -237,6 +259,13 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
   // joystick needs no repeat: entering a direction once is the whole message.
   const steer = (dir: Dir) => sceneRef.current?.steer(dir);
   const card = overCard(status);
+  const day = dayLabel(status.today, ctx.locale);
+  const title = textFor(meta.title, ctx.locale);
+  // Choosing a board is two asks of the scene, in order: deal it, then go.
+  const startOn = (mode: BoardMode) => {
+    sceneRef.current?.setMode(mode);
+    sceneRef.current?.startFromChrome();
+  };
   // The band never shows a best behind the score it sits beside, mid-run
   // included: the record is only reported at death.
   const bandBest = Math.max(status.best, status.score);
@@ -297,26 +326,11 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
         className="snake-board"
         style={{ display: "inline-flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", boxShadow: `0 0 0 2px ${INK.rim}, 0 10px 30px ${INK.rim}44` }}
       >
-      {/* THE BAND. Part of the board: its colours, its width, its corners. */}
-      <div
-        className="snake-band"
-        aria-live="off"
-        style={{
-          height: BAND_H,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 14px",
-          background: `linear-gradient(#171b3a, ${INK.bg})`,
-          color: INK.text,
-          fontFamily: FONT,
-          lineHeight: 1,
-        }}
-      >
-        <BandCell label={ctx.t("score")} value={status.score} color={INK.mint} />
-        <BandCell label={ctx.t("stage")} value={status.level} color={INK.text} small />
-        <BandCell label={ctx.t("best")} value={bandBest} color={INK.gold} />
-      </div>
+      <Band
+        score={{ label: ctx.t("score"), value: status.score }}
+        mid={status.mode === "today" ? { label: T.today, value: day } : { label: ctx.t("stage"), value: status.level }}
+        best={{ label: status.mode === "today" ? T.todayBest : ctx.t("best"), value: bandBest }}
+      />
       <div style={{ position: "relative" }}>
       <BoardStick
         active={controlMode === "board"}
@@ -348,96 +362,37 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
           }}
         />
       </BoardStick>
-      {/* THE GAME-OVER CARD. Over the board, above the board stick, and the
-          only Play again on the page - GameHost's end-of-run strip does not
-          appear for snake (a personal best is not `runEnded`). The backdrop
-          lets pointers through, so a tap on the board still restarts the way
-          it always has; the card itself takes them. */}
-      {/* THE START CARD. The ready screen's one instruction, and a real
-          button because it is one: "a thing that tells the player to tap it
-          must answer a tap". Same path as a tap on the board, never a copy.
-          The hint under it describes rather than asks, so it is plain text. */}
+      {/* THE CARDS (SnakeCards.tsx). Each button asks the scene - the canvas
+          is this game's single owner of input - and walks the same path as a
+          tap on the board. Start: Play deals the classic board and goes,
+          Today's board deals today's and goes. Over: Play again keeps the
+          board and goes; Back to classic deals the classic board and waits. */}
       {status.phase === "ready" && (
-        <section
-          className="snake-start-card"
-          aria-label={T.ready}
-          style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none", zIndex: 3 }}
-        >
-          <div style={{ pointerEvents: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginTop: "38%" }}>
-            <button
-              type="button"
-              onClick={() => sceneRef.current?.startFromChrome()}
-              style={{
-                border: "none",
-                borderRadius: 14,
-                padding: "10px 22px",
-                minHeight: STRIP_H,
-                background: "var(--brand-strong)",
-                color: "var(--on-brand)",
-                fontFamily: FONT, fontWeight: 700, fontSize: 18,
-                cursor: "pointer",
-                touchAction: "manipulation",
-                boxShadow: `0 0 22px ${INK.rim}88`,
-              }}
-            >
-              {T.ready}
-            </button>
-            <span style={{ fontSize: 13, color: INK.text, opacity: 0.8, fontFamily: FONT }}>{T.hint}</span>
-          </div>
-        </section>
+        <StartCard
+          words={{ title, play: T.play, ready: T.ready, todayBoard: T.todayBoard, sameWalls: T.sameWalls, hint: T.hint }}
+          day={day}
+          onPlay={() => startOn("classic")}
+          onToday={() => startOn("today")}
+        />
       )}
       {card && (
-        <section
-          className="snake-over-card"
-          aria-label={T.over}
-          style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: `${INK.bg}99`, pointerEvents: "none", zIndex: 3 }}
-        >
-          <div
-            style={{
-              pointerEvents: "auto",
-              width: "74%",
-              padding: "16px 14px",
-              textAlign: "center",
-              borderRadius: 18,
-              border: `1.5px solid ${INK.rim}`,
-              background: "linear-gradient(#1e2250, #151939)",
-              boxShadow: `0 0 30px ${INK.rim}66`,
-              color: INK.text,
-              fontFamily: FONT,
-            }}
-          >
-            <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.06em", color: INK.red }}>{T.over}</div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 26, margin: "10px 0 6px" }}>
-              <CardNum label={ctx.t("score")} value={card.score} color={INK.mint} />
-              <CardNum label={ctx.t("best")} value={card.best} color={INK.gold} />
-            </div>
-            {card.newBest && (
-              <div
-                style={{ display: "inline-block", margin: "0 0 10px", padding: "3px 12px", borderRadius: 99, background: INK.gold, color: "#241c17", fontWeight: 700, fontSize: 13 }}
-              >
-                ★ {T.newBest}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => sceneRef.current?.startFromChrome()}
-              style={{
-                display: "block",
-                width: "100%",
-                border: "none",
-                borderRadius: 14,
-                padding: "11px 12px",
-                background: "var(--brand-strong)",
-                color: "var(--on-brand)",
-                fontFamily: FONT, fontWeight: 700, fontSize: 18,
-                cursor: "pointer",
-                touchAction: "manipulation",
-              }}
-            >
-              {ctx.t("playAgain")}
-            </button>
-          </div>
-        </section>
+        <OverCard
+          card={card}
+          day={day}
+          words={{
+            over: T.over,
+            score: ctx.t("score"),
+            best: ctx.t("best"),
+            todayBest: T.todayBest,
+            newBest: T.newBest,
+            newBestToday: T.newBestToday,
+            playAgain: ctx.t("playAgain"),
+            todayBoard: T.todayBoard,
+            backToClassic: T.backToClassic,
+          }}
+          onPlayAgain={() => sceneRef.current?.startFromChrome()}
+          onClassic={() => sceneRef.current?.setMode("classic")}
+        />
       )}
       </div>
       </div>
@@ -445,22 +400,3 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
   );
 }
 
-/** One number in the band: a small caption over a big value. */
-function BandCell({ label, value, color, small }: { label: string; value: number; color: string; small?: boolean }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 48 }}>
-      <span style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", opacity: 0.75 }}>{label}</span>
-      <b style={{ fontSize: small ? 17 : 21, color }}>{value}</b>
-    </div>
-  );
-}
-
-/** One number on the game-over card. */
-function CardNum({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-      <span style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.8 }}>{label}</span>
-      <b style={{ fontSize: 32, lineHeight: 1.05, color }}>{value}</b>
-    </div>
-  );
-}
