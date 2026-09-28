@@ -3,6 +3,7 @@ import type { GameContext } from "@sdk/index";
 import type { Locale } from "@i18n/index";
 import { Icon, type IconName } from "./icons";
 import { pageOwnsRestart, setPause, setRestart } from "./gameTools";
+import { TablePieces, injectTableCss, isTablePage } from "./GameTable";
 
 /**
  * The one screen shape every game wears.
@@ -348,7 +349,6 @@ export function GameChrome<T extends string>({
   const panelRef = useRef<HTMLDivElement>(null);
   const hasFooter = Boolean(footer);
   const hasSide = Boolean(side);
-  useEffect(() => (panelRef.current ? fitColumns(panelRef.current) : undefined), [hasFooter, hasSide]);
   const i = levels && level ? levels.findIndex((l) => l.id === level) : -1;
   const current = i >= 0 && levels ? levels[i] : undefined;
   const slots = numbersOnBoard ? stats : padSlots(stats, Boolean(levels && current));
@@ -384,6 +384,28 @@ export function GameChrome<T extends string>({
   // no gate in this repo can see - nothing here fetches an itch upload back.
   // Read once at mount: the page claims the slot before React ever mounts.
   const [ownRestart] = useState(() => !pageOwnsRestart());
+  // THE GAME TABLE, when the page says this game sits at one (GameTable.tsx).
+  // Read once, like `ownRestart`: the page sets it before the chunk loads.
+  // The styles go in BEFORE the first paint, from the initializer, or the
+  // first frame is today's layout wearing the table's markup. Idempotent.
+  const [table] = useState(() => {
+    const on = isTablePage();
+    if (on) injectTableCss();
+    return on;
+  });
+  // On a PHONE the table's picker goes in the tray with the game's own
+  // controls; on a PC it keeps a column of its own, under the pieces - in one
+  // tray column there with the palette, coloring's taps were scaled to 24px.
+  const [pcNow, setPcNow] = useState(() => typeof matchMedia === "function" && matchMedia(PC).matches);
+  useEffect(() => {
+    if (!table || typeof matchMedia !== "function") return undefined;
+    const mq = matchMedia(PC);
+    const on = () => setPcNow(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [table]);
+  const sideInTray = table && !pcNow;
+  useEffect(() => (panelRef.current ? fitColumns(panelRef.current) : undefined), [hasFooter, hasSide, sideInTray]);
 
   // PAUSE goes to the same place and for the same reason. blocks is the only
   // game carrying pause AND two numbers, so it was the one game still wrapping
@@ -445,7 +467,7 @@ export function GameChrome<T extends string>({
       // `gc-cols` is what a PC lays out as three columns (global.css). A class
       // and not `:has(> .ellaz-game-footer, > .ellaz-game-side)`, because the
       // stylesheet ships inside every page and the selector was 38 B there.
-      className={(footer || side) && !arenaFills ? "ellaz-game-panel gc-cols" : "ellaz-game-panel"}
+      className={`${(footer || side) && !arenaFills ? "ellaz-game-panel gc-cols" : "ellaz-game-panel"}${table ? " gc-table" : ""}`}
       ref={panelRef}
       style={{
         display: "flex",
@@ -483,6 +505,19 @@ export function GameChrome<T extends string>({
           padding: "var(--gc-head-pad, 10px 10px 8px)",
         }}
       >
+        {table ? (
+          <TablePieces
+            t={t}
+            locale={ctx.locale}
+            levels={levels}
+            level={level}
+            onLevel={onLevel as ((next: string) => void) | undefined}
+            stats={numbersOnBoard ? [] : stats}
+            paused={paused}
+            onPaused={onPaused}
+          />
+        ) : (
+        <>
         {/* ONE row, and everything in it is a GAME control: pause, the
             difficulty and the game's own numbers. Restart is a game control
             too and is in the utility row above, for width rather than for
@@ -747,6 +782,8 @@ export function GameChrome<T extends string>({
           )}
         </div>
         </div>
+        </>
+        )}
       </div>
 
       <div
@@ -836,14 +873,17 @@ export function GameChrome<T extends string>({
         )}
       </div>
 
-      {side && (
+      {/* On the Game table the picker goes IN THE TRAY with the game's own
+          controls, as the picked mock drew it (GameTable.tsx), so there is no
+          side column to fill. */}
+      {side && !sideInTray && (
         <div className="ellaz-game-side" style={{ flex: "0 0 auto", padding: "0 12px" }}>
           {/* One wrapper, because `fitColumns` scales exactly one element. */}
           <div>{side}</div>
         </div>
       )}
 
-      {footer && (
+      {(footer || (sideInTray && side)) && (
         <div
           /* The one hook anything outside this component has on a game's own
              secondary controls. Without it the footer is an anonymous div and
@@ -857,7 +897,10 @@ export function GameChrome<T extends string>({
             padding: "0 12px 14px",
           }}
         >
-          <div>{footer}</div>
+          <div>
+            {sideInTray && side}
+            {footer}
+          </div>
         </div>
       )}
     </div>

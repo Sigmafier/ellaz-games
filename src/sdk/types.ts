@@ -358,6 +358,18 @@ export interface GameMeta {
    */
   tier?: "simple" | "showcase";
   /**
+   * WHERE THIS GAME'S BUTTONS SIT. `table` is the Game table (operator ruling
+   * 2026-09-28, picked off an art-studio round): the level, the numbers,
+   * restart and pause are pieces on a mat in the game's colour, the game's own
+   * controls sit in a tray, the app's buttons stay in the corners. Absent means
+   * the layout every game had before - games move to the table one at a time,
+   * each through a before/after, and `GameTable.tsx` is the whole of it.
+   *
+   * One short word and not an object ON PURPOSE: a shell-roster game's meta
+   * ships in the first visit, which had 45 B gz spare when this was written.
+   */
+  layout?: "table";
+  /**
    * THIS GAME IS STILL BEING BUILT. Absent means finished, which is the whole
    * roster except the one that declares it.
    *

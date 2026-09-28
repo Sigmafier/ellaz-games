@@ -12,6 +12,7 @@ export const meta: GameMeta = {
   orientation: "any",
   renderer: "phaser",
   tier: "simple",
+  layout: "table",
   ownsChrome: true,
   scoreUnit: "points",
 };

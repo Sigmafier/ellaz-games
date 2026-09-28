@@ -474,7 +474,11 @@ export function Coloring({ ctx }: { ctx: GameContext }) {
           // chrome 55: no head row (no stats, no levels), and the heavy footer
           // - gallery, tools, brush sizes, palette - sits beside the picture
           // on a PC. measured 2026-09-14 by repro-board-fills-the-window.mjs at every PC arm; before that move the footer left the picture 120px.
-          ...boardVars({ vw: 92, vh: 46, cap: 440, chrome: 55 }),
+          // vh 35, not 46, since the Game table (2026-09-28): restart is a piece
+          // on the mat now, a row over the picture on a phone, and at 46 the
+          // page scaled the WHOLE game to 0.92 to fit - palette circles under
+          // the 44px floor. A smaller picture keeps every tap full size.
+          ...boardVars({ vw: 92, vh: 35, cap: 440, chrome: 55 }),
           aspectRatio: "1",
           background: "#fff",
           borderRadius: 18,

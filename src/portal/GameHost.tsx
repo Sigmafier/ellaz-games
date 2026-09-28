@@ -157,6 +157,9 @@ export function GameHost({
           setError("not-found");
           return undefined;
         }
+        // BEFORE the chunk loads: GameChrome reads it once at mount (GameTable.tsx).
+        if (entry.meta.layout) document.body.dataset.layout = entry.meta.layout;
+        else delete document.body.dataset.layout;
         return entry.load();
       })
       .then(async (loaded) => {

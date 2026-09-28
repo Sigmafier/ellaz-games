@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { GameContext } from "@sdk/index";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
 import { GameChrome } from "@ui/GameChrome";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { DirectionPad } from "@ui/DirectionPad";
 import { BoardStick } from "@ui/BoardStick";
 import { ControlModePicker } from "@ui/ControlModePicker";
@@ -341,13 +342,16 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
         <div
           ref={hostRef}
           className={pc ? BOARD_CLASS : undefined}
+          // The score band is drawn above this box, so on the Game table the
+          // board declares the table's chrome plus the band (GameTable.tsx).
+          data-own-chrome=""
           style={{
             // chrome 111 is an ESTIMATE, not a measurement: the head row every
             // GameChrome game pays once its footer (the strip, the picker and
             // the pad) sits in the column beside the board. Nothing else shares
             // this column.
             ...(pc
-              ? boardVars({ vw: 88, vh: 46, cap: 440, chrome: 111 + BAND_H, ratio: 1 })
+              ? boardVars({ vw: 88, vh: 46, cap: 440, chrome: (isTablePage() ? TABLE_CHROME : 111) + BAND_H, ratio: 1 })
               : { width: "min(88vw, 46vh, 440px)" }),
             aspectRatio: "1",
             overflow: "hidden",

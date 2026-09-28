@@ -13,7 +13,12 @@ declare global {
   }
 }
 
-/** The planted defect: 150px pushed above sudoku's board. The gate must see it. */
+/** The planted defect: 150px pushed above wordsearch's board. The gate must see it.
+ * It must be a game NOT on the Game table: there the numbers are not in a row
+ * above the board, so the plant pushes nothing and the control goes silent.
+ * It was sudoku, then memory, and each went silent the day its game moved -
+ * `layout-is-declared.test.ts` now reds if CONTROL is ever on the table. */
+export const CONTROL = "wordsearch";
 const PLANT = (doc: Document) => {
   const tag = doc.createElement("style");
   tag.textContent = ".gc-head{padding-top:150px!important}";
@@ -24,8 +29,8 @@ export async function runGate(f: HTMLIFrameElement, onProgress: (n: number) => v
   const t0 = Date.now();
   let n = 0;
   const rows = await walk(f, () => onProgress(++n));
-  const planted = await readOne(f, "sudoku", "laptop", PLANT);
-  const real = rows.find((r) => r.id === "sudoku" && r.screen === "laptop")?.report;
+  const planted = await readOne(f, CONTROL, "laptop", PLANT);
+  const real = rows.find((r) => r.id === CONTROL && r.screen === "laptop")?.report;
   const clean = rows.find((r) => r.id === "survivors" && r.screen === "laptop")?.report;
   const lite = (r: typeof planted | undefined) =>
     r ? { flags: flagsOf(r, "laptop", THRESHOLDS), above: measure(r).aboveBoard, error: r.error } : { flags: ["error"], above: 0, error: "missing" };
