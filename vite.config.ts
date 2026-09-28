@@ -800,7 +800,10 @@ export default defineConfig({
           // `DirectionPad` - so leaving them to the catch-all would be the
           // same shell-imports-from-page cycle `ArcadeChrome` measured above.
           // GameTable.tsx: the Game table, imported only by GameChrome (2026-09-28).
-          if (/\/src\/ui\/(GameChrome|GameTable|ArcadeChrome|DirectionPad|BoardStick|ControlModePicker)\.tsx$/.test(path)) return "page";
+          // Key.tsx and kinds.ts: the button kit (2026-09-28) - the key every keypad draws,
+          // and the settings list GameTable and Key read. Page-only importers, so the same trap.
+          if (/\/src\/ui\/(GameChrome|GameTable|ArcadeChrome|DirectionPad|BoardStick|ControlModePicker|Key)\.tsx$/.test(path)) return "page";
+          if (/\/src\/ui\/kinds\.ts$/.test(path)) return "page";
           if (/\/src\/ui\/gameTools\.ts$/.test(path)) return "page";
           // `boardSize.ts` is the one place board sizing is decided. Its only
           // importers are the four game renderers that have been swept onto it

@@ -2,6 +2,7 @@ import type { Locale } from "@i18n/index";
 import type { GameContext } from "@sdk/index";
 import { Icon } from "./icons";
 import { runRestart } from "./gameTools";
+import { K } from "./kinds";
 
 /**
  * THE GAME TABLE - where a game's own buttons sit (operator ruling 2026-09-28).
@@ -61,9 +62,9 @@ const LIGHT = (n: number) => `color-mix(in srgb,var(--on-brand) ${n}%,transparen
  * sheet sets only what it changes and an unset setting draws exactly today. Set
  * them on `body` (or `:root[data-theme=x] body`): the game colour `--g` lives on
  * <body>, so a setting that reads it resolves there and not on :root.
- * `game-table-kinds.test.ts` holds the list and refuses a literal look below.
+ * The list is the kit's (./kinds.ts, beside the bar's and the keys' kinds);
+ * `game-table-kinds.test.ts` refuses a literal look below.
  */
-const K = (name: string, day: string) => `var(--${name},${day})`;
 const MAT = "color-mix(in oklab,var(--g) 13%,var(--bg))";
 const TRAY = "color-mix(in oklab,var(--text) 14%,var(--surface-2))";
 const TRAY_EDGE = `inset 0 4px 0 ${SHADE(8)}`;

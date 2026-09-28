@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import { KIT_WIRING, SETTINGS } from "./kinds";
 
 /**
  * Two properties of the token layer, both mechanical.
@@ -203,6 +204,11 @@ describe("every var() resolves", () => {
   const declared = new Set([
     ...declaredTokens(TOKENS),
     ...declaredTokens(readFileSync(join(ROOT, "build/layout.ts"), "utf8")),
+    // The button kit's settings and its wiring (ui/kinds.ts), by name: a style
+    // sets a setting and a drawer passes the wiring between two of its rules.
+    // Neither is a token, and a misspelt one is still an orphan here.
+    ...SETTINGS.map((s) => `--${s}`),
+    ...KIT_WIRING,
   ]);
 
   it("reads a real token file", () => {

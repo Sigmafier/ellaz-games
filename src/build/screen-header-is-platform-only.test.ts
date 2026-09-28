@@ -40,6 +40,13 @@ const PAGES = {
   boards: boardsPage(site),
 };
 const headerOf = (html: string) => html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+/**
+ * The document with its stylesheet taken out. Since the bar's buttons are drawn
+ * from their kinds (kitCss.ts, 2026-09-28) the stylesheet names `[data-restart]`
+ * and `[data-share]` on EVERY page, as selectors - so "this page has no restart
+ * button" has to be asked of the markup, never of the whole document.
+ */
+const markupOf = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "");
 
 /**
  * The UTILITY ROW, which is now part of this file's population.
@@ -206,9 +213,10 @@ describe("the utility row carries the game's own control, and only there", () =>
   it("gives the room and the boards NEITHER, because neither has a game", () => {
     // The positive control for the tests above. Without it, an emitter that
     // stopped drawing the buttons anywhere would pass every assertion here.
+    expect(markupOf(PAGES.game), "markupOf threw the buttons out with the styles").toContain("data-restart");
     for (const html of [PAGES.world, PAGES.boards]) {
-      expect(html).not.toContain("data-restart");
-      expect(html).not.toContain("data-pause");
+      expect(markupOf(html)).not.toContain("data-restart");
+      expect(markupOf(html)).not.toContain("data-pause");
     }
   });
 
@@ -594,11 +602,12 @@ describe("the utility row's share", () => {
   });
 
   it("is on NEITHER the room nor the boards", () => {
-    // Not "absent from their utility rows" - absent from their whole documents.
+    // Not "absent from their utility rows" - absent from their whole markup.
     // A share button drawn anywhere on the room would be a control with no game
     // to share, which is the failure this asserts against rather than describes.
-    expect(PAGES.world).not.toContain("data-share");
-    expect(PAGES.boards).not.toContain("data-share");
+    expect(markupOf(PAGES.game)).toContain("data-share");
+    expect(markupOf(PAGES.world)).not.toContain("data-share");
+    expect(markupOf(PAGES.boards)).not.toContain("data-share");
   });
 
   it("is NOT in the header, on any of the three", () => {

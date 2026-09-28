@@ -48,6 +48,7 @@ import { GUIDE_CHROME, GUIDE_LOCALES } from "../content/guides";
 import { TOYBOX_LIST } from "../content/toybox";
 import { OG_HEIGHT, OG_WIDTH, ogImagePath } from "./ogCard";
 import { OFFER_CSS, offerBar } from "./langOffer";
+import { KIT_CSS } from "./kitCss";
 import { consentBar } from "./consent";
 // themes.ts imports nothing, which is what lets both the Vite config and this
 // build-time renderer read the same theme list. See src/ui/themes.ts.
@@ -735,9 +736,12 @@ body.screen .moresheet{position:absolute;inset-inline-end:0;
 
 /* The language offer's rules live in their own module beside its markup and its
    script - three pieces of one feature that have to agree about a class name,
-   an attribute and a height, so they are read together or not at all. */
+   an attribute and a height, so they are read together or not at all.
+   The bar's buttons are drawn from their kinds in their own module too
+   (kitCss.ts), LAST, so a kind's rule wins a tie with the layout above it. */
 export const DOCUMENT_CSS = `${BASE_CSS}
-${OFFER_CSS.trim()}`;
+${OFFER_CSS.trim()}
+${KIT_CSS.trim()}`;
 
 /**
  * What actually goes on the wire.

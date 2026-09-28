@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { THEMES, themeBootScript } from "./themes";
+import { KEY_CSS } from "./Key";
 import { contrastRatio } from "./ink";
 import { blockFor, keysIn } from "./theme-tokens.test";
 // A test may reach into src/build (no-app-imports.test.ts exempts `.test.ts`).
@@ -217,7 +218,9 @@ describe("the served files", () => {
 });
 
 describe("a game reads every key a sheet may set", () => {
-  const games = gameSources().join("\n");
+  // A game's keys are drawn by @ui/Key since the button kit (2026-09-28), so
+  // the key-* names are read in the CSS it emits rather than in a game file.
+  const games = [...gameSources(), KEY_CSS].join("\n");
 
   it.each(GAME_KEYS)("%s is read by a game", (key) => {
     expect(games).toContain(`var(${key},`);
@@ -244,10 +247,11 @@ describe("a game reads every key a sheet may set", () => {
       "var(--board-bad, #ff7675)",
       "var(--board-ink, #ffffff)",
       "var(--board-you, #a29bfe)",
-      "var(--key-bg, var(--surface))",
-      "var(--key-shadow, var(--shadow-1))",
     ]) {
       expect(sudoku, was).toContain(was);
+    }
+    for (const was of ["var(--key-bg,var(--k-fill,var(--surface)))", "var(--key-shadow,var(--k-shadow,var(--shadow-1)))"]) {
+      expect(KEY_CSS, was).toContain(was);
     }
   });
 });

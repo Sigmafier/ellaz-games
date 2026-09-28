@@ -89,6 +89,57 @@
   --ink-on-fill: #ffffff;
 }
 
+/* ---- the kit: every button's look, as values ---------------------------- */
+/* The kit (src/ui/kinds.ts) draws each button from its kind; this sheet only
+   gives the kinds their values. No selector below names a button - that is
+   the rule (games-doctrine G8, operator ruling 2026-09-28 "Values only"), and
+   button-kit.test.ts holds it. */
+:root[data-theme="flat"] body {
+  /* app buttons in the bar: flat violet squares */
+  --lid-fill: #5a4fcf;
+  --lid-fill-hover: #6a60dc;
+  --lid-fill-down: #4a3fb8;
+  --lid-ink: #ffffff;
+  --lid-radius: 0;
+  --lid-shadow: none;
+  --lid-motion: background 0.1s ease-out;
+  --wallet-ink: #ffe066;
+  /* the tools: round buttons on a long flat shadow they sink into; restart
+     and pause are the red ones */
+  --tool-fill: #3d348b;
+  --tool-fill-bar: #6a60dc;
+  --tool-ink: #ffffff;
+  --tool-radius: 50%;
+  --tool-shadow: 1px 1px 0 #231d5c, 2px 2px 0 #231d5c, 3px 3px 0 #231d5c;
+  --tool-shadow-down: 0 0 0 #231d5c;
+  --tool-press: 3px 3px;
+  --tool-motion: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+  --tool-fill-pause: #f25f5c;
+  --tool-fill-restart: #f25f5c;
+  --tool-shadow-pause: 1px 1px 0 #b8403d, 2px 2px 0 #b8403d, 3px 3px 0 #b8403d;
+  --tool-shadow-restart: 1px 1px 0 #b8403d, 2px 2px 0 #b8403d, 3px 3px 0 #b8403d;
+  --tool-shadow-down-pause: 0 0 0 #b8403d;
+  --tool-shadow-down-restart: 0 0 0 #b8403d;
+  --tool-shadow-restart-row: 1px 1px 0 #b8403d, 2px 2px 0 #b8403d, 3px 3px 0 #b8403d,
+    0 0 0 5px rgba(242, 95, 92, 0.25);
+  /* the menus: a white card on the same long shadow */
+  --sheet-fill: #ffffff;
+  --sheet-ink: #1d1b3a;
+  --sheet-edge: 0;
+  --sheet-radius: 0;
+  --sheet-shadow: 1px 1px 0 #231d5c, 2px 2px 0 #231d5c, 3px 3px 0 #231d5c, 4px 4px 0 #231d5c,
+    5px 5px 0 #231d5c, 6px 6px 0 #231d5c;
+  /* the keys: white squares on the long shadow, pressed right down into it */
+  --key-bg: #ffffff;
+  --tray-key-fill: #ffffff;
+  --key-font: var(--font-display);
+  --key-weight: 800;
+  --key-size: 24px;
+  --key-motion: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+  --key-press: 5px 5px;
+  --key-shadow-down: 1px 1px 0 var(--long);
+}
+
 /* ---- the page: one flat yellow, a halftone fading out of one corner ------ */
 :root[data-theme="flat"] body { background: #ffcf56; }
 :root[data-theme="flat"] body.screen .urow { background: transparent; }
@@ -117,10 +168,6 @@
 /* The emitted header paints from the --doc tokens, so redefining them on the
    bar alone recolours everything inside it. */
 :root[data-theme="flat"] body.screen .top {
-  --doc-card: #3d348b;
-  --doc-ink: #ffffff;
-  --doc-line: #3d348b;
-  --doc-brand: #ffe066;
   --hdr-ink: #ffffff;
   background: #3d348b;
   color: #ffffff;
@@ -131,59 +178,10 @@
 @media (max-width: 719px) {
   :root[data-theme="flat"] body.screen .gname { font-size: 16px; }
 }
-:root[data-theme="flat"] body.screen .top .hbtn:not(.moresheet *),
-:root[data-theme="flat"] body.screen .top .wallet-wrap:not(.moresheet *) {
-  background: #5a4fcf;
-  color: #ffffff;
-  border-radius: 0;
-  box-shadow: none;
-  transition: background 0.1s ease-out;
-}
-:root[data-theme="flat"] body.screen .top .hbtn:not(.moresheet *):hover { background: #6a60dc; }
-:root[data-theme="flat"] body.screen .top .hbtn:not(.moresheet *):active { background: #4a3fb8; }
-:root[data-theme="flat"] body.screen .top .wallet-wrap:not(.moresheet *) { --hdr-ink: #ffe066; }
 
 /* The game's own buttons pop out: round, and sitting on a hard shadow they
    sink into when pressed. Restart and pause are the red ones. */
-:root[data-theme="flat"] body.screen .top .in > .ubtn,
-:root[data-theme="flat"] body.screen .top [data-sound]:not(.moresheet *),
-:root[data-theme="flat"] body.screen .urow .tools .ubtn {
-  --pop: #3d348b;
-  --pop-side: #231d5c;
-  background: var(--pop);
-  color: #ffffff;
-  border-radius: 50%;
-  box-shadow: 1px 1px 0 var(--pop-side), 2px 2px 0 var(--pop-side), 3px 3px 0 var(--pop-side);
-  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
-}
-:root[data-theme="flat"] body.screen .top .in > .ubtn:active,
-:root[data-theme="flat"] body.screen .top [data-sound]:not(.moresheet *):active,
-:root[data-theme="flat"] body.screen .urow .tools .ubtn:active {
-  translate: 3px 3px;
-  box-shadow: 0 0 0 var(--pop-side);
-}
 /* On the indigo bar an indigo button would vanish, so there they are violet. */
-:root[data-theme="flat"] body.screen .top .in > .ubtn,
-:root[data-theme="flat"] body.screen .top [data-sound]:not(.moresheet *) { --pop: #6a60dc; --pop-side: #231d5c; }
-:root[data-theme="flat"] body.screen .ubtn[data-restart]:not(.moresheet *),
-:root[data-theme="flat"] body.screen .ubtn[data-pause]:not(.moresheet *) { --pop: #f25f5c; --pop-side: #b8403d; }
-:root[data-theme="flat"] body.screen .urow .tools .ubtn[data-restart] {
-  box-shadow: 1px 1px 0 var(--pop-side), 2px 2px 0 var(--pop-side), 3px 3px 0 var(--pop-side),
-    0 0 0 5px rgba(242, 95, 92, 0.25);
-}
-
-:root[data-theme="flat"] body.screen .moresheet,
-:root[data-theme="flat"] .langsheet {
-  --doc-card: #ffffff;
-  --doc-ink: #1d1b3a;
-  --doc-line: #e6e3f0;
-  background: #ffffff;
-  color: #1d1b3a;
-  border: 0;
-  border-radius: 0;
-  box-shadow: 1px 1px 0 #231d5c, 2px 2px 0 #231d5c, 3px 3px 0 #231d5c, 4px 4px 0 #231d5c,
-    5px 5px 0 #231d5c, 6px 6px 0 #231d5c;
-}
 
 /* ---- the numbers: three blocks of colour, edge to edge ------------------- */
 :root[data-theme="flat"] .gc-row { --gc-gap: 0px; }
@@ -216,17 +214,6 @@
 :root[data-theme="flat"] .ellaz-cell[data-bad] { box-shadow: inset 0 0 0 3px #d63a37; }
 
 /* ---- the keys: white blocks that sink when pressed ----------------------- */
-:root[data-theme="flat"] .ellaz-key {
-  --key-bg: #ffffff;
-  font-family: var(--font-display) !important;
-  font-weight: 800 !important;
-  font-size: 24px !important;
-  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
-}
-:root[data-theme="flat"] .ellaz-key:active {
-  translate: 5px 5px;
-  box-shadow: 1px 1px 0 var(--long) !important;
-}
 
 /* ---- home: the same band behind the top row ------------------------------ */
 /* The band runs edge to edge whatever the column's width, so the scroller
@@ -267,9 +254,3 @@
    one thing every shared button, tab and chip here has in common. */
 :root[data-theme="flat"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
 :root[data-theme="flat"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
-
-@media (prefers-reduced-motion: reduce) {
-  :root[data-theme="flat"] .ellaz-key,
-  :root[data-theme="flat"] .hbtn,
-  :root[data-theme="flat"] .ubtn { transition: none; }
-}

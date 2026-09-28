@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { KIT } from "./kinds";
 import { join } from "node:path";
 
 /**
@@ -9,36 +10,26 @@ import { join } from "node:path";
  *
  * The Game table's look is read only from its kinds' settings - `K("disc-size",
  * "64px")` in GameTable.tsx, which is `var(--disc-size,64px)` - so a theme or a
- * new style changes the table by setting `--disc-size` and nothing else. Three
- * things hold that, and each fails on its own:
+ * new style changes the table by setting `--disc-size` and nothing else. Two
+ * things here hold that, and each fails on its own:
  *
  *   1. No LITERAL look in the table's rules: a size, shape, tilt, fill, ink,
  *      edge, shadow or type written as a value is a value no style can reach.
  *   2. The settings are exactly this list, both ways: a setting the code reads
  *      that is not here is undocumented, one here the code never reads is dead.
- *   3. A theme sheet that sets a kind setting names a real one - `--disc-sise`
- *      would otherwise do nothing, silently, forever.
+ *   3. (A theme sheet naming a real setting is the kit's check now:
+ *      button-kit.test.ts, for every kind at once.)
  */
 const UI = new URL(".", import.meta.url).pathname;
 const SRC = readFileSync(join(UI, "GameTable.tsx"), "utf8");
 
-/** The kinds and their settings. A new setting is added HERE and in GameTable.tsx together. */
-export const KIND_SETTINGS = [
-  // the mat under the board
-  "mat-fill", "mat-edge", "mat-radius", "mat-radius-pc",
-  // the level disc, and the dots that say which level
-  "disc-size", "disc-size-pc", "disc-radius", "disc-tilt", "disc-fill", "disc-ink", "disc-shadow", "disc-font", "disc-text-pc",
-  "disc-dot", "disc-dot-on", "disc-dot-size", "disc-dot-radius", "disc-dots-text",
-  // a number card
-  "card-min", "card-min-pc", "card-radius", "card-fill", "card-ink", "card-label", "card-shadow", "card-tilt", "card-tilt-alt",
-  "card-label-font", "card-value-font", "card-note-font",
-  // an action token (restart, pause)
-  "token-size", "token-size-pc", "token-radius", "token-fill", "token-ink", "token-shadow", "token-tilt", "token-tilt-alt",
-  "token-icon", "token-icon-pc",
-  // the tray, and the keys in it
-  "tray-fill", "tray-edge", "tray-radius", "tray-radius-pc", "tray-key-fill", "tray-key-ink", "tray-key-radius", "tray-key-shadow",
-];
-const KIND_PREFIX = /^--(mat|disc|card|token|tray)-/;
+/**
+ * The table's kinds and their settings, from the kit (./kinds.ts) - a new
+ * setting is added there and read here. `tray-ink` is the tray's too, but the
+ * words in a tray belong to the game, so the games read it (button-kit.test.ts
+ * holds that every setting has a reader).
+ */
+export const KIND_SETTINGS: readonly string[] = [...KIT.mat, ...KIT.disc, ...KIT.card, ...KIT.token, ...KIT.tray].filter((s) => s !== "tray-ink");
 
 /** The table's CSS, as written in the source - the template between `const CSS = \`` and the closing tick. */
 function tableCss(src: string): string {
@@ -112,16 +103,6 @@ describe("the Game table draws every piece from its kind's settings", () => {
     expect(used).toEqual([...KIND_SETTINGS].sort());
   });
 
-  it("a theme sheet sets only settings that exist", () => {
-    const dir = join(UI, "themes");
-    const sheets = readdirSync(dir).filter((f) => f.endsWith(".css"));
-    expect(sheets.length).toBeGreaterThanOrEqual(4);
-    const wrong: string[] = [];
-    for (const f of sheets)
-      for (const m of readFileSync(join(dir, f), "utf8").matchAll(/(--[a-z0-9-]+)\s*:/g))
-        if (KIND_PREFIX.test(m[1]) && !KIND_SETTINGS.includes(m[1].slice(2))) wrong.push(`${f}: ${m[1]}`);
-    expect(wrong).toEqual([]);
-  });
 });
 
 describe("the check itself, on planted rules", () => {

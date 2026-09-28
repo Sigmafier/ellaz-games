@@ -85,6 +85,60 @@
   --ink-on-fill: #ffffff;
 }
 
+/* ---- the kit: every button's look, as values ---------------------------- */
+/* The kit (src/ui/kinds.ts) draws each button from its kind; this sheet only
+   gives the kinds their values. No selector below names a button - that is
+   the rule (games-doctrine G8, operator ruling 2026-09-28 "Values only"), and
+   button-kit.test.ts holds it. */
+:root[data-theme="paper"] body {
+  /* app buttons in the bar: cream paper pinned at an angle */
+  --lid-fill: art(grain, 120, #5a4326, 0.09, 0.9, 2), #fff6e6;
+  --lid-fill-hover: art(grain, 120, #5a4326, 0.09, 0.9, 2), #fffdf6;
+  --lid-ink: #3b2f24;
+  --lid-radius: 12px;
+  --lid-shadow: 2px 3px 0 rgba(0, 0, 0, 0.25);
+  --lid-shadow-down: 1px 1px 0 rgba(0, 0, 0, 0.25);
+  --lid-press: 1px 2px;
+  --lid-motion: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+  --lid-tilt-home: -3deg;
+  --lid-tilt-lang: 2.5deg;
+  --lid-tilt-more: 2deg;
+  --lid-tilt-wallet: -2deg;
+  /* the tools: white badges with a red ring, each pinned at its own angle */
+  --tool-fill: #ffffff;
+  --tool-fill-hover: #ffffff;
+  --tool-ink: #c8433a;
+  --tool-radius: 50%;
+  --tool-shadow: 2px 3px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 3px #e4574a;
+  --tool-shadow-down: 1px 1px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 3px #e4574a;
+  --tool-press: 1px 2px;
+  --tool-motion: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+  --tool-tilt-pause: -6deg;
+  --tool-tilt-share: -6deg;
+  --tool-tilt-report: -6deg;
+  --tool-tilt-restart: 4deg;
+  --tool-tilt-fullscreen: 4deg;
+  --tool-tilt-fav: -3deg;
+  --tool-tilt-sound: 5deg;
+  /* the menus: a sheet of paper */
+  --sheet-fill: art(grain, 120, #5a4326, 0.08, 0.9, 2), #fffaf0;
+  --sheet-edge: 0;
+  --sheet-radius: 6px;
+  --sheet-shadow: 3px 5px 0 rgba(59, 47, 36, 0.3);
+  /* the keys: coloured paper tabs, four colours round, each at an angle */
+  --key-motion: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+  --key-press: 1px 2px;
+  --key-shadow-down: 1px 1px 0 rgba(59, 47, 36, 0.28);
+  --key-bg-4a: art(grain, 120, #6b4a00, 0.1, 0.9, 6), #ffd166;
+  --key-bg-4b: art(grain, 120, #0f3d52, 0.1, 0.9, 7), #8ecae6;
+  --key-bg-4c: art(grain, 120, #5c1a1a, 0.1, 0.9, 8), #f4a6a6;
+  --key-bg-4d: art(grain, 120, #1f4a14, 0.1, 0.9, 9), #b7e4a7;
+  --key-tilt-4a: -2deg;
+  --key-tilt-4b: 1.5deg;
+  --key-tilt-4c: -1deg;
+  --key-tilt-4d: 2deg;
+}
+
 /* ---- the page ---------------------------------------------------------- */
 :root[data-theme="paper"] body { background: var(--page-bg); }
 :root[data-theme="paper"] body.screen .urow { background: transparent; }
@@ -115,61 +169,11 @@
 }
 
 /* Every control on the bar is a cut-out of cream card, stuck on crooked. */
-:root[data-theme="paper"] body.screen .top .hbtn:not(.moresheet *),
-:root[data-theme="paper"] body.screen .top .wallet-wrap:not(.moresheet *) {
-  --hdr-ink: #3b2f24;
-  background: art(grain, 120, #5a4326, 0.09, 0.9, 2), #fff6e6;
-  color: #3b2f24;
-  border-radius: 12px;
-  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.25);
-  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
-}
-:root[data-theme="paper"] body.screen .top .hbtn:not(.moresheet *):hover {
-  background: art(grain, 120, #5a4326, 0.09, 0.9, 2), #fffdf6;
-}
-:root[data-theme="paper"] body.screen .top .hbtn:not(.moresheet *):active {
-  translate: 1px 2px;
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
-}
-:root[data-theme="paper"] body.screen .top .hbtn.home { rotate: -3deg; }
-:root[data-theme="paper"] body.screen .top .lang:not(.moresheet *) > summary { rotate: 2.5deg; }
-:root[data-theme="paper"] body.screen .top .more > summary { rotate: 2deg; }
-:root[data-theme="paper"] body.screen .top .wallet-wrap:not(.moresheet *) { rotate: -2deg; }
 
 /* The game's own buttons - pause, restart, sound and the rest - are round
    paper badges with a red ring, the way the mock pins them to the board. */
-:root[data-theme="paper"] body.screen .top .in > .ubtn,
-:root[data-theme="paper"] body.screen .top [data-sound]:not(.moresheet *),
-:root[data-theme="paper"] body.screen .urow .tools .ubtn {
-  background: #ffffff;
-  color: #c8433a;
-  border-radius: 50%;
-  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 3px #e4574a;
-  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
-}
-:root[data-theme="paper"] body.screen .top [data-sound]:not(.moresheet *):hover { background: #ffffff; }
-:root[data-theme="paper"] body.screen .top .in > .ubtn:active,
-:root[data-theme="paper"] body.screen .top [data-sound]:not(.moresheet *):active,
-:root[data-theme="paper"] body.screen .urow .tools .ubtn:active {
-  translate: 1px 2px;
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 3px #e4574a;
-}
-:root[data-theme="paper"] body.screen .ubtn[data-pause]:not(.moresheet *),
-:root[data-theme="paper"] body.screen .ubtn[data-share]:not(.moresheet *),
-:root[data-theme="paper"] body.screen .ubtn[data-report]:not(.moresheet *) { rotate: -6deg; }
-:root[data-theme="paper"] body.screen .ubtn[data-restart]:not(.moresheet *),
-:root[data-theme="paper"] body.screen .ubtn[data-fullscreen]:not(.moresheet *) { rotate: 4deg; }
-:root[data-theme="paper"] body.screen .ubtn[data-fav]:not(.moresheet *) { rotate: -3deg; }
-:root[data-theme="paper"] body.screen .top [data-sound]:not(.moresheet *) { rotate: 5deg; }
 
 /* The menus are a card laid on the page. */
-:root[data-theme="paper"] body.screen .moresheet,
-:root[data-theme="paper"] .langsheet {
-  background: art(grain, 120, #5a4326, 0.08, 0.9, 2), #fffaf0;
-  border: 0;
-  border-radius: 6px;
-  box-shadow: 3px 5px 0 rgba(59, 47, 36, 0.3);
-}
 
 /* ---- the numbers: kraft luggage tags, a punched hole at the tied end ---- */
 :root[data-theme="paper"] .gc-cell {
@@ -211,17 +215,6 @@
 }
 
 /* ---- the keys: coloured card, cut by hand ------------------------------- */
-:root[data-theme="paper"] .ellaz-key {
-  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
-}
-:root[data-theme="paper"] .ellaz-key:nth-child(4n + 1) { --key-bg: art(grain, 120, #6b4a00, 0.1, 0.9, 6), #ffd166; rotate: -2deg; }
-:root[data-theme="paper"] .ellaz-key:nth-child(4n + 2) { --key-bg: art(grain, 120, #0f3d52, 0.1, 0.9, 7), #8ecae6; rotate: 1.5deg; }
-:root[data-theme="paper"] .ellaz-key:nth-child(4n + 3) { --key-bg: art(grain, 120, #5c1a1a, 0.1, 0.9, 8), #f4a6a6; rotate: -1deg; }
-:root[data-theme="paper"] .ellaz-key:nth-child(4n) { --key-bg: art(grain, 120, #1f4a14, 0.1, 0.9, 9), #b7e4a7; rotate: 2deg; }
-:root[data-theme="paper"] .ellaz-key:active {
-  translate: 1px 2px;
-  box-shadow: 1px 1px 0 rgba(59, 47, 36, 0.28) !important;
-}
 
 /* ---- home: the same red strip behind the top row ------------------------ */
 /* The band runs edge to edge whatever the column's width, so the scroller
@@ -282,9 +275,3 @@
    one thing every shared button, tab and chip here has in common. */
 :root[data-theme="paper"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
 :root[data-theme="paper"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
-
-@media (prefers-reduced-motion: reduce) {
-  :root[data-theme="paper"] .ellaz-key,
-  :root[data-theme="paper"] .hbtn,
-  :root[data-theme="paper"] .ubtn { transition: none; }
-}

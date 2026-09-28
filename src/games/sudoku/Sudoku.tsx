@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { textFor } from "@i18n/index";
 import { formatScore, type GameContext, type RewardTier, type SessionSpec } from "@sdk/index";
 import { GameChrome } from "@ui/GameChrome";
+import { Key } from "@ui/Key";
 import { BOARD_CLASS, boardVars } from "@ui/boardSize";
 import { type DifficultyOption } from "@ui/DifficultySelector";
 import { burst } from "@juice/index";
@@ -263,7 +264,9 @@ export function Sudoku({ ctx }: { ctx: GameContext }) {
       onRestart={() => reset()}
       footer={
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ color: "var(--text-dim)", fontSize: 13, textAlign: "center", minHeight: 18 }}>
+          {/* The tray's own ink when a style gives it one (a dark tray), else the
+              page's quiet ink - the tray kind's `tray-ink`. */}
+          <div style={{ color: "var(--tray-ink, var(--text-dim))", fontSize: 13, textAlign: "center", minHeight: 18 }}>
             {won
               ? ctx.t("youWon") + " 🎉"
               : bad.size > 0
@@ -279,44 +282,21 @@ export function Sudoku({ ctx }: { ctx: GameContext }) {
             style={{ display: "grid", gridTemplateColumns: `repeat(${padCols}, 1fr)`, gap: 8, width: "100%" }}
           >
             {Array.from({ length: n }, (_, i) => i + 1).map((v) => (
-              <button
+              // A key of the key kind (@ui/Key): its look is the theme's, its
+              // size and height are the keypad's. Kids sizes get >=64px targets.
+              <Key
                 key={v}
+                size={kids ? 34 : 22}
                 aria-label={kids ? `enter ${ANIMAL_NAMES[v - 1]}` : `enter ${v}`}
                 onClick={() => enter(v)}
-                // `ellaz-key` and the --key-* fallbacks are what a theme reads:
-                // unset (Day, Night) every value here is the one it always was.
-                className="ellaz-key"
-                style={{
-                  minHeight: kids ? 64 : 48,
-                  border: "none",
-                  borderRadius: "var(--key-radius, 10px)",
-                  background: "var(--key-bg, var(--surface))",
-                  boxShadow: "var(--key-shadow, var(--shadow-1))",
-                  color: "var(--key-ink, var(--text))",
-                  fontSize: kids ? 34 : 22,
-                  fontWeight: 800,
-                  lineHeight: 1,
-                }}
+                style={{ minHeight: kids ? 64 : 48, lineHeight: 1 }}
               >
                 {glyph(v)}
-              </button>
+              </Key>
             ))}
-            <button
-              aria-label="erase"
-              onClick={() => enter(0)}
-              className="ellaz-key ellaz-key-erase"
-              style={{
-                minHeight: kids ? 64 : 48,
-                border: "none",
-                borderRadius: "var(--key-radius, 10px)",
-                background: "var(--key-bg, var(--surface-2))",
-                boxShadow: "var(--key-shadow, none)",
-                color: "var(--key-ink, var(--text))",
-                fontSize: kids ? 28 : 20,
-              }}
-            >
+            <Key act size={kids ? 28 : 20} aria-label="erase" onClick={() => enter(0)} style={{ minHeight: kids ? 64 : 48 }}>
               ⌫
-            </button>
+            </Key>
           </div>
         </div>
       }

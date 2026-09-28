@@ -2,6 +2,7 @@ import { textFor } from "@i18n/index";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GameContext, SessionSpec } from "@sdk/index";
 import { GameChrome } from "@ui/GameChrome";
+import { Key } from "@ui/Key";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
 import { type DifficultyOption } from "@ui/DifficultySelector";
 import { haptic, shake } from "@juice/index";
@@ -427,11 +428,8 @@ function Keyboard({
     ctx.locale,
   );
   const keys = keysFor(ctx.locale);
-  const big = {
-    flex: "1 1 auto", minWidth: 74, minHeight: 44, border: "none",
-    borderRadius: 8, background: "var(--surface-2)", color: "var(--text)",
-    fontFamily: "inherit", fontSize: 14, fontWeight: 800, cursor: "pointer",
-  } as const;
+  // Wide action keys hold a word, so they take the spare width of their row.
+  const wide = { flex: "1 1 auto", minWidth: 74, minHeight: 44 } as const;
   return (
     <div
       dir={ctx.dir}
@@ -444,29 +442,28 @@ function Keyboard({
       {keys.map((k) => {
         const m = marks[k];
         return (
-          <button
+          // A key of the key kind (@ui/Key): the theme draws it. A letter the
+          // game has already judged keeps the judgement's colours - game state
+          // is never the theme's to repaint.
+          <Key
             key={k}
-            type="button"
+            size={17}
             onClick={() => onKey(k)}
             style={{
               flex: "0 0 auto", minWidth: 30, minHeight: 44, padding: "0 6px",
-              border: "none", borderRadius: 8,
-              background: m ? TILE[m].bg : "var(--surface)",
-              color: m ? TILE[m].fg : "var(--text)",
-              fontFamily: "inherit", fontSize: 17, fontWeight: 800, cursor: "pointer",
-              boxShadow: "var(--shadow-1)",
+              ...(m ? { background: TILE[m].bg, color: TILE[m].fg } : {}),
             }}
           >
             {k}
-          </button>
+          </Key>
         );
       })}
-      <button type="button" onClick={onBack} style={big} aria-label={K.del}>
+      <Key act size={14} onClick={onBack} style={wide} aria-label={K.del}>
         ⌫
-      </button>
-      <button type="button" onClick={onEnter} style={{ ...big, background: "var(--brand-fill)", color: "#fff" }}>
+      </Key>
+      <Key go size={14} onClick={onEnter} style={wide}>
         {K.check}
-      </button>
+      </Key>
     </div>
   );
 }

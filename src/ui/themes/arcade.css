@@ -72,6 +72,8 @@
     100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
     4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
   );
+  /* the shine on a domed button: a highlight up and to the left */
+  --shine: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.45) 0 12%, transparent 13%);
   --bevel: inset -4px -4px 0 #140a33, inset 4px 4px 0 #6b55d6;
   --bevel-in: inset 4px 4px 0 #140a33, inset -4px -4px 0 #6b55d6;
 
@@ -98,6 +100,57 @@
      these instead. Measured, and held by theme-sheets.test.ts. */
   --ink-on-brand: #0d0221;
   --ink-on-fill: #ffffff;
+}
+
+/* ---- the kit: every button's look, as values ---------------------------- */
+/* The kit (src/ui/kinds.ts) draws each button from its kind; this sheet only
+   gives the kinds their values. No selector below names a button - that is
+   the rule (games-doctrine G8, operator ruling 2026-09-28 "Values only"), and
+   button-kit.test.ts holds it. */
+:root[data-theme="arcade"] body {
+  /* app buttons in the bar: bevelled key caps with stepped corners */
+  --lid-fill: #2e1e66;
+  --lid-fill-hover: #3a2880;
+  --lid-radius: 0;
+  --lid-shadow: inset -3px -3px 0 #140a33, inset 3px 3px 0 #5a45b5;
+  --lid-shadow-down: inset 3px 3px 0 #140a33, inset -3px -3px 0 #5a45b5;
+  --lid-clip: var(--pixel-corners);
+  /* CREDIT: the coins, counted the way a cabinet counts them */
+  --wallet-ink: #05d9e8;
+  --wallet-font: var(--font-display);
+  --wallet-size: 10px;
+  --wallet-label: "CREDIT";
+  --wallet-label-ink: #05d9e8;
+  /* the tools: the control panel's round domed buttons, one colour each */
+  --tool-fill: var(--shine), #6b55d6;
+  --tool-ink: #0d0221;
+  --tool-radius: 50%;
+  --tool-shadow: inset -4px -5px 0 rgba(0, 0, 0, 0.32), 0 4px 0 #06010f;
+  --tool-shadow-down: inset -4px -5px 0 rgba(0, 0, 0, 0.32), 0 1px 0 #06010f;
+  --tool-press: 0 3px;
+  --tool-motion: translate 0.06s linear, box-shadow 0.06s linear;
+  --tool-fill-pause: var(--shine), #ff2a6d;
+  --tool-ink-pause: #ffffff;
+  --tool-fill-restart: var(--shine), #ffb800;
+  --tool-fill-sound: var(--shine), #05d9e8;
+  --tool-fill-fav: var(--shine), #3dffa2;
+  --tool-fill-share: var(--shine), #ff71ce;
+  --tool-fill-fullscreen: var(--shine), #b0a9e0;
+  --tool-fill-report: var(--shine), #ff9f43;
+  /* the menus: a panel inside the cabinet's pink frame */
+  --sheet-fill: #1b0f3b;
+  --sheet-edge: 0;
+  --sheet-radius: 0;
+  --sheet-shadow: inset 0 4px 0 #3b2a85, 0 0 0 4px #ff2a6d, 0 0 0 8px #0d0221, 0 0 24px rgba(255, 42, 109, 0.4);
+  /* the keys: key caps with stepped corners that light up under a press */
+  --key-font: var(--font-display);
+  --key-weight: 400;
+  --key-size: 14px;
+  --key-size-act: 18px;
+  --key-clip: var(--pixel-corners);
+  --key-bg-hover: #3a2880;
+  --key-shadow-down: var(--bevel-in);
+  --key-ink-down: #ffe45e;
 }
 
 /* ---- the page ------------------------------------------------------------ */
@@ -137,65 +190,9 @@
   background: linear-gradient(#24124f, #1b0f3b 55%, #150a30);
   box-shadow: inset 0 -4px 0 #ff2a6d, 0 0 18px rgba(255, 42, 109, 0.35);
 }
-:root[data-theme="arcade"] body.screen .top .hbtn:not(.moresheet *),
-:root[data-theme="arcade"] body.screen .top .wallet-wrap:not(.moresheet *) {
-  background: #2e1e66;
-  border-radius: 0;
-  box-shadow: inset -3px -3px 0 #140a33, inset 3px 3px 0 #5a45b5;
-  clip-path: var(--pixel-corners);
-}
-:root[data-theme="arcade"] body.screen .top .hbtn:not(.moresheet *):hover { background: #3a2880; }
-:root[data-theme="arcade"] body.screen .top .hbtn:not(.moresheet *):active {
-  box-shadow: inset 3px 3px 0 #140a33, inset -3px -3px 0 #5a45b5;
-}
 /* CREDIT: the coins, counted the way a cabinet counts them. */
-:root[data-theme="arcade"] body.screen .top .wallet-wrap:not(.moresheet *) {
-  --hdr-ink: #05d9e8;
-  font-family: var(--font-display);
-  font-size: 10px;
-}
-@media (min-width: 720px) {
-  :root[data-theme="arcade"] body.screen .top .wallet-wrap:not(.moresheet *)::before {
-    content: "CREDIT";
-    color: #05d9e8;
-    margin-inline-end: 10px;
-    letter-spacing: 1px;
-  }
-}
 
 /* The control panel's buttons: round, domed, sitting on a hard shadow. */
-:root[data-theme="arcade"] body.screen .top .in > .ubtn,
-:root[data-theme="arcade"] body.screen .top [data-sound]:not(.moresheet *),
-:root[data-theme="arcade"] body.screen .urow .tools .ubtn {
-  --cap: #6b55d6;
-  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.45) 0 12%, transparent 13%), var(--cap);
-  color: #0d0221;
-  border-radius: 50%;
-  clip-path: none;
-  box-shadow: inset -4px -5px 0 rgba(0, 0, 0, 0.32), 0 4px 0 #06010f;
-  transition: translate 0.06s linear, box-shadow 0.06s linear;
-}
-:root[data-theme="arcade"] body.screen .top .in > .ubtn:active,
-:root[data-theme="arcade"] body.screen .top [data-sound]:not(.moresheet *):active,
-:root[data-theme="arcade"] body.screen .urow .tools .ubtn:active {
-  translate: 0 3px;
-  box-shadow: inset -4px -5px 0 rgba(0, 0, 0, 0.32), 0 1px 0 #06010f;
-}
-:root[data-theme="arcade"] body.screen .ubtn[data-pause]:not(.moresheet *) { --cap: #ff2a6d; color: #ffffff; }
-:root[data-theme="arcade"] body.screen .ubtn[data-restart]:not(.moresheet *) { --cap: #ffb800; }
-:root[data-theme="arcade"] body.screen .top [data-sound]:not(.moresheet *) { --cap: #05d9e8; }
-:root[data-theme="arcade"] body.screen .ubtn[data-fav]:not(.moresheet *) { --cap: #3dffa2; }
-:root[data-theme="arcade"] body.screen .ubtn[data-share]:not(.moresheet *) { --cap: #ff71ce; }
-:root[data-theme="arcade"] body.screen .ubtn[data-fullscreen]:not(.moresheet *) { --cap: #b0a9e0; }
-:root[data-theme="arcade"] body.screen .ubtn[data-report]:not(.moresheet *) { --cap: #ff9f43; }
-
-:root[data-theme="arcade"] body.screen .moresheet,
-:root[data-theme="arcade"] .langsheet {
-  background: #1b0f3b;
-  border: 0;
-  border-radius: 0;
-  box-shadow: inset 0 4px 0 #3b2a85, 0 0 0 4px #ff2a6d, 0 0 0 8px #0d0221, 0 0 24px rgba(255, 42, 109, 0.4);
-}
 
 /* ---- the numbers: a score line ------------------------------------------- */
 :root[data-theme="arcade"] .gc-cell {
@@ -233,16 +230,6 @@
 :root[data-theme="arcade"] .ellaz-cell[data-bad] { box-shadow: inset 0 0 0 2px #ff8080; }
 
 /* ---- the keys: key caps with stepped corners ----------------------------- */
-:root[data-theme="arcade"] .ellaz-key {
-  min-width: 46px;
-  font-family: var(--font-display) !important;
-  font-weight: 400 !important;
-  font-size: 14px !important;
-  clip-path: var(--pixel-corners);
-}
-:root[data-theme="arcade"] .ellaz-key:hover { --key-bg: #3a2880; }
-:root[data-theme="arcade"] .ellaz-key:active { --key-shadow: var(--bevel-in); --key-ink: #ffe45e; }
-:root[data-theme="arcade"] .ellaz-key-erase { font-size: 18px !important; }
 
 /* ---- home: the marquee behind the top row -------------------------------- */
 :root[data-theme="arcade"] body.app-shell { background: var(--page-bg); }
@@ -285,8 +272,3 @@
    one thing every shared button, tab and chip here has in common. */
 :root[data-theme="arcade"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
 :root[data-theme="arcade"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
-
-@media (prefers-reduced-motion: reduce) {
-  :root[data-theme="arcade"] .ubtn,
-  :root[data-theme="arcade"] .hbtn { transition: none; }
-}

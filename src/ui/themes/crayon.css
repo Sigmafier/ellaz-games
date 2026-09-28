@@ -86,6 +86,64 @@
   --ink-on-fill: #ffffff;
 }
 
+/* ---- the kit: every button's look, as values ---------------------------- */
+/* The kit (src/ui/kinds.ts) draws each button from its kind; this sheet only
+   gives the kinds their values. No selector below names a button - that is
+   the rule (games-doctrine G8, operator ruling 2026-09-28 "Values only"), and
+   button-kit.test.ts holds it. */
+:root[data-theme="crayon"] body {
+  /* app buttons in the bar: yellow crayon hatching in a drawn box */
+  --lid-fill: art(hatch, 24, 8, #ffc23d, 0.7, 11) 0 0 / 24px 24px, #fffef6;
+  --lid-fill-hover: art(hatch, 24, 8, #ffc23d, 0.95, 11) 0 0 / 24px 24px, #fffef6;
+  --lid-ink: #2b2b2b;
+  --lid-edge: var(--crayon-line);
+  --lid-radius: var(--crayon-box);
+  --lid-shadow: none;
+  --lid-squash: 0.94;
+  --lid-motion: scale 0.08s ease-out;
+  --wallet-font: var(--font-display);
+  --wallet-size: 19px;
+  /* the tools: white boxes, each coloured in with its own crayon */
+  --tool-fill: #ffffff;
+  --tool-ink: #2b2b2b;
+  --tool-edge: var(--crayon-line);
+  --tool-radius: var(--crayon-box);
+  --tool-shadow: none;
+  --tool-squash: 0.94;
+  --tool-motion: scale 0.08s ease-out;
+  --tool-fill-pause: art(hatch, 24, 8, #5cc896, 0.75, 31) 0 0 / 24px 24px, #ffffff;
+  --tool-fill-restart: art(hatch, 24, 8, #ff9f43, 0.75, 32, -1) 0 0 / 24px 24px, #ffffff;
+  --tool-fill-sound: art(hatch, 24, 8, #748cff, 0.75, 33) 0 0 / 24px 24px, #ffffff;
+  --tool-fill-fav: art(hatch, 24, 8, #f25f5c, 0.6, 34, -1) 0 0 / 24px 24px, #ffffff;
+  --tool-fill-share: art(hatch, 24, 8, #748cff, 0.7, 35) 0 0 / 24px 24px, #ffffff;
+  --tool-fill-fullscreen: art(hatch, 24, 8, #5cc896, 0.7, 36, -1) 0 0 / 24px 24px, #ffffff;
+  --tool-fill-report: art(hatch, 24, 8, #ff9f43, 0.7, 37) 0 0 / 24px 24px, #ffffff;
+  --tool-tilt-pause: -4deg;
+  --tool-tilt-restart: 3deg;
+  --tool-tilt-sound: -2deg;
+  --tool-tilt-fav: -2.5deg;
+  --tool-tilt-share: 2deg;
+  --tool-tilt-fullscreen: -3deg;
+  --tool-tilt-report: 2.5deg;
+  /* the menus: a hand-drawn card */
+  --sheet-fill: #ffffff;
+  --sheet-edge: var(--crayon-line);
+  --sheet-radius: 14px 6px 12px 8px / 8px 12px 6px 14px;
+  --sheet-shadow: 4px 5px 0 rgba(43, 43, 43, 0.18);
+  /* the keys: drawn boxes coloured in three crayons, tilted one way and back */
+  --key-edge: var(--crayon-line);
+  --key-font: var(--font-display);
+  --key-weight: 400;
+  --key-size: 27px;
+  --key-motion: scale 0.08s ease-out;
+  --key-squash: 0.94;
+  --key-bg-3a: art(hatch, 24, 8, #f25f5c, 0.5, 41) 0 0 / 24px 24px, #ffffff;
+  --key-bg-3b: art(hatch, 24, 8, #5cc896, 0.55, 42, -1) 0 0 / 24px 24px, #ffffff;
+  --key-bg-3c: art(hatch, 24, 8, #748cff, 0.5, 43) 0 0 / 24px 24px, #ffffff;
+  --key-tilt-2a: -1deg;
+  --key-tilt-2b: 1deg;
+}
+
 /* ---- the page: ruled lines and the red margin ---------------------------- */
 :root[data-theme="crayon"] body { background: var(--page-bg); }
 :root[data-theme="crayon"] body.screen .urow { background: transparent; }
@@ -131,54 +189,10 @@
 @media (max-width: 719px) {
   :root[data-theme="crayon"] body.screen .gname { font-size: 17px; text-underline-offset: 4px; }
 }
-:root[data-theme="crayon"] body.screen .top .hbtn:not(.moresheet *),
-:root[data-theme="crayon"] body.screen .top .wallet-wrap:not(.moresheet *) {
-  --hdr-ink: #2b2b2b;
-  background: art(hatch, 24, 8, #ffc23d, 0.7, 11) 0 0 / 24px 24px, #fffef6;
-  color: #2b2b2b;
-  border: var(--crayon-line);
-  border-radius: var(--crayon-box);
-  box-shadow: none;
-  transition: scale 0.08s ease-out;
-}
-:root[data-theme="crayon"] body.screen .top .hbtn:not(.moresheet *):hover {
-  background: art(hatch, 24, 8, #ffc23d, 0.95, 11) 0 0 / 24px 24px, #fffef6;
-}
-:root[data-theme="crayon"] body.screen .top .hbtn:not(.moresheet *):active { scale: 0.94; }
-:root[data-theme="crayon"] body.screen .top .wallet-wrap:not(.moresheet *) {
-  font-family: var(--font-display);
-  font-size: 19px;
-}
 
 /* The game's own buttons: each coloured in with a different crayon. */
-:root[data-theme="crayon"] body.screen .top .in > .ubtn,
-:root[data-theme="crayon"] body.screen .top [data-sound]:not(.moresheet *),
-:root[data-theme="crayon"] body.screen .urow .tools .ubtn {
-  background: #ffffff;
-  color: #2b2b2b;
-  border: var(--crayon-line);
-  border-radius: var(--crayon-box);
-  box-shadow: none;
-  transition: scale 0.08s ease-out;
-}
-:root[data-theme="crayon"] body.screen .top .in > .ubtn:active,
-:root[data-theme="crayon"] body.screen .urow .tools .ubtn:active { scale: 0.94; }
-:root[data-theme="crayon"] body.screen .ubtn[data-pause]:not(.moresheet *) { background: art(hatch, 24, 8, #5cc896, 0.75, 31) 0 0 / 24px 24px, #ffffff; rotate: -4deg; }
-:root[data-theme="crayon"] body.screen .ubtn[data-restart]:not(.moresheet *) { background: art(hatch, 24, 8, #ff9f43, 0.75, 32, -1) 0 0 / 24px 24px, #ffffff; rotate: 3deg; }
-:root[data-theme="crayon"] body.screen .top [data-sound]:not(.moresheet *) { background: art(hatch, 24, 8, #748cff, 0.75, 33) 0 0 / 24px 24px, #ffffff; rotate: -2deg; }
-:root[data-theme="crayon"] body.screen .ubtn[data-fav]:not(.moresheet *) { background: art(hatch, 24, 8, #f25f5c, 0.6, 34, -1) 0 0 / 24px 24px, #ffffff; rotate: -2.5deg; }
-:root[data-theme="crayon"] body.screen .ubtn[data-share]:not(.moresheet *) { background: art(hatch, 24, 8, #748cff, 0.7, 35) 0 0 / 24px 24px, #ffffff; rotate: 2deg; }
-:root[data-theme="crayon"] body.screen .ubtn[data-fullscreen]:not(.moresheet *) { background: art(hatch, 24, 8, #5cc896, 0.7, 36, -1) 0 0 / 24px 24px, #ffffff; rotate: -3deg; }
-:root[data-theme="crayon"] body.screen .ubtn[data-report]:not(.moresheet *) { background: art(hatch, 24, 8, #ff9f43, 0.7, 37) 0 0 / 24px 24px, #ffffff; rotate: 2.5deg; }
 
 /* The menus: a page torn from the same book. */
-:root[data-theme="crayon"] body.screen .moresheet,
-:root[data-theme="crayon"] .langsheet {
-  background: #ffffff;
-  border: var(--crayon-line);
-  border-radius: 14px 6px 12px 8px / 8px 12px 6px 14px;
-  box-shadow: 4px 5px 0 rgba(43, 43, 43, 0.18);
-}
 
 /* ---- the numbers: yellow sticky notes ------------------------------------ */
 :root[data-theme="crayon"] .gc-cell {
@@ -209,19 +223,6 @@
 }
 
 /* ---- the keys: a box drawn by hand, coloured in -------------------------- */
-:root[data-theme="crayon"] .ellaz-key {
-  border: var(--crayon-line) !important;
-  font-family: var(--font-display) !important;
-  font-weight: 400 !important;
-  font-size: 27px !important;
-  transition: scale 0.08s ease-out;
-}
-:root[data-theme="crayon"] .ellaz-key:nth-child(3n + 1) { --key-bg: art(hatch, 24, 8, #f25f5c, 0.5, 41) 0 0 / 24px 24px, #ffffff; }
-:root[data-theme="crayon"] .ellaz-key:nth-child(3n + 2) { --key-bg: art(hatch, 24, 8, #5cc896, 0.55, 42, -1) 0 0 / 24px 24px, #ffffff; }
-:root[data-theme="crayon"] .ellaz-key:nth-child(3n) { --key-bg: art(hatch, 24, 8, #748cff, 0.5, 43) 0 0 / 24px 24px, #ffffff; }
-:root[data-theme="crayon"] .ellaz-key:nth-child(odd) { rotate: -1deg; }
-:root[data-theme="crayon"] .ellaz-key:nth-child(even) { rotate: 1deg; }
-:root[data-theme="crayon"] .ellaz-key:active { scale: 0.94; }
 
 /* ---- home ---------------------------------------------------------------- */
 :root[data-theme="crayon"] body.app-shell .ellaz-wordmark {
@@ -250,9 +251,3 @@
    one thing every shared button, tab and chip here has in common. */
 :root[data-theme="crayon"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
 :root[data-theme="crayon"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
-
-@media (prefers-reduced-motion: reduce) {
-  :root[data-theme="crayon"] .ellaz-key,
-  :root[data-theme="crayon"] .hbtn,
-  :root[data-theme="crayon"] .ubtn { transition: none; }
-}
