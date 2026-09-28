@@ -164,6 +164,7 @@ describe("no game keeps a private pad", () => {
     const users = files.filter((f) => f.src.includes("DirectionPad")).map((f) => f.file).sort();
     expect(users).toEqual([
       "maze/MazeGame.tsx",
+      "puzzlesnake/Controls.tsx",
       "snake/SnakeGame.tsx",
       "survivors/SurvivorsGame.tsx",
     ]);

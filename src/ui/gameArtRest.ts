@@ -655,4 +655,21 @@ export const REST: Record<string, Scene> = {
       <path d="M76 70L86 60L96 70L86 80z" fill="${PAL.raspberry}"/>
       <circle cx="110" cy="76" r="9" fill="${PAL.sunflower}"/>
       <path d="M84 96h20l-10 16z" fill="${PAL.orchid}"/></g>` },
+
+  /* Puzzle Snake. One row of the puzzle: the snake bent round a corner, an
+     apple in front of its nose and the gold door past it, still dashed shut -
+     the order the whole game is about, readable before anyone has played. */
+  puzzlesnake: { a: "#5646C9", b: "#7B6FE0", d: "band", s: `
+    <g fill="${I}" opacity=".35">
+      <rect x="94" y="12" width="32" height="32" rx="6"/><rect x="94" y="84" width="32" height="32" rx="6"/>
+      <rect x="130" y="84" width="32" height="32" rx="6"/></g>
+    <g stroke="${I}" stroke-width="3">
+      <rect x="22" y="84" width="32" height="32" rx="8" fill="${PAL.jade}"/>
+      <rect x="22" y="48" width="32" height="32" rx="8" fill="${PAL.jade}"/>
+      <rect x="58" y="48" width="32" height="32" rx="8" fill="${PAL.jade}"/>
+      <rect x="94" y="48" width="32" height="32" rx="9" fill="${PAL.lime}"/></g>
+    <circle cx="114" cy="58" r="3.6" fill="${I}"/><circle cx="114" cy="70" r="3.6" fill="${I}"/>
+    <circle cx="146" cy="64" r="12" fill="${PAL.raspberry}" stroke="${I}" stroke-width="3"/>
+    <rect x="166" y="48" width="30" height="32" rx="6" fill="none" stroke="${PAL.sunflower}"
+          stroke-width="4" stroke-dasharray="6 5"/>` },
 };

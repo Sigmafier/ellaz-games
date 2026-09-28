@@ -44,6 +44,7 @@ import { meta as untangle } from "../games/untangle/meta";
 import { meta as survivors } from "../games/survivors/meta";
 import { meta as holdtheline } from "../games/holdtheline/meta";
 import { meta as snakesurvivors } from "../games/snakesurvivors/meta";
+import { meta as puzzlesnake } from "../games/puzzlesnake/meta";
 import { meta as chess } from "../games/chess/meta";
 import { meta as backgammon } from "../games/backgammon/meta";
 
@@ -189,6 +190,10 @@ export const REST: ReadonlyArray<GameMeta> = [
   backgammon,
   holdtheline,
   snakesurvivors,
+  // The Snake family's third game: the same neon snake as a turn-based puzzle,
+  // twelve fixed levels in two worlds. Appended, so its metadata and card art
+  // land in the lazy half by construction.
+  puzzlesnake,
 ];
 
 /**
@@ -236,4 +241,5 @@ export const REST_LOADERS: Record<string, () => Promise<{ default: GameModule }>
   backgammon: () => import("../games/backgammon/index"),
   holdtheline: () => import("../games/holdtheline/index"),
   snakesurvivors: () => import("../games/snakesurvivors/index"),
+  puzzlesnake: () => import("../games/puzzlesnake/index"),
 };
