@@ -3,10 +3,10 @@
 //
 // The body is a list of points one `SPACING` apart, head-first. Its length is
 // counted in SEGMENTS (`SEG` units each) because that is the number a player
-// sees: "a hit costs two" means two of those.
+// sees: "a bump costs one" means one of those.
 
 import { clampToWorld, dist2 } from "../survivors/world";
-import { speedOf, turnOf } from "./cards";
+import { snapOf, speedOf, turnOf } from "./cards";
 import type { Pt, Run, Steer } from "./types";
 
 /** Units between two body points. Small enough that a curve reads round. */
@@ -21,8 +21,12 @@ export const SEG = 12;
 export const START_LEN = 28;
 /** Below this many segments the run is over. */
 export const MIN_LEN = 3;
-/** Segments a hit to the head costs. */
-export const HIT_COST = 2;
+/**
+ * Segments a bump to the head costs. It was 2 until round three (2026-09-28):
+ * "in real game I lost my length and lives very fast" - and length is also the
+ * reach of a loop, so every bump took away the move that answers it.
+ */
+export const HIT_COST = 1;
 /** The most segments a snake can grow to, so a long run stays drawable. */
 export const MAX_LEN = 60;
 export const HEAD_R = 9;
@@ -40,19 +44,23 @@ export const BODY_R = 6;
  * measured 2026-09-27, deleting it turned no test red, and that is why.
  */
 export const NECK_PTS = 15;
-/** How close the head must come to its body to close the loop. */
-export const TOUCH = 10;
+/**
+ * How much further than the snap reach the GUIDE shows: from here in, a dashed
+ * line runs from the head to the body point the loop will close on, so a player
+ * sees the loop about to snap before it does.
+ */
+export const GUIDE_REACH = 2;
 /**
  * The smallest loop that crushes, in square units - a circle of radius ~36.
  *
- * DELIBERATELY BIGGER than the snake's tightest turn (radius 29, 2,640 square
- * units), and that gap is the rule rather than a tuning accident. Measured
- * 2026-09-27 with bots on every level and both arena shapes: at 1,200 a bot
- * holding ONE key spun its tightest circle and never died - the crowd that
- * drifted inside was crushed every 350 ms and its gems paid back more tail than
- * the hits cost, 18 of 18 runs reaching the eight-minute cap. At 4,000 that
- * spin crushes nothing, the shapes settle inside it at reach of the head, and
- * the same bot dies in about 25 seconds. A loop has to be steered.
+ * KEPT at 4,000 when round three widened the snap reach (2026-09-28). The reach
+ * alone would have broken it: measured, the one-key spin at the STARTING
+ * length snapping shut from 42 units wound into polygons of up to 5,238 square
+ * units, and at full length and full Lasso 11,360. `LAP_SLACK` caps a loop at
+ * one lap, and the same spins then top out at 2,908 and 3,366 - under this
+ * floor with room. The starting 28 segments already close about 6,000 once the
+ * neck is left out, so this floor never stood between a new snake and a crush;
+ * the touch did (see `SNAP` in cards.ts).
  */
 export const MIN_LOOP_AREA = 4000;
 
@@ -93,22 +101,66 @@ export function trimTrail(run: Run): void {
 }
 
 /**
+ * How far past one full turn the body may wind between the head and the point a
+ * loop closes on, in radians. A loop is ONE lap. Without this bound the wider
+ * snap reach turned the tightest spin back into a weapon - a snake holding one
+ * key wound 1.5 laps into a polygon over the 4,000 floor (5,238 at the starting
+ * length, measured 2026-09-28) and crushed whatever drifted in. With it, the
+ * same spin tops out at 2,908 (3,366 at full length and full Lasso). A real
+ * loop - a head arriving along or across its own body - turns 2 pi give or take
+ * a right angle, well inside the slack.
+ */
+export const LAP_SLACK = 2.2;
+
+/**
+ * The body point past the neck within `reach` of the head whose loop - head,
+ * the body back to that point, and the straight line home - encloses enough to
+ * count, NEAREST the head first, and never more than one lap back
+ * (`LAP_SLACK`). A point whose loop encloses too little is passed over, so
+ * brushing your own side on the way round never costs the real loop behind it.
+ */
+function closing(run: Run, reach: number): { i: number; poly: Pt[] } | null {
+  const r2 = reach * reach;
+  const limit = 2 * Math.PI + LAP_SLACK;
+  const path = run.path;
+  let best: { i: number; poly: Pt[] } | null = null;
+  let bestD = r2;
+  let turn = 0;
+  let prev = Math.atan2(run.y - (path[0]?.y ?? run.y), run.x - (path[0]?.x ?? run.x));
+  for (let i = 1; i < path.length; i++) {
+    const dir = Math.atan2(path[i - 1].y - path[i].y, path[i - 1].x - path[i].x);
+    turn += wrap(prev - dir);
+    prev = dir;
+    if (Math.abs(turn) > limit) break;
+    if (i < NECK_PTS) continue;
+    const p = path[i];
+    const d = dist2(run.x, run.y, p.x, p.y);
+    if (d >= bestD) continue;
+    const poly = [{ x: run.x, y: run.y }, ...path.slice(0, i + 1)];
+    if (areaOf(poly) >= MIN_LOOP_AREA) (best = { i, poly }), (bestD = d);
+  }
+  return best;
+}
+
+/**
  * The loop the head has just closed, as a polygon (head first), or null.
  *
- * The FIRST body point past the neck that the head touches decides it, and a
- * touch that encloses too little is passed over in favour of one further down
- * the body - so brushing your own side on the way round never costs the real
- * loop behind it.
+ * THE LOOP SNAPS SHUT (round three, 2026-09-28): the head no longer has to
+ * touch its body, only come within `snapOf` of it, and the polygon is closed
+ * with a straight line from the head to that point.
  */
 export function findLoop(run: Run): Pt[] | null {
-  const t2 = TOUCH * TOUCH;
-  for (let i = NECK_PTS; i < run.path.length; i++) {
-    const p = run.path[i];
-    if (dist2(run.x, run.y, p.x, p.y) >= t2) continue;
-    const poly = [{ x: run.x, y: run.y }, ...run.path.slice(0, i + 1)];
-    if (areaOf(poly) >= MIN_LOOP_AREA) return poly;
-  }
-  return null;
+  return closing(run, snapOf(run))?.poly ?? null;
+}
+
+/**
+ * The body point the loop is about to snap shut on, while the head is within
+ * `GUIDE_REACH` times the reach of it - what the dashed guide line points at.
+ * Null when no loop that would count is near.
+ */
+export function snapHint(run: Run): Pt | null {
+  const c = closing(run, snapOf(run) * GUIDE_REACH);
+  return c ? run.path[c.i] : null;
 }
 
 /** The area a polygon encloses (shoelace), whichever way round it runs. */

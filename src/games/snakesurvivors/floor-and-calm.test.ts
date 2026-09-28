@@ -23,7 +23,7 @@ const STILL = { dx: 0, dy: 0 };
 
 let nextId = 5000;
 function foe(x: number, y: number): Foe {
-  return { id: nextId++, kind: "runner", x, y, hp: 1, hurt: 0, stun: 0, spikeCool: 0, dash: 0, dashCool: 0 };
+  return { id: nextId++, kind: "runner", x, y, hp: 1, hurt: 0, stun: 0, spikeCool: 0, dash: 0, dashCool: 0, windup: 0 };
 }
 
 /** A run with the shape clock held off. */

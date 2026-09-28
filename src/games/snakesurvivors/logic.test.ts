@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "@shared/rng";
 import { ringRun } from "./testRing";
 import { HIT_COST, MIN_LEN, START_LEN } from "./body";
-import { KINDS, LEVELS } from "./crowd";
+import { BOSS_AT, KINDS } from "./crowd";
 import { CAPS, WEAPONS, offerCards } from "./cards";
 import { hitsLeft, newRun, pickCard, step } from "./logic";
 import type { Foe, Kind, Run } from "./types";
@@ -20,7 +20,7 @@ const fixed = () => 0.5;
 
 let nextId = 1000;
 function foe(kind: Kind, x: number, y: number): Foe {
-  return { id: nextId++, kind, x, y, hp: KINDS[kind].hp, hurt: 0, stun: 0, spikeCool: 0, dash: 0, dashCool: 0 };
+  return { id: nextId++, kind, x, y, hp: KINDS[kind].hp, hurt: 0, stun: 0, spikeCool: 0, dash: 0, dashCool: 0, windup: 0 };
 }
 
 /** A run with the spawn clock held off, so only the shapes a cell places exist. */
@@ -65,7 +65,7 @@ describe("closing a loop", () => {
     expect(run.crushed).toBe(2);
     const crush = run.events.find((e) => e.k === "crush");
     expect(crush).toMatchObject({ k: "crush", n: 2 });
-    expect(run.gems.length).toBe(KINDS.runner.gems + KINDS.orb.gems);
+    expect(run.gems.length).toBe(KINDS.runner.drops.length + KINDS.orb.drops.length);
   });
 
   it("does not crush the same shapes twice on the frame after", () => {
@@ -112,11 +112,12 @@ describe("the shockwave", () => {
 
 describe("hits left, the HUD's hearts", () => {
   it("counts the hits the tail can still take, the last one included", () => {
-    // 28 -> 26 -> ... -> 4 is twelve hits; the thirteenth leaves 2 and ends it.
-    expect(hitsLeft(START_LEN)).toBe(13);
+    // One segment a bump since round three: 28 -> 27 -> ... -> 3 is 25 bumps;
+    // the 26th leaves 2 and ends it.
+    expect(hitsLeft(START_LEN)).toBe(26);
     expect(hitsLeft(MIN_LEN)).toBe(1);
-    expect(hitsLeft(MIN_LEN + 1)).toBe(1);
-    expect(hitsLeft(MIN_LEN + 2)).toBe(2);
+    expect(hitsLeft(MIN_LEN + 1)).toBe(2);
+    expect(hitsLeft(MIN_LEN + 2)).toBe(3);
   });
 
   it("agrees with the rules: that many hits end a run, one fewer does not", () => {
@@ -135,11 +136,11 @@ describe("hits left, the HUD's hearts", () => {
 });
 
 describe("a hit", () => {
-  it("costs two segments, then a blink of safety", () => {
+  it("costs one segment, then a blink of safety", () => {
     const run = quiet(newRun("normal", { w: 420, h: 560 }, fixed));
     run.foes = [foe("runner", run.x, run.y)];
     step(run, 16, STILL, fixed);
-    expect(HIT_COST).toBe(2);
+    expect(HIT_COST).toBe(1);
     expect(run.len).toBe(START_LEN - HIT_COST);
     expect(run.blink).toBeGreaterThan(0);
     expect(run.events.some((e) => e.k === "hit")).toBe(true);
@@ -150,7 +151,7 @@ describe("a hit", () => {
 
   it("ends the run when the snake drops below the minimum", () => {
     const run = quiet(newRun("normal", { w: 420, h: 560 }, fixed));
-    run.len = MIN_LEN + 1;
+    run.len = MIN_LEN;
     run.foes = [foe("brute", run.x, run.y)];
     step(run, 16, STILL, fixed);
     expect(run.phase).toBe("dead");
@@ -194,9 +195,9 @@ describe("gems and levels", () => {
   });
 });
 
-describe("the two weapons", () => {
-  it("are two, and they are different kinds of hit", () => {
-    expect(WEAPONS).toEqual(["fangs", "spikes"]);
+describe("the weapons", () => {
+  it("are three since round three, and they are different kinds of hit", () => {
+    expect(WEAPONS).toEqual(["fangs", "spikes", "spit"]);
   });
 
   it("fangs turn a head-on touch into a bite: the runner dies and the snake is unhurt", () => {
@@ -227,15 +228,23 @@ describe("the two weapons", () => {
 });
 
 describe("the boss", () => {
-  it("arrives when the stage clock runs out", () => {
+  // Round three: on a trigger, never a clock - see round3.test.ts for both arms.
+  it("arrives when the trigger is met, whatever the clock says", () => {
     const run = quiet(newRun("calm", { w: 420, h: 560 }, fixed));
-    run.t = LEVELS.calm.stageMs - 8;
+    run.t = 1000;
+    run.crushed = BOSS_AT.crushed;
     step(run, 16, STILL, fixed);
     expect(run.phase).toBe("boss");
     expect(run.foes.some((f) => f.kind === "warden")).toBe(true);
   });
 
-  it("takes exactly three loops, one hit each, and then the run is won", () => {
+  /**
+   * ROUND FOUR: a run is three stages now, so the warden that comes on
+   * `BOSS_AT` (stage 1's own trigger) falling no longer wins the run by
+   * itself - it OPENS stage 2. See "the three bosses" below for boss 2, boss
+   * 3, and the win that only boss 3's death grants.
+   */
+  it("takes exactly three loops, one hit each, and then stage 2 opens - not won yet", () => {
     const run = quiet(ringRun(600, 800, 70));
     run.phase = "boss";
     run.foes = [foe("warden", 600, 800)];
@@ -247,6 +256,74 @@ describe("the boss", () => {
       run.foes[0].stun = 5000;
       step(run, 16, STILL, fixed);
       if (loop < 3) expect(run.foes[0].hp).toBe(3 - loop);
+    }
+    expect(run.phase).toBe("stage");
+    expect(run.stage).toBe(2);
+    expect(run.events.some((e) => e.k === "won")).toBe(false);
+    expect(run.events.find((e) => e.k === "stage")).toMatchObject({ k: "stage", stage: 2 });
+  });
+});
+
+/**
+ * ROUND FOUR (operator ruling): "three stages, three bosses, then win." Each
+ * cell sets up the boss for its own stage by hand, the same way "the boss"
+ * above does for stage 1 - a fresh ring so a real loop closes on it, hp set to
+ * what that stage's `BOSS_HP` says, `run.stage` set to match.
+ */
+describe("the three bosses", () => {
+  /** A run whose body is a real ring (so a real loop can close on the boss),
+   *  set up at whichever stage's trigger the cell wants. */
+  const ringAt = (stage: 2 | 3, crushed: number) => {
+    const run = quiet(ringRun(600, 800, 70));
+    run.stage = stage;
+    run.crushed = crushed;
+    return run;
+  };
+
+  const closeOn = (run: Run, warden: Foe) => {
+    const fresh = ringRun(600, 800, 70);
+    Object.assign(run, { x: fresh.x, y: fresh.y, heading: fresh.heading, path: fresh.path, loopCool: 0 });
+    warden.x = 600;
+    warden.y = 800;
+    warden.stun = 5000;
+    step(run, 16, STILL, fixed);
+  };
+
+  it("boss 2 needs boss 1 dead: at stage 2 the crowd never sends a warden on stage 1's own trigger", () => {
+    const run = ringAt(2, BOSS_AT.crushed); // stage 1's own crush trigger
+    run.len = BOSS_AT.len; // and its own length trigger
+    step(run, 16, STILL, fixed);
+    expect(run.phase).toBe("stage");
+    expect(run.foes.some((f) => f.kind === "warden")).toBe(false);
+  });
+
+  it("boss 2 arrives at stage 2's own trigger, tougher than boss 1, and beating it opens stage 3", () => {
+    const run = ringAt(2, 25);
+    step(run, 16, STILL, fixed);
+    expect(run.phase).toBe("boss");
+    const boss = run.foes.find((f) => f.kind === "warden")!;
+    expect(boss.hp).toBe(4);
+    expect(boss.hp).toBeGreaterThan(KINDS.warden.hp);
+    const total = boss.hp;
+    for (let loop = 1; loop <= total; loop++) {
+      closeOn(run, boss);
+      if (loop < total) expect(boss.hp).toBe(total - loop);
+    }
+    expect(run.phase).toBe("stage");
+    expect(run.stage).toBe(3);
+    expect(run.events.some((e) => e.k === "won")).toBe(false);
+  });
+
+  it("the win needs boss 3 dead: at stage 3, boss 3 is tougher still, and only its death wins the run", () => {
+    const run = ringAt(3, 45);
+    step(run, 16, STILL, fixed);
+    expect(run.phase).toBe("boss");
+    const boss = run.foes.find((f) => f.kind === "warden")!;
+    expect(boss.hp).toBe(5);
+    const total = boss.hp;
+    for (let loop = 1; loop <= total; loop++) {
+      closeOn(run, boss);
+      if (loop < total) expect(boss.hp, `loop ${loop}`).toBe(total - loop);
     }
     expect(run.phase).toBe("won");
     expect(run.events.some((e) => e.k === "won")).toBe(true);

@@ -10,14 +10,17 @@ import { CAST, type CastKey, type Clip } from "../survivors/sprites";
 import { knobAt, originFor as stickOriginFor, stickVector, STICK_RADIUS, type Stick } from "../survivors/stick";
 import { cameraOf } from "../survivors/world";
 import { FOR_KIND, SHEETS, kindScale } from "./cast";
-import { KINDS, LEVELS } from "./crowd";
-import { INK, drawGem, drawGemArrow, drawGround, drawGuideRing, drawLoop, drawSnake } from "./draw";
+import { snapHint } from "./body";
+import { BOSS_HP, LUNGE } from "./crowd";
+import {
+  INK, drawGem, drawGemArrow, drawGround, drawGuideRing, drawLoop, drawShieldRing, drawShot, drawSnake, drawSnapGuide, drawWindup,
+} from "./draw";
 import { ARENA, newRun, pickCard, step } from "./logic";
 import {
   gemTarget, guideRing, hasSeenTutorial, leaveTutorial, markTutorialSeen, newTutorial, tickTutorial, tutorialPick,
   type Tutorial, type TutorialStep,
 } from "./tutorial";
-import type { Arena, CardId, Foe, LevelKey, Pt, Run, Steer } from "./types";
+import type { Arena, CardId, Foe, LevelKey, Pt, Run, Stage, Steer } from "./types";
 
 // The Phaser half of Snake Survivors. It owns pixels, pointers and telling the
 // chrome what happened - every rule lives in the pure modules beside it.
@@ -31,8 +34,12 @@ export interface SnakeSurvivorsStatus {
   len: number;
   peak: number;
   crushed: number;
-  /** ms left before the warden, 0 once it is here. */
-  left: number;
+  /**
+   * The BOSS meter: how near the run is to ITS CURRENT stage's warden -
+   * length and crushed against `STAGE_TRIGGER[stage]`. Null once a warden is
+   * actually up (see `boss` below).
+   */
+  meter: { len: number; crushed: number; stage: Stage } | null;
   lv: number;
   offer: CardId[];
   taken: Record<CardId, number>;
@@ -40,6 +47,13 @@ export interface SnakeSurvivorsStatus {
   newBest: boolean;
   /** The guided first run's step, or null on a real run. */
   tutorial: TutorialStep | null;
+  /**
+   * ROUND FOUR: which stage just opened, for a couple of seconds after a
+   * warden falls (and there is a next one) - the chrome's "Stage 2" banner.
+   * Null the rest of the time, including at the FINAL win (no next stage to
+   * announce).
+   */
+  banner: Stage | null;
 }
 
 /** Coins, no star, every this many crushed - an endless-feeling mid-run ping. */
@@ -87,6 +101,8 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
   private nextMilestone = MILESTONE_EVERY;
   private lastPublish = 0;
   private lastGemSound = 0;
+  /** `this.time.now` the "Stage N" banner stays up until (round four). */
+  private bannerUntil = 0;
 
   constructor() {
     super("snakesurvivors");
@@ -220,6 +236,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.peak = this.run.len;
     this.newBest = false;
     this.nextMilestone = MILESTONE_EVERY;
+    this.bannerUntil = 0;
     for (const s of this.mobs.values()) s.destroy();
     this.mobs.clear();
     for (const c of this.corpses) c.destroy();
@@ -277,9 +294,19 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
         this.spray(e.x, e.y, INK.gold, 8);
       } else if (e.k === "hurt") this.spray(e.x, e.y, 0xffffff, 5);
       else if (e.k === "hit") {
+        // Drawn AT THE SHAPE that bit, in red, with the segment it cost over the
+        // head: a bump with no mark on its cause read as "I bit my own tail"
+        // (NePo, round three) - the snake never bites itself.
         this.ctx.audio.play("fail");
         this.cameras.main.shake(160, 0.008);
         haptic.fail();
+        this.spray(e.x, e.y, INK.red, 9);
+        this.popup("-1", this.run.x, this.run.y, "#ff7675");
+      } else if (e.k === "shield") {
+        this.ctx.audio.play("pop", { semitones: -3 });
+        this.spray(this.run.x, this.run.y, INK.gem, 10);
+      } else if (e.k === "spit") {
+        this.spray(e.x, e.y, INK.gold, 2);
       } else if (e.k === "bite") {
         this.ctx.audio.play("pop", { semitones: 7 });
         this.spray(e.x, e.y, INK.gold, 6);
@@ -294,6 +321,13 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       } else if (e.k === "bosshit") {
         this.cameras.main.shake(260, 0.014);
         haptic.tap();
+      } else if (e.k === "stage") {
+        // A warden fell and it was not the last one: a gold flash (never the
+        // boss-arrival red above), the level-up fanfare, and the chrome's own
+        // "Stage N" banner for a couple of seconds - see `publish`.
+        this.ctx.audio.play("streak", { semitones: 4 });
+        this.cameras.main.flash(320, 255, 209, 102);
+        this.bannerUntil = now + 2200;
       }
     }
     while (this.run.crushed >= this.nextMilestone) {
@@ -343,13 +377,16 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       len: Math.floor(r.len),
       peak: this.peak,
       crushed: r.crushed,
-      left: Math.max(0, LEVELS[this.level].stageMs - r.t),
+      meter: r.phase === "stage" ? { len: Math.floor(r.len), crushed: r.crushed, stage: r.stage } : null,
       lv: r.lv,
       offer: r.choosing ? [...r.choosing] : [],
       taken: { ...r.taken },
-      boss: boss ? { now: boss.hp, max: KINDS.warden.hp } : null,
+      // BOSS_HP[r.stage]: while a warden is up, r.stage is still ITS stage -
+      // it only moves on once the warden falls and `boss` goes back to null.
+      boss: boss ? { now: boss.hp, max: BOSS_HP[r.stage] } : null,
       newBest: this.newBest,
       tutorial: this.tut ? this.tut.step : null,
+      banner: r.phase === "stage" && t < this.bannerUntil ? r.stage : null,
     });
   }
 
@@ -362,10 +399,17 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     const g = this.fg;
     g.clear();
     const pulse = (this.time?.now ?? 0) / 180;
-    for (const gem of r.gems) drawGem(g, gem.x, gem.y, pulse + gem.x);
+    for (const gem of r.gems) drawGem(g, gem.x, gem.y, pulse + gem.x, gem.v);
     for (const l of this.loops) drawLoop(g, l.poly, l.age, LOOP_LIFE);
     this.drawTutorial(g);
+    // The warden's wind-up: the warning before its lunge.
+    for (const f of r.foes) if (f.kind === "warden" && f.windup > 0) drawWindup(g, f, r, f.windup, LUNGE.windup);
+    // The snap guide: where the loop is about to close, while it is in reach.
+    const snap = this.phase === "playing" ? snapHint(r) : null;
+    if (snap) drawSnapGuide(g, r, snap, pulse);
     drawSnake(g, r, r.blink > 0 && Math.floor(r.blink / 90) % 2 === 0);
+    if (r.taken.shield && r.shieldIn === 0) drawShieldRing(g, r, pulse);
+    for (const shot of r.shots) drawShot(g, shot);
     for (const s of this.sparks) {
       g.fillStyle(s.ink, Math.min(1, s.life / 200));
       g.fillRect(s.x - 1.5, s.y - 1.5, 3, 3);
@@ -417,6 +461,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       s.setPosition(f.x, f.y).setFlipX(this.run.x < f.x);
       this.want(s, FOR_KIND[f.kind], this.clipOf(f));
       if (f.hurt > 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
+      else if (f.kind === "warden" && f.windup > 0 && Math.floor(f.windup / 90) % 2 === 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
       else if (f.kind === "warden") s.setTint(INK.red).setTintMode(Phaser.TintModes.MULTIPLY);
       else s.clearTint();
     }
@@ -467,9 +512,9 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     }
   }
 
-  private popup(text: string, x: number, y: number) {
+  private popup(text: string, x: number, y: number, color = "#ffd166") {
     const t = this.add
-      .text(x, y - 20, text, { fontFamily: "Fredoka, Heebo, sans-serif", fontSize: "24px", color: "#ffd166", fontStyle: "bold", stroke: "#0b0e22", strokeThickness: 5 })
+      .text(x, y - 20, text, { fontFamily: "Fredoka, Heebo, sans-serif", fontSize: "24px", color, fontStyle: "bold", stroke: "#0b0e22", strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(DEPTH.pop);
     this.tweens.add({ targets: t, y: y - 56, alpha: 0, duration: 800, ease: "Cubic.easeOut", onComplete: () => t.destroy() });

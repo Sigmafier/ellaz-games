@@ -15,7 +15,7 @@ import { GameChrome } from "@ui/GameChrome";
 import { haptic, shake } from "@juice/index";
 import { useGameSession, useRememberedLevel, winMoment } from "@shared/index";
 import { newGame, parseLevel, starsFor, step, undo as takeBack, isStuck, type Dir, type PuzzleState } from "./logic";
-import { LEVELS, LEVEL_IDS, levelById, nextLevelId, placeInWorld, type LevelDef } from "./levels";
+import { LEVELS, LEVEL_IDS, introduces, levelById, nextLevelId, placeInWorld, type LevelDef } from "./levels";
 import { STARS_KEY, isOpen, readStars, recordSolve, startingLevel, type StarMap } from "./progress";
 import { SESSION, pressesOf, replay } from "./session";
 import { Board, type SolvedCard } from "./Board";
@@ -26,7 +26,7 @@ import { WORDS, fill } from "./words";
 /**
  * What a solve is worth is the economy's business; which TIER it is, is ours.
  * The first three garden levels are the tutorial, the rest of the garden is
- * the real thing, and the maze is the hard world.
+ * the real thing, and Tricks (World 2) is the hard world.
  */
 function tierOf(def: LevelDef): RewardTier {
   if (def.world === 2) return "hard";
@@ -57,7 +57,7 @@ export function PuzzleSnakeGame({ ctx }: { ctx: GameContext }) {
 
   const { def, game, picker, setPicker } = st;
   const next = nextLevelId(def.id);
-  const worldLine = `${T.world} ${def.world} · ${def.world === 1 ? T.garden : T.maze}`;
+  const worldLine = `${T.world} ${def.world} · ${def.world === 1 ? T.garden : T.tricks}`;
   const side = pc && !picker ? <PcSide T={T} worldLine={worldLine} levelLine={fill(T.levelOf, placeInWorld(def.id))} onLevels={() => setPicker(true)} /> : undefined;
   const footer = picker ? undefined : pc ? (
     <PcFooter T={T} onUndo={undo} onRestart={restart} />
@@ -81,6 +81,7 @@ export function PuzzleSnakeGame({ ctx }: { ctx: GameContext }) {
           headRef={st.headRef}
           exitRef={st.exitRef}
           stuck={isStuck(game)}
+          newTiles={introduces(def.id)}
           onSwipe={press}
           onTry={restart}
           onNext={() => (next ? open(next) : setPicker(true))}
@@ -164,13 +165,14 @@ function usePresses(ctx: GameContext, st: Store, solved: (s: PuzzleState) => voi
       ctx.audio.unlock();
       const r = step(game, dir);
       if (r.state === game) {
-        // Refused: a wall, the body, or the shut door. A bump, never a penalty.
+        // Refused: a wall, the body, the shut door, a lock without a key, or an
+        // arrow entered the wrong way. A bump, never a penalty.
         if (r.outcome !== "solved" && headRef.current) shake(headRef.current, 3, 160);
         haptic.tap();
         return;
       }
       setGame(r.state);
-      ctx.audio.play(r.outcome === "ate" ? "pop" : "tap");
+      ctx.audio.play(r.outcome === "ate" ? "pop" : r.outcome === "key" ? "star" : "tap");
       if (r.outcome === "solved") solved(r.state);
     },
     [ctx, game, picker, solved, setGame, headRef],

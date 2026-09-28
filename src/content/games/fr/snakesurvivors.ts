@@ -5,7 +5,7 @@ import type { GameCopy } from "../../types";
  *
  * Chaque chiffre vient de `src/games/snakesurvivors/` - la longueur de départ, la
  * plus courte et la plus longue, ce que coûte une morsure, le clignotement qui
- * suit, la durée d'une phase par niveau, les cartes et leurs plafonds. Rien n'est
+ * suit, ce qui fait venir le gardien, les cartes et leurs plafonds. Rien n'est
  * inventé ici.
  *
  * Le français place une espace insécable avant `: ; ? !`, ce que les autres
@@ -17,30 +17,30 @@ export const snakesurvivorsFr: GameCopy = {
   name: "Serpent survivant",
   metaTitle: "Serpent survivant - jeu de serpent gratuit | Ellaz",
   metaDescription:
-    "Guidez un serpent néon au milieu de formes lumineuses et refermez une boucle autour d'elles pour les écraser. Votre queue, c'est votre vie.",
+    "Guidez un serpent néon et refermez une boucle pour écraser les formes. Votre queue est votre vie, et trois gardiens vous attendent, chacun plus coriace.",
 
-  lede: "Votre serpent brille, glisse dans toutes les directions et n'attaque jamais rien de front. Ramenez la tête jusqu'à toucher votre propre corps, et tout ce qui se trouve pris dans la boucle est écrasé. Tenez la phase, écrasez trois fois le gardien, et la partie est à vous.",
+  lede: "Votre serpent brille, glisse dans toutes les directions et n'attaque jamais rien de front. Ramenez la tête tout près de votre propre corps, la boucle se referme d'elle-même, et tout ce qui s'y trouve pris est écrasé. Grandissez, faites venir un gardien après l'autre - trois en tout, chacun plus coriace que le précédent - et gagnez quand le troisième tombe.",
 
   body: [
-    "Personne ne vise ici. On dessine un cercle avec soi-même, et ce qui est dedans au moment où il se ferme disparaît en laissant des gemmes.",
+    "Personne ne vise ici. On dessine un cercle, et ce qui est dedans quand il se ferme disparaît en laissant des gemmes.",
 
-    "La queue, c'est la vie, et le chiffre affiché à l'écran n'est rien d'autre que votre longueur. Le serpent part avec 28 segments. Une forme qui atteint la tête en arrache 2, puis vous clignotez pendant 1,4 seconde sans que rien ne puisse vous toucher, juste le temps de filer. Sous 3 segments, la partie s'arrête. Les gemmes rendent de la longueur : chacune vaut un tiers de segment, et elle remplit au passage la barre qui amène la carte suivante. Au maximum, le serpent atteint 60 segments, et plus il est long, plus la boucle qu'il peut tracer est grande.",
+    "La queue, c'est la vie, et le chiffre affiché à l'écran n'est rien d'autre que votre longueur. Le serpent part avec 28 segments. Une forme qui atteint la tête en arrache 1, puis vous clignotez pendant 1,4 seconde sans que rien ne puisse vous toucher, juste le temps de filer. Sous 3 segments, la partie s'arrête. Les gemmes rendent de la longueur et remplissent la barre qui amène la carte suivante : une bleue vaut un tiers de segment, une rouge deux tiers et une jaune un segment entier. Au maximum, le serpent atteint 60 segments, et plus il est long, plus la boucle qu'il peut tracer est grande.",
 
-    "Votre corps n'est pas un mur. Les formes le traversent librement, et c'est tout le truc : une foule qui poursuit votre tête pendant que vous tournez coupe au plus court et se retrouve dans le cercle que vous êtes en train de tracer. Là, on ferme.",
+    "Votre corps n'est pas un mur. Les formes le traversent librement, et c'est tout le truc : une foule qui poursuit votre tête pendant que vous tournez coupe au plus court et se retrouve dans le cercle que vous êtes en train de tracer. Là, on ferme, sans toucher sa queue au millimètre : dès que la tête passe à 42 unités du corps, la boucle se referme, et un trait pointillé montre où.",
 
-    "La taille compte. Une boucle n'écrase que si elle enferme au moins 4000 unités carrées, à peu près un cercle de rayon 36 : tourner serré sur place n'écrase donc rien, et les formes qui s'installent au milieu finissent par atteindre la tête. Voilà pourquoi la longueur est plus qu'une réserve de vie. Un serpent long peut se permettre une grande boucle, un serpent court a du mal à en fermer une, et chaque gemme rend un peu de cette portée. Chaque fermeture est un seul coup, porté à chaque forme à l'intérieur. Trois formes vous poursuivent, les mêmes que dans Survie Néon. Le coureur est une petite chauve-souris rapide. L'orbe est une gelée qui arrive quand le quart de la phase est passé. La brute est un crabe lent et coriace qui se montre un peu après la moitié, et une boucle ne lui suffit pas : il en faut deux.",
+    "La taille compte. Une boucle n'écrase que si elle enferme au moins 4000 unités carrées, à peu près un cercle de rayon 36 : tourner serré sur place n'écrase rien. Voilà pourquoi la longueur est plus qu'une réserve de vie : un long serpent trace une grande boucle, un court en a peine à en fermer une, et chaque gemme rend un peu de cette portée. Chaque fermeture est un seul coup, porté à chaque forme à l'intérieur.",
 
-    "Une phase dure 2 minutes 30 en Calme, 3 minutes en Normal et 3 minutes 30 en Sauvage. Ensuite arrive le gardien, une chauve-souris géante qui fonce sur vous, et il faut trois boucles, un coup par boucle. À la troisième, c'est gagné. Les niveaux ne changent que la foule, jamais le serpent.",
+    "Trois formes vous poursuivent, les mêmes que dans Survie Néon : le coureur, une petite chauve-souris rapide ; l'orbe, une gelée qui arrive après un moment ; la brute, un crabe lent et coriace qui a besoin de deux boucles, pas une. Il n'y a pas d'horloge. La partie compte trois étapes, chacune refermée par un gardien plus coriace : le premier à 50 segments ou 10 formes, le deuxième à 25 au total, le troisième à 45. Chacun est une chauve-souris géante qui s'arrête et brille avant de foncer : écartez-vous, refermez trois boucles et il tombe. Battez les trois et la partie est à vous. Les niveaux changent la foule : le rythme des formes, leur vitesse, combien tiennent à l'écran.",
 
     "C'est le deuxième jeu de la famille Serpent. La grille, cette fois, a disparu.",
   ],
 
   howToPlay: [
     { title: "Diriger", body: "Sur téléphone, posez le pouce n'importe où sur l'arène et faites glisser : un petit manche apparaît sous le doigt et le serpent suit. Sur ordinateur, les flèches ou WASD suffisent. Le serpent ne s'arrête jamais et tourne en courbes douces, pas à angle droit." },
-    { title: "Fermer la boucle", body: "Ramenez la tête jusqu'à ce qu'elle touche votre corps. Chaque forme prise dans la boucle que vous venez de tracer est écrasée, à condition que la boucle soit large : tourner serré sur place ne compte pas." },
-    { title: "Protéger la tête", body: "Seule la tête peut être blessée. Une forme qui l'atteint coûte 2 segments, puis le serpent clignote un instant pour vous laisser fuir." },
+    { title: "Fermer la boucle", body: "Ramenez la tête tout près de votre corps et la boucle se referme d'elle-même ; un trait pointillé montre où. Chaque forme prise dans la boucle que vous venez de tracer est écrasée, à condition que la boucle soit large : tourner serré sur place ne compte pas." },
+    { title: "Protéger la tête", body: "Seule la tête peut être blessée. Une forme qui l'atteint coûte 1 segment, puis le serpent clignote un instant pour vous laisser fuir." },
     { title: "Regrandir", body: "Les formes écrasées laissent des gemmes, et quelques autres traînent au sol, pour grandir avant votre première boucle. Passez dessus pour grandir et remplir la barre de niveau." },
-    { title: "Choisir une carte", body: "Quand la barre est pleine, le jeu s'arrête et propose trois cartes. Appuyez sur l'une d'elles et la foule repart." },
+    { title: "Choisir une carte", body: "Quand la barre est pleine, le jeu s'arrête et propose trois cartes. Une carte que vous avez déjà montre son niveau suivant. Appuyez sur l'une d'elles et la foule repart." },
   ],
 
   tips: [
@@ -59,7 +59,7 @@ export const snakesurvivorsFr: GameCopy = {
   ages: [
     { title: "À partir de 5 ans", body: "Un jeune enfant peut diriger le serpent en Calme et apprendre à fermer une grande boucle, et rien ne le punit à part la fin de la partie." },
     { title: "De 8 à 12 ans", body: "Normal, où le crabe demande deux boucles et où le choix entre Crocs et Queue à piques commence à compter." },
-    { title: "Adolescents et adultes", body: "Sauvage. La foule qui grossit vers la fin de la phase oblige à lire tout l'écran d'un coup." },
+    { title: "Adolescents et adultes", body: "Sauvage. La foule qui grossit pendant que vous grandissez vers le gardien oblige à lire tout l'écran d'un coup." },
   ],
 
   accessibility:
@@ -73,10 +73,10 @@ export const snakesurvivorsFr: GameCopy = {
 
   faq: [
     { q: "Serpent survivant est-il gratuit ?", a: "Oui, et il n'y a rien à acheter ni aucun compte à créer." },
-    { q: "Comment ferme-t-on une boucle ?", a: "Ramenez la tête jusqu'à toucher votre corps. La boucle doit enfermer au moins 4000 unités carrées, donc tourner serré sur place ne compte pas, et chaque fermeture frappe une fois chaque forme à l'intérieur." },
-    { q: "Que se passe-t-il quand une forme me touche ?", a: "Si elle touche la tête, vous perdez 2 segments et clignotez 1,4 seconde pendant lesquelles rien ne vous blesse. Si elle touche le corps, rien ne se passe : les formes traversent le corps librement, et c'est ainsi qu'une foule se retrouve dans votre boucle." },
-    { q: "Combien de temps dure une partie ?", a: "Une phase de 2 minutes 30 en Calme, 3 minutes en Normal ou 3 minutes 30 en Sauvage, puis le gardien. Écrasez-le trois fois et la partie est gagnée." },
-    { q: "À quoi servent les cartes ?", a: "Il y en a six. Les Crocs mordent la forme qui touche votre tête au lieu de vous blesser, et chaque niveau mord une forme plus coriace ; la Queue à piques blesse ce qui touche votre corps. Ce sont les deux armes. L'Aimant attire les gemmes, Vif ajoute 10 % de vitesse et un virage plus serré par niveau, Repousse fait regrandir un segment tout seul toutes les 9 secondes, et l'Onde de choc projette et étourdit les formes juste à l'extérieur de la boucle." },
+    { q: "Comment ferme-t-on une boucle ?", a: "Ramenez la tête à 42 unités de votre corps et la boucle se referme d'elle-même. Elle doit enfermer au moins 4000 unités carrées, donc tourner serré sur place ne compte pas, et chaque fermeture frappe une fois chaque forme à l'intérieur." },
+    { q: "Que se passe-t-il quand une forme me touche ?", a: "Si elle touche la tête, vous perdez 1 segment et clignotez 1,4 seconde pendant lesquelles rien ne vous blesse. Si elle touche le corps, rien ne se passe : les formes traversent le corps librement, et c'est ainsi qu'une foule se retrouve dans votre boucle." },
+    { q: "Combien de temps dure une partie ?", a: "Il n'y a pas d'horloge. Trois étapes : le premier gardien à 50 segments ou 10 formes, le deuxième à 25 au total, le troisième à 45 - chacun plus coriace. Battez les trois et vous gagnez." },
+    { q: "À quoi servent les cartes ?", a: "Il y en a neuf. Trois sont des armes : les Crocs mordent la forme qui touche votre tête, la Queue à piques blesse ce qui touche votre corps, et le Crachat tire sur la forme la plus proche toutes les 2 secondes, mais jamais sur le gardien. L'Aimant attire les gemmes, Vif ajoute 10 % de vitesse par niveau, Repousse fait regrandir un segment toutes les 9 secondes, l'Onde de choc repousse les formes juste à l'extérieur de la boucle, le Lasso referme la boucle de plus loin, et le Bouclier encaisse un coup gratuitement puis se recharge." },
     { q: "Comment le score est-il compté ?", a: "En formes écrasées. Le record est gardé sur votre appareil, séparément pour chaque niveau, et toutes les 25 formes écrasées rapportent des pièces d'or." },
     { q: "Quel lien avec Serpent et Survie Néon ?", a: "C'est le deuxième jeu de la famille Serpent : le même serpent néon que dans le Serpent classique, face aux trois formes de Survie Néon." },
   ],

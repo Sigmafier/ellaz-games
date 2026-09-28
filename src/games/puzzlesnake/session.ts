@@ -41,17 +41,13 @@ export function replay(snap: PuzzleSession): PuzzleState | undefined {
   return s;
 }
 
-/** The presses that got a board to where it is, oldest first. */
+/**
+ * The presses that got a board to where it is, oldest first. Read off the
+ * history's recorded presses, never off the head's cells: through a portal
+ * the head can land anywhere on a single press.
+ */
 export function pressesOf(s: PuzzleState): Dir[] {
-  const all = [...s.history.map((h) => h.body), s.body];
-  const out: Dir[] = [];
-  for (let i = 1; i < all.length; i++) {
-    const from = all[i - 1][0];
-    const to = all[i][0];
-    const d = to - from;
-    out.push(d === -s.level.width ? "up" : d === s.level.width ? "down" : d === -1 ? "left" : "right");
-  }
-  return out;
+  return s.history.map((h) => h.press);
 }
 
 export const SESSION: SessionSpec<PuzzleSession> = {

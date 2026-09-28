@@ -166,6 +166,7 @@ describe("no game keeps a private pad", () => {
       "maze/MazeGame.tsx",
       "puzzlesnake/Controls.tsx",
       "snake/SnakeGame.tsx",
+      "snakearena/SnakeArenaGame.tsx",
       "survivors/SurvivorsGame.tsx",
     ]);
   });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { circle, hold, idle, levelBy, play, toGems } from "./bots";
+import { BOSS_AT, STAGE_TRIGGER } from "./crowd";
 import { ARENA, ARENA_WIDE } from "./logic";
 
 /**
@@ -22,6 +23,51 @@ import { ARENA, ARENA_WIDE } from "./logic";
  * of six runs hit the eight-minute cap (after R2.4: all six on the phone, three
  * of six on the PC). Whether a person does that, and whether
  * it matters, is a question a bot this crude cannot answer.
+ *
+ * ROUND THREE (2026-09-28) moved every row - a bump costs one, the loop snaps
+ * shut from 42 units, half the crowd, and the warden comes at 50 long or 10
+ * crushed instead of on a clock. Re-measured, same bots, same seeds:
+ *
+ *                       phone 420x560            PC 648x364
+ *   idle   (no steer)   dies ~58 s, 0 crushed    dies ~56-59 s, 0 crushed
+ *   hold   (one key)    dies ~59 s, 0 crushed    dies ~58-60 s, 0 crushed
+ *   circle, calm        wins 6 of 6, 37-42 s     wins 6 of 6, 36-41 s
+ *   circle, normal      wins 6 of 6, 31-34 s     wins 6 of 6, 32-40 s
+ *   circle, wild        wins 6 of 6, 29-32 s     wins 6 of 6, 29-38 s
+ *
+ * The circling bot reaches ten crushed 25-28 s in - seven seconds after the
+ * safe start - so the warden comes at level 2, and the WILD time-outs above are
+ * gone. A run for a player who loops is now about half a minute long; that is
+ * the trigger working exactly as asked, and whether it is the right length is
+ * the operator's call, not a bot's.
+ *
+ * ROUND FOUR (2026-09-28, operator ruling): "why does the game finish so
+ * early?" - a run that ends in half a minute is the answer to a different
+ * question than the one just asked. Three stages now, three wardens (hp
+ * 3/4/5), each one's trigger a higher total CRUSHED (10/25/45); stage 2 and 3
+ * also raise the crowd (`STAGE_CROWD` in `crowd.ts`) - a higher cap, the brute
+ * joining sooner, and every non-warden shape TOUGHER (2 loops a kill at stage
+ * 2, 3 at stage 3), which is what actually buys the extra minutes: a denser
+ * crowd that dies just as fast is a denser crowd that reaches 45 SOONER, not
+ * later (measured first, and undone - see `STAGE_CROWD`'s own comment).
+ * Spawns were tuned SLOWER at the higher stages, not faster, for the same
+ * reason: this game's whole crowd cools down fast (`LOOP_COOL_MS` 350 ms), so
+ * a circling bot is refill-rate-bound, not cap-bound, once the fight is real.
+ *
+ * Re-measured, same six seeds, both arenas, full runs to `won` or `dead`:
+ *
+ *                       phone 420x560              PC 648x364
+ *   circle, calm        wins 6/6, 330-347 s        wins 6/6, 332-357 s
+ *   circle, normal      wins 6/6, 248-255 s        wins 6/6, 245-249 s
+ *   circle, wild        wins 6/6, 207-211 s        wins 6/6, 206-213 s
+ *
+ * 36 of 36 won - every seed, every level, every arena - with the boss-1 leg
+ * unchanged (26-34 s) and boss 2 and boss 3 each adding real minutes: boss 2
+ * around the 1:30-2:15 mark, boss 3 around 3:20-5:45, the win a few seconds
+ * after boss 3 falls (its own hp is what makes THAT leg short - a fight, not a
+ * trickle). Calm is the slowest arm (the crowd ramps slowest there) and wild
+ * the fastest, the same ordering round three measured - not something this
+ * round changed, just carried forward at the new scale.
  */
 
 const SEEDS = [1, 2, 3, 4, 5, 6];
@@ -32,7 +78,8 @@ describe("a run that never closes a loop", () => {
       for (const level of ["calm", "normal", "wild"] as const) {
         const o = play(level, 1, idle, arena);
         expect(o.end, `${level} ${arena.w}`).toBe("dead");
-        expect(o.ms).toBeLessThan(60_000);
+        // 56-59 s measured since a bump costs one segment (was ~40 s at two).
+        expect(o.ms).toBeLessThan(75_000);
       }
     }
   });
@@ -49,18 +96,72 @@ describe("a run that never closes a loop", () => {
 });
 
 describe("a run that keeps closing loops", () => {
-  it("can clear calm, warden and all, on both shapes", () => {
+  /**
+   * ROUND FOUR: clearing the run now means all THREE wardens, not one -
+   * `crushed` at the win is `STAGE_TRIGGER[3].crushed` (45) or more, never the
+   * old single-boss ten.
+   */
+  it("can clear every level, warden and all THREE, on both shapes", () => {
     for (const arena of [ARENA, ARENA_WIDE]) {
-      const wins = SEEDS.map((s) => play("calm", s, circle, arena)).filter((o) => o.end === "won");
-      expect(wins.length, `calm ${arena.w}`).toBeGreaterThanOrEqual(2);
-      for (const w of wins) expect(w.crushed).toBeGreaterThan(100);
+      for (const level of ["calm", "normal", "wild"] as const) {
+        const wins = SEEDS.map((s) => play(level, s, circle, arena)).filter((o) => o.end === "won");
+        // 36 of 36 measured 2026-09-28; 5 of 6 leaves room for a retune.
+        expect(wins.length, `${level} ${arena.w}`).toBeGreaterThanOrEqual(5);
+        for (const w of wins) expect(w.crushed).toBeGreaterThanOrEqual(STAGE_TRIGGER[3].crushed);
+      }
     }
   });
 
-  it("can clear normal on both shapes", () => {
+  /**
+   * THE TARGET the operator set, measured with `circle` (a good looping bot):
+   * about 4-6 minutes to clear all three, and never under 3 - a run that ends
+   * in half a minute is the exact complaint this round answers. The bounds
+   * here are wider than the measured 206-357 s table above on purpose: a
+   * pinned test should fail on a real regression, not on next seed's jitter.
+   */
+  it("never wins before 3 minutes, whatever the level or arena", () => {
     for (const arena of [ARENA, ARENA_WIDE]) {
-      const wins = SEEDS.map((s) => play("normal", s, circle, arena)).filter((o) => o.end === "won");
-      expect(wins.length, `normal ${arena.w}`).toBeGreaterThanOrEqual(1);
+      for (const level of ["calm", "normal", "wild"] as const) {
+        for (const s of SEEDS) {
+          const o = play(level, s, circle, arena);
+          if (o.end === "won") expect(o.ms, `${level} ${arena.w} seed ${s}`).toBeGreaterThan(180_000);
+        }
+      }
+    }
+  });
+
+  it("a good looping bot clears the whole run in minutes - about 4 to 6", () => {
+    for (const arena of [ARENA, ARENA_WIDE]) {
+      for (const level of ["calm", "normal", "wild"] as const) {
+        const wins = SEEDS.map((s) => play(level, s, circle, arena)).filter((o) => o.end === "won");
+        expect(wins.length, `${level} ${arena.w}`).toBeGreaterThan(0);
+        for (const w of wins) {
+          expect(w.ms, `${level} ${arena.w}`).toBeGreaterThan(180_000);
+          // 7 minutes: past the measured 5:57 ceiling (calm), room for a retune.
+          expect(w.ms, `${level} ${arena.w}`).toBeLessThan(420_000);
+        }
+      }
+    }
+  });
+
+  /**
+   * A boss can only fall through `crush()`, and `crush()` is only ever
+   * reached from a closed loop - so this is a structural guarantee, not a
+   * probability. `play`'s `loops: false` forces `run.loopCool` open forever
+   * (the same trick `levelBy` already used below), so no loop this bot draws
+   * can ever register, however wide or however long it circles. Weapons stay
+   * ON, so the bot gets every advantage a loop cannot give it, and still
+   * cannot touch a single warden (`headContacts`/`bodyContacts`/`spit` all
+   * skip `kind === "warden"`).
+   */
+  it("a bot that never loops never wins, however long it plays", () => {
+    for (const arena of [ARENA, ARENA_WIDE]) {
+      for (const level of ["calm", "normal", "wild"] as const) {
+        for (const s of SEEDS) {
+          const o = play(level, s, circle, arena, 8 * 60_000, { loops: false, weapons: true });
+          expect(o.end, `${level} ${arena.w} seed ${s}`).not.toBe("won");
+        }
+      }
     }
   });
 });
@@ -111,18 +212,27 @@ describe("floor gems, for a player who has not learnt to loop", () => {
     }
   });
 
-  it("are a trickle: the looping bot is ahead at 60 s on every seed, by 3 levels on average at 90 s", () => {
-    let gap90 = 0;
-    let arms = 0;
+  /**
+   * Round three re-pinned this. "The looping bot is ahead at 60 and 90 s" could
+   * not survive the boss trigger: the looping bot has WON by 31-40 s, at level 2,
+   * so there is no level at 60 s to compare. What the rule was for - a player
+   * who never loops is not carried by the floor - is now read off the warden:
+   *
+   *                  warden came at     at 120 s
+   *   LOOPS, phone   25 - 27 s          won, all six, by 34 s
+   *   LOOPS, PC      26 - 28 s          won, all six, by 40 s
+   *   FLOOR, phone   never              length 2 - 24, three of six dead
+   *   FLOOR, PC      never              length 3 - 17, three of six dead
+   */
+  it("are a trickle: the looping bot brings the warden within 40 s, floor gems alone never do", () => {
     for (const arena of [ARENA, ARENA_WIDE]) {
       for (const s of SEEDS) {
-        const f60 = levelBy("normal", s, toGems, 60_000, FLOOR, arena);
-        const l60 = levelBy("normal", s, circle, 60_000, LOOPS, arena);
-        expect(l60.lv, `seed ${s} ${arena.w}: loops ${l60.lv} floor ${f60.lv}`).toBeGreaterThan(f60.lv);
-        gap90 += levelBy("normal", s, circle, 90_000, LOOPS, arena).lv - levelBy("normal", s, toGems, 90_000, FLOOR, arena).lv;
-        arms++;
+        const l40 = levelBy("normal", s, circle, 40_000, LOOPS, arena);
+        expect(l40.crushed, `loops seed ${s} ${arena.w}`).toBeGreaterThanOrEqual(BOSS_AT.crushed);
+        const f90 = levelBy("normal", s, toGems, 90_000, FLOOR, arena);
+        expect(f90.crushed, `floor seed ${s} ${arena.w}`).toBe(0);
+        expect(f90.end, `floor seed ${s} ${arena.w}`).not.toBe("won");
       }
     }
-    expect(gap90 / arms).toBeGreaterThanOrEqual(3);
   });
 });

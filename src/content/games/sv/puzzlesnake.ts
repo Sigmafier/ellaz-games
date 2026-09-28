@@ -20,9 +20,9 @@ export const puzzlesnakeSv: GameCopy = {
 
     "Kroppen är pusslet. Varje äpple lägger till en ruta, och svansen följer exakt samma väg som huvudet tog, så korridoren du nyss gick igenom kan nu vara full av dig själv. Huvudet får gå in i rutan som svansen lämnar, eftersom svansen flyttar sig i samma tryck. Det får däremot inte vända in i sin egen nacke eller gå genom en vägg, och porten är stängd så länge ett äpple finns kvar. Ett nekat steg blir bara ett litet ryck i huvudet. Mer händer inte.",
 
-    "Det finns 12 nivåer. Trädgården har sex av dem på ett bräde med 7 gånger 7 rutor, och ormen börjar med 2 eller 3 rutor. Labyrinten har sex på 9 gånger 9, där ormen börjar med 5 och är 9 lång vid sista äpplet.",
+    "Det finns 12 nivåer. Trädgården har sex av dem på ett bräde med 7 gånger 7 rutor, och ormen börjar med 2 eller 3 rutor. Knepen har sex korta nivåer på 9 gånger 9, och varje nivå har en ny ruta: en nyckel som öppnar alla lås, pilar som du bara kan kliva på åt det håll de pekar, och ett par portaler som för dig över brädet. Nivå 2-2, ett bräde med fyra rum där ormen börjar med 5, finns kvar från den första versionen.",
 
-    "Vi testade varje nivå med en lösare som prövar alla tänkbara följder av tryck. Sedan med en girig robot som alltid går till närmaste äpple. Roboten klarar första nivån på minsta möjliga antal tryck, 5. Den fastnar på alla 6 nivåerna i Labyrinten. Där ligger fällan. I Labyrinten gör 12 av de 24 äpplena nivån omöjlig om du äter dem först, och på nivå 1-2 avgör ordningen ensam om du behöver 11 tryck eller 19. Hela spelet på bästa sätt är 277 tryck.",
+    "Vi testade varje nivå med en lösare som prövar alla tänkbara följder av tryck. Sedan med en girig robot som alltid går till närmaste äpple. Roboten klarar första nivån på minsta möjliga antal tryck, 5. Den klarar ingen av de 6 nivåerna i Knepen. Där ligger fällan. I Knepen gör 9 av de 16 äpplena nivån omöjlig om du äter dem först, och murar du igen en nivås nya ruta hittar lösaren ingen väg alls. På nivå 1-2 avgör ordningen ensam om du behöver 11 tryck eller 17. Hela spelet på bästa sätt är 210 tryck.",
 
     "Stjärnorna räknar tryck. Tre på bästa möjliga, två för en liten omväg, en för att du klarade det.",
   ],
@@ -53,11 +53,11 @@ export const puzzlesnakeSv: GameCopy = {
     },
     {
       title: "Närmaste äpplet är en fråga",
-      body: "Leta upp äpplet som skulle stänga in dig om du åt det tidigt, och spara det till sist. Nästan varje nivå i Labyrinten har minst ett sådant.",
+      body: "Leta upp äpplet som skulle stänga in dig om du åt det tidigt, och spara det till sist. Fem av de sex nivåerna i Knepen har minst ett sådant.",
     },
     {
       title: "Låna svansens steg",
-      body: "Rutan som svansen är på väg att lämna är fri redan i samma tryck. I Labyrintens trånga hörn är det ofta den enda vägen förbi.",
+      body: "Rutan som svansen är på väg att lämna är fri redan i samma tryck. I de trånga hörnen på nivå 2-2 är det ofta den enda vägen förbi.",
     },
     {
       title: "Att ångra kostar ingenting",
@@ -87,11 +87,11 @@ export const puzzlesnakeSv: GameCopy = {
     },
     {
       title: "7 till 12 år",
-      body: "Trädgården är lagom stor. Labyrinten är en riktig utmaning och löses oftast med många ångrade steg.",
+      body: "Trädgården är lagom stor. Knepen är en riktig utmaning och löses oftast med många ångrade steg.",
     },
     {
       title: "Tonåringar och vuxna",
-      body: "Labyrinten är er. Tre stjärnor på 2-6 betyder att hitta den enda bästa vägen, 39 tryck lång.",
+      body: "Knepen är er. Tre stjärnor på 2-6 betyder att hitta den bästa vägen, 24 tryck lång.",
     },
   ],
 

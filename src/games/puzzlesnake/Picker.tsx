@@ -6,9 +6,10 @@
 // reserved in this repo for the genuinely impossible, and "you have not earned
 // this yet" is not impossible, it is later (CLAUDE.md, What a child touches).
 import type { CSSProperties } from "react";
-import { LEVELS, type World } from "./levels";
+import { LEVELS, tricksIn, type World } from "./levels";
 import { isOpen, type StarMap } from "./progress";
 import { FONT, INK } from "./ink";
+import { TileIcon } from "./TileIcon";
 import { fill, type Words } from "./words";
 
 export function Picker(props: {
@@ -42,9 +43,9 @@ function WorldBlock(props: { world: World; stars: StarMap; current: string; T: W
   return (
     <section>
       <h2 style={{ fontFamily: FONT, fontSize: 20, margin: "0 0 4px" }}>
-        {T.world} {world} · {world === 1 ? T.garden : T.maze}
+        {T.world} {world} · {world === 1 ? T.garden : T.tricks}
       </h2>
-      <p style={{ margin: "0 0 10px", fontSize: 14, color: "var(--text-dim)" }}>{world === 1 ? T.gardenBlurb : T.mazeBlurb}</p>
+      <p style={{ margin: "0 0 10px", fontSize: 14, color: "var(--text-dim)" }}>{world === 1 ? T.gardenBlurb : T.tricksBlurb}</p>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${props.pc ? 6 : 3}, minmax(0, 1fr))`, gap: 10 }}>
         {levels.map((l) => {
           const open = isOpen(l.id, stars);
@@ -63,6 +64,16 @@ function WorldBlock(props: { world: World; stars: StarMap; current: string; T: W
               <b dir="ltr" style={{ fontSize: 26 }}>
                 {l.id}
               </b>
+              {/* World 2's tiles, drawn as the picture of what the level teaches.
+                  A fixed-height row on every World 2 tile, so 2-2 (none) lines
+                  up with its neighbours. */}
+              {world === 2 && (
+                <span aria-hidden="true" style={{ display: "flex", gap: 4, height: 16 }}>
+                  {tricksIn(l).map((t) => (
+                    <TileIcon key={t} trick={t} size={16} />
+                  ))}
+                </span>
+              )}
               <span aria-hidden="true" dir="ltr" style={{ color: INK.gold, fontSize: 14, letterSpacing: 2, minHeight: 17 }}>
                 {got ? "★".repeat(got) : ""}
               </span>

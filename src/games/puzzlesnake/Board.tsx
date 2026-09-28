@@ -4,9 +4,11 @@
 // board and the handlers.
 import { useRef, type CSSProperties, type ReactNode, type Ref } from "react";
 import { BOARD_CLASS, boardVars } from "@ui/boardSize";
-import { exitOpen, starMargin, type Dir, type PuzzleState } from "./logic";
+import { exitOpen, facing, holdsKey, starMargin, type Dir, type PuzzleState } from "./logic";
+import type { Trick } from "./levels";
 import { FONT, INK } from "./ink";
-import { fill, type Words } from "./words";
+import { TileIcon } from "./TileIcon";
+import { fill, hintFor, type Words } from "./words";
 
 /** The band on top of the board. Fixed height, so a digit never moves the frame. */
 export const BAND_H = 44;
@@ -42,8 +44,11 @@ export function Board(props: {
   onUndo: () => void;
   onStartOver: () => void;
   stuck: boolean;
+  /** The tiles this level is the first to use; a one-line hint explains them. */
+  newTiles: readonly Trick[];
 }) {
   const { state, T } = props;
+  const hint = props.newTiles.map((t) => hintFor(T, t)).join(" ");
   return (
     <div
       className="puzzlesnake-board"
@@ -67,6 +72,7 @@ export function Board(props: {
         ]}
       />
       <Grid {...props} />
+      {hint && <Hint text={hint} rows={state.level.height} />}
       {props.stuck && !props.card && <StuckStrip T={T} onUndo={props.onUndo} onStartOver={props.onStartOver} />}
       {props.card && (
         <Solved card={props.card} id={props.id} par={props.par} T={T} last={props.last} onTry={props.onTry} onNext={props.onNext} />
@@ -134,6 +140,7 @@ function Grid(props: Parameters<typeof Board>[0]) {
       }}
       style={{
         ...(pc ? boardVars({ vw: 92, vh: 42, cap: 440, chrome: CHROME, ratio: 1 }) : { width: PHONE }),
+        position: "relative",
         aspectRatio: "1",
         boxSizing: "border-box",
         display: "grid",
@@ -148,18 +155,43 @@ function Grid(props: Parameters<typeof Board>[0]) {
       {kinds.map((k, i) => (
         <Cell key={i} kind={k} cellRef={i === state.body[0] ? props.headRef : i === level.exit ? props.exitRef : undefined}>
           {k === "head" && <Eyes dir={facing(state)} />}
+          {k === "key" && <TileIcon trick="key" size="62%" />}
+          {k === "lock" && <TileIcon trick="lock" size="58%" />}
+          {k === "arrow" && <TileIcon trick="oneway" dir={level.arrows[i] ?? "right"} size="64%" />}
         </Cell>
       ))}
     </div>
   );
 }
 
-type Kind = "wall" | "floor" | "apple" | "exit" | "open" | "body" | "head";
+type Kind =
+  | "wall"
+  | "floor"
+  | "apple"
+  | "exit"
+  | "open"
+  | "body"
+  | "head"
+  | "key"
+  | "lock"
+  | "unlocked"
+  | "arrow"
+  | "portalA"
+  | "portalB";
 
-/** What every cell shows, in reading order. */
+/** What every cell shows, in reading order. The snake is drawn over any floor-like tile it lies on. */
 export function cellKinds(s: PuzzleState): Kind[] {
   const { level } = s;
-  const out: Kind[] = level.walls.map((w) => (w ? "wall" : "floor"));
+  const held = holdsKey(s);
+  const out: Kind[] = level.walls.map((w, i) =>
+    w ? "wall" : level.locks[i] ? (held ? "unlocked" : "lock") : level.arrows[i] ? "arrow" : "floor",
+  );
+  level.portals.forEach((p, i) => {
+    out[p] = i === 0 ? "portalA" : "portalB";
+  });
+  level.keys.forEach((k, i) => {
+    if (!s.got[i]) out[k] = "key";
+  });
   level.apples.forEach((a, i) => {
     if (!s.eaten[i]) out[a] = "apple";
   });
@@ -178,6 +210,13 @@ const CELL_STYLE: Record<Kind, CSSProperties> = {
   open: { background: `radial-gradient(${INK.gold}55, transparent)`, border: `3px solid ${INK.gold}`, boxShadow: `0 0 16px ${INK.gold}88` },
   body: { background: `linear-gradient(135deg, ${INK.rim}, ${INK.mint})`, borderRadius: "22%", boxShadow: `0 0 10px ${INK.mint}55` },
   head: { background: INK.mint, borderRadius: "26%", boxShadow: `0 0 14px ${INK.mint}` },
+  // World 2's tiles, as the approved mock draws them.
+  key: { background: "#141938", display: "grid", placeItems: "center" },
+  lock: { background: "#5a3b16", boxShadow: `inset 0 0 0 3px ${INK.gold}`, display: "grid", placeItems: "center" },
+  unlocked: { background: "#141938", boxShadow: `inset 0 0 0 2px ${INK.gold}55` },
+  arrow: { background: "#16224d", display: "grid", placeItems: "center" },
+  portalA: { background: "radial-gradient(circle, #a29bfe 0 30%, #6c5ce7 31% 55%, #141938 56%)", boxShadow: "0 0 14px #a29bfe" },
+  portalB: { background: "radial-gradient(circle, #fd79a8 0 30%, #e84393 31% 55%, #141938 56%)", boxShadow: "0 0 14px #fd79a8" },
 };
 
 function Cell({ kind, children, cellRef }: { kind: Kind; children?: ReactNode; cellRef?: Ref<HTMLDivElement> }) {
@@ -203,13 +242,6 @@ function Cell({ kind, children, cellRef }: { kind: Kind; children?: ReactNode; c
   );
 }
 
-/** Which way the head is looking: away from the neck. */
-function facing(s: PuzzleState): Dir {
-  const d = s.body[0] - s.body[1];
-  const w = s.level.width;
-  return d === -w ? "up" : d === w ? "down" : d === -1 ? "left" : "right";
-}
-
 const EYE_AT: Record<Dir, [string, string][]> = {
   right: [["58%", "28%"], ["58%", "56%"]],
   left: [["24%", "28%"], ["24%", "56%"]],
@@ -224,6 +256,49 @@ function Eyes({ dir }: { dir: Dir }) {
         <span key={left + top} style={{ position: "absolute", left, top, width: "18%", height: "18%", borderRadius: "50%", background: INK.bg }} />
       ))}
     </>
+  );
+}
+
+/**
+ * The level's new tile, explained in one line. Drawn over the BOTTOM wall row
+ * every World 2 board has (the band and top row belong to the stuck strip),
+ * and out of layout, so a level with a hint is exactly as tall as one
+ * without: moving between levels never moves the frame. Outside the grid's
+ * `role="img"`, so a screen reader reads it.
+ */
+function Hint({ text, rows }: { text: string; rows: number }) {
+  return (
+    <p
+      role="note"
+      style={{
+        position: "absolute",
+        left: 10,
+        right: 10,
+        bottom: 10,
+        // One grid row: the grid is the board minus the band, then its 10px
+        // padding top and bottom and a 3px gap between rows.
+        height: `calc((100% - ${BAND_H}px - 20px - ${(rows - 1) * 3}px) / ${rows})`,
+        margin: 0,
+        padding: "0 8px",
+        boxSizing: "border-box",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        borderRadius: 8,
+        background: "#1a1f45f2",
+        border: `1.5px solid ${INK.rim}`,
+        color: INK.text,
+        fontSize: 12,
+        lineHeight: 1.15,
+        fontWeight: 600,
+        overflow: "hidden",
+        zIndex: 1,
+        pointerEvents: "none",
+      }}
+    >
+      {text}
+    </p>
   );
 }
 

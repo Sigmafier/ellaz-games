@@ -7,10 +7,10 @@ import type { DifficultyOption } from "@ui/DifficultySelector";
 import { useRememberedLevel } from "@shared/useRememberedLevel";
 import { measureBoxUnscaled, type ScaleManagerLike } from "@shared/phaserBox";
 import { phoneArena, phoneBox } from "../survivors/phoneArena";
-import { CAPS, WEAPONS } from "./cards";
+import { CAPS, WEAPONS, cardOffer, noneTaken } from "./cards";
 import { CARD_ART } from "./cardArt";
 import { START_LEN } from "./body";
-import { LEVELS } from "./crowd";
+import { STAGE_TRIGGER, bossProgress } from "./crowd";
 import { ARENA, ARENA_WIDE, hitsLeft } from "./logic";
 import type { Arena, CardId, LevelKey } from "./types";
 import type { SnakeSurvivorsScene, SnakeSurvivorsStatus } from "./SnakeSurvivorsScene";
@@ -25,11 +25,6 @@ const LEVEL_OPTIONS: DifficultyOption<LevelKey>[] = [
   { id: "normal", label: { he: "רגיל", en: "Normal", es: "Normal", sv: "Normal" } },
   { id: "wild", label: { he: "פראי", en: "Wild", es: "Salvaje", sv: "Vild" } },
 ];
-
-const clock = (ms: number) => {
-  const s = Math.ceil(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-};
 
 /** The most hearts the HUD draws; see the `hearts` line below. */
 const HEART_CAP = 10;
@@ -73,13 +68,14 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
     len: START_LEN,
     peak: START_LEN,
     crushed: 0,
-    left: LEVELS[level].stageMs,
+    meter: { len: START_LEN, crushed: 0, stage: 1 },
     lv: 1,
     offer: [],
-    taken: { fangs: 0, spikes: 0, magnet: 0, swift: 0, regrow: 0, shockwave: 0 },
+    taken: noneTaken(),
     boss: null,
     newBest: false,
     tutorial: null,
+    banner: null,
   });
   const best = ctx.score?.best(status.level) ?? 0;
 
@@ -146,7 +142,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         hint: "גררו כדי לנווט, או החצים",
         play: "שחקו",
         playAgain: "שחקו שוב",
-        won: "השומר נפל!",
+        won: "שלושת השומרים נפלו!",
         over: "הזנב נגמר",
         crushed: "נמחצו",
         best: "שיא",
@@ -154,6 +150,10 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         length: "אורך",
         pick: "עלייה לדרגה - בחרו אחד",
         warden: "שומר",
+        boss: "בוס",
+        stage: "שלב",
+        isNew: "חדש",
+        have: "כבר יש לך",
       },
       en: {
         title: "Snake Survivors",
@@ -161,7 +161,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         hint: "Drag to steer, or the arrow keys",
         play: "Play",
         playAgain: "Play again",
-        won: "The warden is down!",
+        won: "All three wardens are down!",
         over: "Out of tail",
         crushed: "Crushed",
         best: "Best",
@@ -169,6 +169,10 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         length: "Length",
         pick: "Level up - pick one",
         warden: "Warden",
+        boss: "Boss",
+        stage: "Stage",
+        isNew: "NEW",
+        have: "you have it",
       },
       es: {
         title: "Serpiente superviviente",
@@ -176,7 +180,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         hint: "Arrastra para girar, o las flechas",
         play: "Jugar",
         playAgain: "Otra vez",
-        won: "¡El guardián cayó!",
+        won: "¡Los tres guardianes cayeron!",
         over: "Sin cola",
         crushed: "Aplastados",
         best: "Récord",
@@ -184,6 +188,10 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         length: "Largo",
         pick: "Subes de nivel - elige una",
         warden: "Guardián",
+        boss: "Jefe",
+        stage: "Etapa",
+        isNew: "NUEVA",
+        have: "ya la tienes",
       },
       sv: {
         title: "Ormöverlevare",
@@ -191,7 +199,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         hint: "Dra för att styra, eller piltangenterna",
         play: "Spela",
         playAgain: "Spela igen",
-        won: "Väktaren föll!",
+        won: "Alla tre väktarna föll!",
         over: "Slut på svans",
         crushed: "Krossade",
         best: "Rekord",
@@ -199,49 +207,75 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         length: "Längd",
         pick: "Ny nivå - välj en",
         warden: "Väktare",
+        boss: "Boss",
+        stage: "Etapp",
+        isNew: "NY",
+        have: "du har den",
       },
     },
     ctx.locale,
   );
 
-  // Each card's name and one line saying what it does.
+  // Each card's name, one line saying what it does, and - for a card already
+  // owned - what its NEXT level gives against what the run has now (NePo: "if I
+  // already have a magnet why do I get the same card a second time?"). The two
+  // numbers are `cardOffer`'s, read off the rules.
   const CARD = textFor(
     {
       he: {
-        fangs: ["ניבים", "נגיעה בראש נושכת במקום לפגוע בך"],
-        spikes: ["זנב קוצני", "מי שנתקע בגוף שלך נפגע"],
-        magnet: ["מגנט", "יהלומים עפים אליך"],
-        swift: ["זריז", "מהר יותר ומסתובב חד יותר"],
-        regrow: ["צמיחה", "הזנב גדל בחזרה לבד"],
-        shockwave: ["גל הדף", "מחיצה הודפת את השאר"],
+        fangs: ["ניבים", "נגיעה בראש נושכת במקום לפגוע בך", (n, w) => `נושכים צורות עם עד ${n} חיים, היה ${w}`],
+        spikes: ["זנב קוצני", "מי שנתקע בגוף שלך נפגע", (n, w) => `עוקץ כל ${n} שנ׳, היה ${w}`],
+        magnet: ["מגנט", "יהלומים עפים אליך", (n, w) => `המשיכה מגיעה ל-${n}, היה ${w}`],
+        swift: ["זריז", "מהר יותר ומסתובב חד יותר", (n, w) => `+${n}% מהירות וסיבוב, היה +${w}%`],
+        regrow: ["צמיחה", "הזנב גדל בחזרה לבד", (n, w) => `חוליה כל ${n} שנ׳, היה ${w}`],
+        shockwave: ["גל הדף", "מחיצה הודפת את השאר", (n, w) => `הודף עד ${n}, היה ${w}`],
+        spit: ["יריקה", "יורה בצורה הקרובה כל 2 שניות", (n, w) => `יורק כל ${n} שנ׳, היה ${w}`],
+        lasso: ["לאסו", "הלולאה נסגרת ממרחק גדול יותר", (n, w) => `נסגרת ממרחק ${n}, היה ${w}`],
+        shield: ["מגן", "חוסם מכה אחת, ואז נטען מחדש", (n, w) => `חוסם מכה כל ${n} שנ׳, היה ${w}`],
       },
       en: {
-        fangs: ["Fangs", "a touch at the head bites them instead of you"],
-        spikes: ["Spiked tail", "anything that bumps your body gets hurt"],
-        magnet: ["Magnet", "gems fly to you"],
-        swift: ["Swift", "faster, and turns tighter"],
-        regrow: ["Regrow", "your tail grows back by itself"],
-        shockwave: ["Shockwave", "a crush pushes the crowd back"],
+        fangs: ["Fangs", "a touch at the head bites them instead of you", (n, w) => `bites shapes with up to ${n} health, was ${w}`],
+        spikes: ["Spiked tail", "anything that bumps your body gets hurt", (n, w) => `stings every ${n} s, was ${w} s`],
+        magnet: ["Magnet", "gems fly to you", (n, w) => `pull reaches ${n}, was ${w}`],
+        swift: ["Swift", "faster, and turns tighter", (n, w) => `+${n}% speed and turn, was +${w}%`],
+        regrow: ["Regrow", "your tail grows back by itself", (n, w) => `a segment every ${n} s, was ${w} s`],
+        shockwave: ["Shockwave", "a crush pushes the crowd back", (n, w) => `throws back from ${n}, was ${w}`],
+        spit: ["Spit", "shoots the nearest shape every 2 s", (n, w) => `spits every ${n} s, was ${w} s`],
+        lasso: ["Lasso", "your loop snaps shut from further away", (n, w) => `snaps shut from ${n}, was ${w}`],
+        shield: ["Shield", "blocks one bump, then recharges", (n, w) => `blocks a bump every ${n} s, was ${w} s`],
       },
       es: {
-        fangs: ["Colmillos", "si te tocan la cabeza, muerdes tú"],
-        spikes: ["Cola con púas", "lo que choca con tu cuerpo se hace daño"],
-        magnet: ["Imán", "las gemas vuelan hacia ti"],
-        swift: ["Veloz", "más rápida y gira más cerrado"],
-        regrow: ["Regenerar", "tu cola vuelve a crecer sola"],
-        shockwave: ["Onda", "aplastar empuja a los demás"],
+        fangs: ["Colmillos", "si te tocan la cabeza, muerdes tú", (n, w) => `muerdes figuras de hasta ${n} de vida, antes ${w}`],
+        spikes: ["Cola con púas", "lo que choca con tu cuerpo se hace daño", (n, w) => `pincha cada ${n} s, antes ${w} s`],
+        magnet: ["Imán", "las gemas vuelan hacia ti", (n, w) => `atrae desde ${n}, antes ${w}`],
+        swift: ["Veloz", "más rápida y gira más cerrado", (n, w) => `+${n}% de velocidad y giro, antes +${w}%`],
+        regrow: ["Regenerar", "tu cola vuelve a crecer sola", (n, w) => `un segmento cada ${n} s, antes ${w} s`],
+        shockwave: ["Onda", "aplastar empuja a los demás", (n, w) => `empuja desde ${n}, antes ${w}`],
+        spit: ["Escupir", "dispara a la figura más cercana cada 2 s", (n, w) => `escupe cada ${n} s, antes ${w} s`],
+        lasso: ["Lazo", "tu círculo se cierra desde más lejos", (n, w) => `se cierra desde ${n}, antes ${w}`],
+        shield: ["Escudo", "para un golpe y se recarga", (n, w) => `para un golpe cada ${n} s, antes ${w} s`],
       },
       sv: {
-        fangs: ["Huggtänder", "en stöt mot huvudet blir ett bett"],
-        spikes: ["Taggsvans", "det som stöter i kroppen tar skada"],
-        magnet: ["Magnet", "ädelstenar flyger till dig"],
-        swift: ["Snabb", "snabbare och svänger tätare"],
-        regrow: ["Återväxt", "svansen växer tillbaka själv"],
-        shockwave: ["Tryckvåg", "en krossning knuffar bort resten"],
+        fangs: ["Huggtänder", "en stöt mot huvudet blir ett bett", (n, w) => `biter figurer med upp till ${n} liv (förut ${w})`],
+        spikes: ["Taggsvans", "det som stöter i kroppen tar skada", (n, w) => `sticker var ${n} s (förut ${w} s)`],
+        magnet: ["Magnet", "ädelstenar flyger till dig", (n, w) => `drar från ${n} (förut ${w})`],
+        swift: ["Snabb", "snabbare och svänger tätare", (n, w) => `+${n} % fart och sväng (förut +${w} %)`],
+        regrow: ["Återväxt", "svansen växer tillbaka själv", (n, w) => `ett segment var ${n} s (förut ${w} s)`],
+        shockwave: ["Tryckvåg", "en krossning knuffar bort resten", (n, w) => `knuffar från ${n} (förut ${w})`],
+        spit: ["Spott", "skjuter närmaste figur varannan sekund", (n, w) => `spottar var ${n} s (förut ${w} s)`],
+        lasso: ["Lasso", "öglan sluts från längre håll", (n, w) => `sluts från ${n} (förut ${w})`],
+        shield: ["Sköld", "stoppar en stöt och laddas om", (n, w) => `stoppar en stöt var ${n} s (förut ${w} s)`],
       },
-    } satisfies Record<"he" | "en" | "es" | "sv", Record<CardId, [string, string]>>,
+    } satisfies Record<"he" | "en" | "es" | "sv", Record<CardId, [string, string, (now: string, was: string) => string]>>,
     ctx.locale,
   );
+  const num = (n: number) => {
+    try {
+      return new Intl.NumberFormat(ctx.locale).format(n);
+    } catch {
+      return String(n);
+    }
+  };
 
   const HOW_TO = textFor(TUTORIAL_TEXT, ctx.locale).label;
   const tutoring = status.tutorial !== null && status.tutorial !== "done";
@@ -252,6 +286,9 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
     status.phase === "won" || status.phase === "over"
       ? `${status.phase === "won" ? T.won : T.over} · ${T.crushed} ${score}${status.newBest ? ` · ${T.newBest}` : ""}`
       : undefined;
+  // ROUND FOUR: the meter's trigger is whichever stage it is CURRENTLY reading
+  // toward - `STAGE_TRIGGER[status.meter.stage]` - never the old fixed BOSS_AT.
+  const meterAt = status.meter ? STAGE_TRIGGER[status.meter.stage] : null;
 
   return (
     <ArcadeChrome
@@ -268,7 +305,9 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         best: Math.max(best, score),
         // The tutorial's run has no stage clock and no weapons, and its words sit
         // where these two would: on a phone they would cover both (2026-09-27).
-        clock: tutoring ? "" : clock(status.left),
+        // No clock since round three: the warden comes on a trigger, and the
+        // BOSS meter below says how near it is.
+        clock: "",
         slots: tutoring ? [] : WEAPONS.map((id) => ({
           id,
           art: status.taken[id] ? <span style={{ display: "flex", transform: "scale(0.55)" }}>{CARD_ART[id]()}</span> : null,
@@ -333,6 +372,72 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         {tutoring && status.tutorial !== "done" && status.tutorial && (
           <TutorialBanner step={status.tutorial} locale={ctx.locale} onSkip={() => sceneRef.current?.endTutorial()} />
         )}
+        {/* THE BOSS METER, where the clock used to be: the NEXT boss's trigger
+            (round four: `status.meter.stage` says which one), and the bar is
+            the larger of its two fractions. Stage 3 has no length trigger
+            (`meterAt.len === null`), so the line reads crushed alone.
+            A picture, never a control - it takes no pointer, like the HUD. */}
+        {status.meter && meterAt && status.phase === "playing" && !tutoring && !choosing && (
+          <div
+            aria-hidden="true"
+            style={{ position: "absolute", inset: 0, pointerEvents: "none", containerType: "inline-size" }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                insetInlineEnd: "3.5%",
+                bottom: "5%",
+                // Wide enough on a phone for the numbers (they were clipped at
+                // 44% of a 360px arena, 2026-09-28), capped on a PC as the mock.
+                width: "min(62%, 380px)",
+                color: "#f5f6ff",
+                fontFamily: "Fredoka, Heebo, sans-serif",
+                fontWeight: 700,
+                fontSize: "clamp(9px, 2.1cqw, 14px)",
+              }}
+            >
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", columnGap: 8, opacity: 0.8, letterSpacing: "0.04em" }}>
+                <span>{`${T.boss} ${status.meter.stage}`}</span>
+                <span dir="auto" style={{ whiteSpace: "nowrap" }}>
+                  {meterAt.len != null
+                    ? `${T.length} ${status.meter.len}/${meterAt.len} · ${T.crushed} ${status.meter.crushed}/${meterAt.crushed}`
+                    : `${T.crushed} ${status.meter.crushed}/${meterAt.crushed}`}
+                </span>
+              </div>
+              <div style={{ marginTop: "0.4em", height: "clamp(5px, 1.3cqw, 10px)", borderRadius: 6, background: "rgba(255, 255, 255, 0.1)", overflow: "hidden" }}>
+                <div
+                  style={{
+                    width: `${Math.round(bossProgress(status.meter) * 100)}%`,
+                    height: "100%",
+                    borderRadius: 6,
+                    background: "linear-gradient(90deg, #ff7675, #ffd166)",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {/* THE STAGE BANNER (round four): a couple of seconds of "Stage N",
+            centred, the moment a warden falls and there is a next one - the
+            operator's "clear moment between stages". A picture, never a
+            control, same as the meter above. */}
+        {status.banner && (
+          <div
+            aria-hidden="true"
+            style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}
+          >
+            <b
+              style={{
+                color: "#ffd166",
+                fontSize: "clamp(20px, 6cqw, 34px)",
+                fontFamily: "Fredoka, Heebo, sans-serif",
+                textShadow: "0 2px 10px rgba(11, 14, 34, 0.85)",
+              }}
+            >
+              {`${T.stage} ${status.banner}`}
+            </b>
+          </div>
+        )}
         {choosing && (
           <div
             role="group"
@@ -351,47 +456,65 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
             }}
           >
             <b style={{ color: "#ffd166", fontSize: 20, fontFamily: "Fredoka, Heebo, sans-serif" }}>{T.pick}</b>
-            {status.offer.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => sceneRef.current?.choose(id)}
-                aria-label={`${CARD[id][0]} ${status.taken[id]}/${CAPS[id]}`}
-                style={{
-                  width: "100%",
-                  maxWidth: 420,
-                  minHeight: 64,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "8px 12px",
-                  borderRadius: "var(--radius-2)",
-                  border: `2px solid ${weapons.has(id) ? "#ffd166" : "#6c5ce7"}`,
-                  background: "rgba(28, 33, 80, 0.92)",
-                  color: "#fff",
-                  fontFamily: "Fredoka, Heebo, sans-serif",
-                  cursor: "pointer",
-                  touchAction: "manipulation",
-                  textAlign: "start",
-                }}
-              >
-                <span aria-hidden="true" style={{ display: "flex", flex: "0 0 auto" }}>
-                  {CARD_ART[id]()}
-                </span>
-                <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                  <span style={{ fontSize: 17, fontWeight: 700 }}>{CARD[id][0]}</span>
-                  <span style={{ fontSize: 13, opacity: 0.85 }}>{CARD[id][1]}</span>
-                  <span aria-hidden="true" style={{ display: "flex", gap: 4 }}>
+            {status.offer.map((id) => {
+              const o = cardOffer(status.taken, id);
+              const [name, line, upgrade] = CARD[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => sceneRef.current?.choose(id)}
+                  aria-label={`${name} ${o.to}/${CAPS[id]}`}
+                  style={{
+                    width: "100%",
+                    maxWidth: 420,
+                    minHeight: 64,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "8px 12px",
+                    borderRadius: "var(--radius-2)",
+                    border: `2px solid ${weapons.has(id) ? "#ffd166" : "#6c5ce7"}`,
+                    background: "rgba(28, 33, 80, 0.92)",
+                    color: "#fff",
+                    fontFamily: "Fredoka, Heebo, sans-serif",
+                    cursor: "pointer",
+                    touchAction: "manipulation",
+                    textAlign: "start",
+                  }}
+                >
+                  <span aria-hidden="true" style={{ display: "flex", flex: "0 0 auto" }}>
+                    {CARD_ART[id]()}
+                  </span>
+                  <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: "1 1 auto" }}>
+                    <span style={{ fontSize: 17, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      {/* An owned card is an UPGRADE, and says so: "Magnet 2 → 3". */}
+                      <span>
+                        {name}
+                        {o.owned && <span dir="ltr">{` ${o.from} → ${o.to}`}</span>}
+                      </span>
+                      {o.isNew && (
+                        <span style={{ background: "#55efc4", color: "#0b0e22", fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "1px 6px" }}>
+                          {T.isNew}
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ fontSize: 13, opacity: 0.85 }}>
+                      {o.owned && o.was !== null ? `${T.have}: ${upgrade(num(o.now), num(o.was))}` : line}
+                    </span>
+                  </span>
+                  {/* Level pips: lit up to the level this pick gives. */}
+                  <span aria-hidden="true" style={{ display: "flex", gap: 4, flex: "0 0 auto", marginInlineStart: "auto" }}>
                     {Array.from({ length: CAPS[id] }, (_, i) => (
                       <span
                         key={i}
-                        style={{ width: 8, height: 8, borderRadius: "50%", background: i < status.taken[id] ? "#d8fbff" : "rgba(216, 251, 255, 0.22)" }}
+                        style={{ width: 10, height: 10, borderRadius: "50%", background: i < o.to ? "#ffd166" : "rgba(216, 251, 255, 0.22)" }}
                       />
                     ))}
                   </span>
-                </span>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

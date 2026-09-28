@@ -9,7 +9,7 @@ import type { GameMeta } from "@sdk/index";
 // levels in two worlds are solved in as few presses as you can manage.
 //
 // `ageBand: "all"`, deliberately, although nothing here can hurt a child: the
-// Maze world is built so that a player who always goes for the nearest apple
+// Tricks world is built so that a player who always goes for the nearest apple
 // gets stuck (`solver.test.ts` holds that), and planning four apples ahead
 // with your own body in the way is not a five-year-old's puzzle. The D-pad
 // keeps it tap-completable for anyone who wants to try.

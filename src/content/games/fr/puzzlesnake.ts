@@ -19,9 +19,9 @@ export const puzzlesnakeFr: GameCopy = {
 
     "Le vrai obstacle, c'est vous. Chaque pomme ajoute une case, et la queue repasse exactement là où la tête est passée : le couloir que vous venez de traverser peut maintenant être rempli de votre propre corps. La tête a le droit d'entrer dans la case que la queue quitte, puisque la queue bouge au même moment. Elle ne peut pas se retourner dans son propre cou, ni traverser un mur, et la porte reste fermée tant qu'il reste une pomme. Un pas refusé, c'est un petit sursaut de la tête. Rien de plus.",
 
-    "Il y a 12 niveaux, répartis entre le Jardin et le Labyrinthe. Les six du Jardin se jouent sur un plateau de 7 cases sur 7, avec un serpent de 2 ou 3 cases au départ. Les six du Labyrinthe passent à 9 sur 9. Le serpent y part avec 5 cases et en compte 9 à la dernière pomme.",
+    "Il y a 12 niveaux, répartis entre le Jardin et les Astuces. Les six du Jardin se jouent sur un plateau de 7 cases sur 7, avec un serpent de 2 ou 3 cases au départ. Les six des Astuces sont courts, sur un plateau de 9 sur 9, et chacun apporte une case nouvelle : une clé qui ouvre tous les cadenas, des flèches qu'on ne franchit que dans leur sens, et une paire de portails qui vous font traverser le plateau. Le 2-2, un plateau de quatre salles où le serpent part avec 5 cases, est gardé de la première version.",
 
-    "Chaque niveau a été vérifié par un solveur qui essaie toutes les suites de touches possibles, puis par un robot glouton qui file toujours vers la pomme la plus proche. Le robot boucle le premier niveau au minimum, 5 touches. Dans le Labyrinthe, il se retrouve coincé sur les 6 niveaux. Voilà le piège. Là-bas, 12 des 24 pommes rendent le niveau impossible si on les mange en premier.",
+    "Chaque niveau a été vérifié par un solveur qui essaie toutes les suites de touches possibles, puis par un robot glouton qui file toujours vers la pomme la plus proche. Le robot boucle le premier niveau au minimum, 5 touches. Dans les Astuces, il ne termine aucun des 6 niveaux. Voilà le piège. Là-bas, 9 des 16 pommes rendent le niveau impossible si on les mange en premier, et si l'on mure la case nouvelle d'un niveau, le solveur ne trouve plus aucun chemin.",
 
     "Les étoiles comptent vos touches. Trois au minimum possible, deux pour un petit détour, une pour toute réussite.",
   ],
@@ -41,7 +41,7 @@ export const puzzlesnakeFr: GameCopy = {
     },
     {
       title: "Annuler, recommencer, choisir un niveau",
-      body: "Annuler reprend une touche, autant de fois que vous voulez. Recommencer remet le niveau à sa première image. Niveaux ouvre la carte du Jardin et du Labyrinthe, et chaque niveau s'ouvre quand le précédent est résolu.",
+      body: "Annuler reprend une touche, autant de fois que vous voulez. Recommencer remet le niveau à sa première image. Niveaux ouvre la carte du Jardin et des Astuces, et chaque niveau s'ouvre quand le précédent est résolu.",
     },
   ],
 
@@ -52,11 +52,11 @@ export const puzzlesnakeFr: GameCopy = {
     },
     {
       title: "La pomme la plus proche est une question",
-      body: "Repérez la pomme qui vous enfermerait si vous la mangiez tôt, et gardez-la pour la fin. Presque chaque niveau du Labyrinthe en a au moins une.",
+      body: "Repérez la pomme qui vous enfermerait si vous la mangiez tôt, et gardez-la pour la fin. Cinq des six niveaux des Astuces en ont au moins une.",
     },
     {
       title: "Profitez du pas de la queue",
-      body: "La case que la queue va quitter est déjà libre pendant cette même touche. Dans les virages serrés du Labyrinthe, c'est souvent le seul passage.",
+      body: "La case que la queue va quitter est déjà libre pendant cette même touche. Dans les virages serrés du 2-2, c'est souvent le seul passage.",
     },
     {
       title: "Annuler ne coûte rien",
@@ -86,11 +86,11 @@ export const puzzlesnakeFr: GameCopy = {
     },
     {
       title: "De 7 à 12 ans",
-      body: "Le Jardin a la bonne taille. Le Labyrinthe est un vrai défi, qu'on résout en général à grands coups d'annulation.",
+      body: "Le Jardin a la bonne taille. Les Astuces sont un vrai défi, qu'on résout en général à grands coups d'annulation.",
     },
     {
       title: "Ados et adultes",
-      body: "Le Labyrinthe est pour vous. Trois étoiles au 2-6, c'est trouver le meilleur chemin, long de 39 touches.",
+      body: "Les Astuces sont pour vous. Trois étoiles au 2-6, c'est trouver le meilleur chemin, long de 24 touches.",
     },
   ],
 

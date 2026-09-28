@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { newGame, parseLevel, step } from "./logic";
-import { LEVELS, LEVEL_IDS, nextLevelId, placeInWorld } from "./levels";
+import { legalDirs, newGame, parseLevel, step, type Level } from "./logic";
+import { LEVELS, LEVEL_IDS, introduces, levelById, nextLevelId, placeInWorld, tricksIn, type Trick } from "./levels";
 import { greedy, solve } from "./solver";
 
 /*
@@ -65,7 +65,7 @@ describe("the levels", () => {
         outcomes.push(r.outcome);
         s = r.state;
       }
-      expect(outcomes.slice(0, -1).every((o) => o === "moved" || o === "ate")).toBe(true);
+      expect(outcomes.slice(0, -1).every((o) => o === "moved" || o === "ate" || o === "key")).toBe(true);
       expect(outcomes.at(-1)).toBe("solved");
       expect(s.moves).toBe(l.par);
     });
@@ -73,18 +73,18 @@ describe("the levels", () => {
 });
 
 describe("difficulty rises", () => {
-  it("par never falls inside a world", () => {
-    for (const world of [W1, W2]) {
-      for (let i = 1; i < world.length; i++) {
-        expect(world[i].par, `${world[i].id} is easier than ${world[i - 1].id}`).toBeGreaterThanOrEqual(world[i - 1].par);
-      }
+  it("par never falls inside World 1", () => {
+    for (let i = 1; i < W1.length; i++) {
+      expect(W1[i].par, `${W1[i].id} is easier than ${W1[i - 1].id}`).toBeGreaterThanOrEqual(W1[i - 1].par);
     }
   });
 
-  it("World 2 starts above the top of World 1, with a longer snake", () => {
-    expect(Math.min(...W2.map((l) => l.par))).toBeGreaterThan(Math.max(...W1.map((l) => l.par)));
-    const len = (rows: readonly string[]) => parseLevel(rows).body.length;
-    expect(Math.min(...W2.map((l) => len(l.rows)))).toBeGreaterThan(Math.max(...W1.map((l) => len(l.rows))));
+  it("World 2 is SHORT: every redrawn level is 10 to 24 presses, rising, and 2-2 is the long one", () => {
+    const redrawn = W2.filter((l) => l.id !== "2-2");
+    for (const l of redrawn) expect(l.par, l.id).toBeGreaterThanOrEqual(10);
+    for (const l of redrawn) expect(l.par, l.id).toBeLessThanOrEqual(24);
+    for (let i = 1; i < redrawn.length; i++) expect(redrawn[i].par, redrawn[i].id).toBeGreaterThanOrEqual(redrawn[i - 1].par);
+    expect(levelById("2-2")!.par).toBe(28);
   });
 
   it("the greedy bot can play: it finishes the first level, at par", () => {
@@ -94,30 +94,150 @@ describe("difficulty rises", () => {
     expect(r).toEqual({ finished: true, moves: LEVELS[0].par });
   });
 
-  it("the greedy bot cannot finish at least 4 of the 6 Maze levels", () => {
+  it("the greedy bot cannot finish at least 4 of the 6 World 2 levels", () => {
     const fails = W2.filter((l) => !greedy(parseLevel(l.rows)).finished).map((l) => l.id);
     expect(fails.length, `greedy failed only ${fails.join(", ")}`).toBeGreaterThanOrEqual(4);
   });
 
-  it("and exactly: it is stuck on every Maze level, and on 1-4 and 1-6 of the Garden", () => {
-    // The page quotes "stuck on all 6 Maze levels"; this is the line that says so.
+  it("and exactly: it cannot finish any level from 1-3 on", () => {
+    // The page quotes "cannot finish any of the 6 Tricks levels"; this is the line that says so.
     const report = LEVELS.map((l) => [l.id, greedy(parseLevel(l.rows))] as const);
     expect(report.filter(([, r]) => !r.finished).map(([id, r]) => `${id}:${r.finished ? "" : r.why}`)).toEqual([
+      "1-3:stuck",
       "1-4:stuck",
+      "1-5:stuck",
       "1-6:stuck",
-      "2-1:stuck",
+      "2-1:looped",
       "2-2:stuck",
       "2-3:stuck",
-      "2-4:stuck",
+      "2-4:looped",
       "2-5:stuck",
-      "2-6:stuck",
+      "2-6:looped",
     ]);
   });
 
-  it("the whole game at its best is 277 presses: 88 in the Garden, 189 in the Maze", () => {
+  it("the whole game at its best is 210 presses: 84 in the Garden, 126 in Tricks", () => {
     const sum = (ls: typeof LEVELS) => ls.reduce((n, l) => n + l.par, 0);
-    expect([sum(W1), sum(W2), sum(LEVELS)]).toEqual([88, 189, 277]);
+    expect([sum(W1), sum(W2), sum(LEVELS)]).toEqual([84, 126, 210]);
   });
+});
+
+/*
+ * World 1 has no special tiles; each level from 1-2 to 1-5 teaches one thing
+ * about the snake itself, and each is held to a measurement that says so.
+ */
+describe("each Garden level teaches its one idea", () => {
+  it("1-1 and 1-6 are unchanged, byte for byte (1-6 is one of the two a player named)", () => {
+    expect(levelById("1-1")!.rows).toEqual(["#######", "#.....#", "#.oH.A#", "#.....#", "#.....#", "#....E#", "#######"]);
+    expect(levelById("1-6")!.rows).toEqual(["#######", "#..#..#", "#AooH.#", "##A#A##", "#E....#", "#..#..#", "#######"]);
+    expect([levelById("1-1")!.par, levelById("1-6")!.par]).toEqual([5, 21]);
+  });
+
+  it("1-2, THE ORDER: the near apple first is 17 presses, the far one first is 11, and the greedy bot takes the 17", () => {
+    const lv = parseLevel(levelById("1-2")!.rows);
+    expect([solve(lv, { first: 0 })?.par, solve(lv, { first: 1 })?.par]).toEqual([17, 11]);
+    expect(greedy(lv)).toEqual({ finished: true, moves: 17 });
+  });
+
+  it("1-3, DON'T BOX YOURSELF IN: two of three apples lose if eaten first, and greedy boxes itself in", () => {
+    const lv = parseLevel(levelById("1-3")!.rows);
+    expect(LOSES_FIRST["1-3"].filter(Boolean)).toHaveLength(2);
+    expect(greedy(lv)).toMatchObject({ finished: false, why: "stuck" });
+  });
+
+  it("1-4, YOUR TAIL IS A DOOR: forbid the head the square the tail is leaving and there is no solution", () => {
+    expect(solve(parseLevel(levelById("1-4")!.rows), { tailBlocks: true })).toBeNull();
+    // The control: the counterfactual is not simply broken. Levels that do not
+    // need the rule still solve under it, at their par.
+    expect(solve(parseLevel(levelById("1-1")!.rows), { tailBlocks: true })?.par).toBe(5);
+    expect(solve(parseLevel(levelById("1-2")!.rows), { tailBlocks: true })?.par).toBe(11);
+  });
+
+  it("1-5, TURN ROUND IN A TIGHT CORRIDOR: the only first press is the turn, and two apples are traps", () => {
+    const lv = parseLevel(levelById("1-5")!.rows);
+    expect(legalDirs(newGame(lv))).toEqual(["left"]);
+    expect(LOSES_FIRST["1-5"].filter(Boolean)).toHaveLength(2);
+  });
+});
+
+/*
+ * World 2's promise: each level has one new idea and NEEDS it. Proven two
+ * ways per level. First, the solver's own optimal line steps on every trick
+ * the level uses. Second, the counterfactual: redraw the level with the tile
+ * swapped out and solve again. Walled over, every trick leaves its level
+ * unsolvable; floored, a lock or an arrow changes the par - so the tile is
+ * doing the work, not decorating the board.
+ */
+const swap = (rows: readonly string[], tiles: string, to: string) => rows.map((r) => [...r].map((c) => (tiles.includes(c) ? to : c)).join(""));
+const parOf = (rows: string[]) => solve(parseLevel(rows))?.par ?? null;
+const ARROWS = "<>^v";
+
+const COUNTERFACTUAL: Record<string, [tiles: string, to: "#" | ".", par: number | null][]> = {
+  "2-1": [["L", "#", null], ["L", ".", 8]],
+  "2-3": [[ARROWS, "#", null], [ARROWS, ".", 12]],
+  "2-4": [["L", "#", null], ["L", ".", 14], [ARROWS, "#", null], [ARROWS, ".", 14]],
+  "2-5": [["@", "#", null]],
+  "2-6": [["L", "#", null], ["L", ".", 20], [ARROWS, "#", null], ["@", "#", null]],
+};
+
+/** The tricks the head actually touches on a line: a key or lock entered, an arrow entered, a portal passed. */
+function tricksUsed(lv: Level, path: readonly string[]): Trick[] {
+  let s = newGame(lv);
+  const used = new Set<Trick>();
+  for (const d of path) {
+    const from = s.body[0];
+    s = step(s, d as never).state;
+    const to = s.body[0];
+    if (lv.keys.includes(to) || lv.locks[to]) used.add("key");
+    if (lv.arrows[to]) used.add("oneway");
+    const dx = Math.abs((to % lv.width) - (from % lv.width));
+    const dy = Math.abs(Math.floor(to / lv.width) - Math.floor(from / lv.width));
+    if (dx + dy !== 1) used.add("portal");
+  }
+  return (["key", "oneway", "portal"] as const).filter((t) => used.has(t));
+}
+
+describe("each World 2 level needs its trick", () => {
+  it("the tricks come in the planned order, one new one at a time", () => {
+    expect(W2.map((l) => [l.id, tricksIn(l).join("+")])).toEqual([
+      ["2-1", "key"],
+      ["2-2", ""],
+      ["2-3", "oneway"],
+      ["2-4", "key+oneway"],
+      ["2-5", "portal"],
+      ["2-6", "key+oneway+portal"],
+    ]);
+    expect(LEVEL_IDS.map((id) => [id, introduces(id).join("+")]).filter(([, t]) => t)).toEqual([
+      ["2-1", "key"],
+      ["2-3", "oneway"],
+      ["2-5", "portal"],
+    ]);
+    for (const l of W1) expect(tricksIn(l), l.id).toEqual([]);
+  });
+
+  it("2-2 is the player's level, byte for byte", () => {
+    expect(levelById("2-2")!.rows).toEqual([
+      "#########", "#...#E.A#", "#.o.#.AA#", "##o###.##", "#.o.....#", "##o###.##", "#.H.#.A.#", "#...#...#", "#########",
+    ]);
+  });
+
+  for (const l of W2.filter((d) => d.id !== "2-2")) {
+    it(`${l.id}: the optimal line steps on every trick the level has`, () => {
+      const lv = parseLevel(l.rows);
+      expect(tricksUsed(lv, solve(lv)!.path)).toEqual(tricksIn(l));
+    });
+
+    it(`${l.id}: take the trick away and the level changes`, () => {
+      const rows = COUNTERFACTUAL[l.id];
+      // Every trick in the level is walled over at least once.
+      const walled = new Set(rows.filter(([, to]) => to === "#").map(([t]) => (t === ARROWS ? "oneway" : t === "@" ? "portal" : "key")));
+      expect([...walled].sort()).toEqual([...tricksIn(l)].sort());
+      for (const [tiles, to, par] of rows) {
+        expect(parOf(swap(l.rows, tiles, to)), `${l.id}: ${tiles} -> ${to}`).toBe(par);
+        if (par !== null) expect(par).not.toBe(l.par);
+      }
+    });
+  }
 });
 
 /*
@@ -128,16 +248,16 @@ describe("difficulty rises", () => {
 const LOSES_FIRST: Record<string, boolean[]> = {
   "1-1": [false],
   "1-2": [false, false],
-  "1-3": [false, true, true],
-  "1-4": [true, false, false],
-  "1-5": [false, false, false],
+  "1-3": [true, false, true],
+  "1-4": [false, true],
+  "1-5": [true, false, true],
   "1-6": [false, true, true],
-  "2-1": [true, true, false, false],
+  "2-1": [false, false],
   "2-2": [true, true, true, false],
-  "2-3": [true, false, false, false],
-  "2-4": [false, false, false, true],
-  "2-5": [false, true, true, true],
-  "2-6": [true, false, false, true],
+  "2-3": [true, false, true],
+  "2-4": [true, false],
+  "2-5": [false, true, true],
+  "2-6": [false, true],
 };
 
 describe("which apples lose the level if you eat them first", () => {
@@ -148,14 +268,22 @@ describe("which apples lose the level if you eat them first", () => {
     });
   }
 
-  it("half the Maze's apples are traps: 12 of 24", () => {
-    const traps = W2.flatMap((l) => LOSES_FIRST[l.id]).filter(Boolean).length;
-    const apples = W2.reduce((n, l) => n + parseLevel(l.rows).apples.length, 0);
-    expect([traps, apples]).toEqual([12, 24]);
+  it("five of the six World 2 levels have at least one trap apple; 2-1 has none", () => {
+    expect(W2.filter((l) => LOSES_FIRST[l.id].some(Boolean)).map((l) => l.id)).toEqual(["2-2", "2-3", "2-4", "2-5", "2-6"]);
   });
 
-  it("1-2's order is the whole cost: 11 presses one way round, 19 the other", () => {
+  it("World 2's snake starts 3 long, except the kept 2-2 at 5", () => {
+    expect(W2.map((l) => parseLevel(l.rows).body.length)).toEqual([3, 5, 3, 3, 3, 3]);
+  });
+
+  it("World 2 has 9 trap apples of 16", () => {
+    const traps = W2.flatMap((l) => LOSES_FIRST[l.id]).filter(Boolean).length;
+    const apples = W2.reduce((n, l) => n + parseLevel(l.rows).apples.length, 0);
+    expect([traps, apples]).toEqual([9, 16]);
+  });
+
+  it("1-2's order is the whole cost: 11 presses one way round, 17 the other", () => {
     const lv = parseLevel(LEVELS[1].rows);
-    expect([solve(lv, { first: 0 })?.par, solve(lv, { first: 1 })?.par]).toEqual([11, 19]);
+    expect([solve(lv, { first: 1 })?.par, solve(lv, { first: 0 })?.par]).toEqual([11, 17]);
   });
 });

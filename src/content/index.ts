@@ -47,6 +47,7 @@ import { backgammon } from "./games/backgammon";
 import { holdtheline } from "./games/holdtheline";
 import { snakesurvivors } from "./games/snakesurvivors";
 import { puzzlesnake } from "./games/puzzlesnake";
+import { snakearena } from "./games/snakearena";
 
 export type { GameContent, GameCopy, FaqItem, Titled, Provenance, Locale, PageLocale } from "./types";
 
@@ -114,6 +115,7 @@ export const CONTENT: Record<string, GameContent> = {
   [holdtheline.id]: holdtheline,
   [snakesurvivors.id]: snakesurvivors,
   [puzzlesnake.id]: puzzlesnake,
+  [snakearena.id]: snakearena,
 };
 
 /** The ids that have prose today. */

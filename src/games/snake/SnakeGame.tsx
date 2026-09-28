@@ -25,7 +25,8 @@ import { measureBoxUnscaled, type ScaleManagerLike } from "@shared/phaserBox";
 import type { BoardMode, SnakeStatus, SpeedKey } from "./SnakeScene";
 import type { Dir } from "./logic";
 import { dayLabel, overCard } from "./draw";
-import { BAND_H, Band, INK, OverCard, StartCard } from "./SnakeCards";
+import { BAND_H, Band, INK, OverCard, StartCard, toGoLine } from "./SnakeCards";
+import { stageProgress } from "./stageWalls";
 import { meta } from "./meta";
 
 // The one Phaser game in the roster, wearing the same chrome as the other
@@ -210,6 +211,8 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
         todayBest: "השיא של היום",
         newBestToday: "שיא חדש היום",
         backToClassic: "חזרה ללוח הרגיל",
+        toGoOne: "עוד תפוח אחד",
+        toGoMany: "עוד {n} תפוחים",
       },
       en: {
         over: "Game over",
@@ -223,6 +226,8 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
         todayBest: "Today's best",
         newBestToday: "New best today",
         backToClassic: "Back to classic",
+        toGoOne: "1 apple to go",
+        toGoMany: "{n} apples to go",
       },
       es: {
         over: "Fin del juego",
@@ -236,6 +241,8 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
         todayBest: "Récord de hoy",
         newBestToday: "Nuevo récord de hoy",
         backToClassic: "Volver al clásico",
+        toGoOne: "falta 1 manzana",
+        toGoMany: "faltan {n} manzanas",
       },
       sv: {
         over: "Spelet är slut",
@@ -249,6 +256,8 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
         todayBest: "Dagens rekord",
         newBestToday: "Nytt rekord i dag",
         backToClassic: "Tillbaka till klassisk",
+        toGoOne: "1 äpple kvar",
+        toGoMany: "{n} äpplen kvar",
       },
     },
     ctx.locale,
@@ -271,6 +280,7 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
   // The band never shows a best behind the score it sits beside, mid-run
   // included: the record is only reported at death.
   const bandBest = Math.max(status.best, status.score);
+  const toGo = stageProgress(status.score);
 
   return (
     <GameChrome
@@ -331,6 +341,10 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
       <Band
         score={{ label: ctx.t("score"), value: status.score }}
         mid={status.mode === "today" ? { label: T.today, value: day } : { label: ctx.t("stage"), value: status.level }}
+        // How far to the next stage (a player asked, 2026-09-28). Classic only:
+        // on today's board that cell says the DAY, not a stage, so there is
+        // nothing for a count to count towards.
+        progress={status.mode === "today" ? undefined : { text: toGoLine(toGo.toGo, T), done: toGo.done }}
         best={{ label: status.mode === "today" ? T.todayBest : ctx.t("best"), value: bandBest }}
       />
       <div style={{ position: "relative" }}>

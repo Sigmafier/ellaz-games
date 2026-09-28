@@ -6,6 +6,7 @@
 // a sentence by string concatenation, because the order of the words around a
 // number is a language's business.
 import type { Locale } from "@i18n/index";
+import type { Trick } from "./levels";
 
 export type Words = {
   level: string;
@@ -16,9 +17,14 @@ export type Words = {
   starsIn: string;
   world: string;
   garden: string;
-  maze: string;
+  /** World 2's name. It was "Maze" until the 2026-09-28 redraw. */
+  tricks: string;
   gardenBlurb: string;
-  mazeBlurb: string;
+  tricksBlurb: string;
+  /** One line each, shown on the level that first uses the tile. */
+  hintKey: string;
+  hintOneway: string;
+  hintPortal: string;
   /** "Level {n} of {of}" */
   levelOf: string;
   goal: string;
@@ -50,9 +56,12 @@ export const WORDS: Record<Locale, Words> = {
     starsIn: "{stars} in {n}",
     world: "World",
     garden: "Garden",
-    maze: "Maze",
+    tricks: "Tricks",
     gardenBlurb: "Eat in the right order. Your body gets in the way.",
-    mazeBlurb: "Tight corners and a long tail.",
+    tricksBlurb: "Each level has one new tile.",
+    hintKey: "New: a key. Pick it up and every lock opens.",
+    hintOneway: "New: arrows. Step onto one only the way it points.",
+    hintPortal: "New: portals. Step into one, come out of the other.",
     levelOf: "Level {n} of {of}",
     goal: "Eat every apple, then the gold door opens.",
     undo: "Undo",
@@ -78,9 +87,12 @@ export const WORDS: Record<Locale, Words> = {
     starsIn: "{stars} תוך {n}",
     world: "עולם",
     garden: "הגינה",
-    maze: "המבוך",
+    tricks: "הטריקים",
     gardenBlurb: "אוכלים בסדר הנכון. הגוף שלכם עומד בדרך.",
-    mazeBlurb: "פינות צפופות וזנב ארוך.",
+    tricksBlurb: "בכל שלב יש משבצת חדשה אחת.",
+    hintKey: "חדש: מפתח. אוספים אותו וכל המנעולים נפתחים.",
+    hintOneway: "חדש: חצים. עולים על חץ רק בכיוון שהוא מצביע.",
+    hintPortal: "חדש: פורטלים. נכנסים לאחד ויוצאים מהשני.",
     levelOf: "שלב {n} מתוך {of}",
     goal: "אוכלים את כל התפוחים, ואז דלת הזהב נפתחת.",
     undo: "ביטול צעד",
@@ -106,9 +118,12 @@ export const WORDS: Record<Locale, Words> = {
     starsIn: "{stars} en {n}",
     world: "Mundo",
     garden: "Jardín",
-    maze: "Laberinto",
+    tricks: "Trucos",
     gardenBlurb: "Come en el orden correcto. Tu cuerpo estorba.",
-    mazeBlurb: "Esquinas estrechas y una cola larga.",
+    tricksBlurb: "Cada nivel trae una casilla nueva.",
+    hintKey: "Nuevo: una llave. Cógela y se abren todos los candados.",
+    hintOneway: "Nuevo: flechas. Solo se pisan en la dirección que señalan.",
+    hintPortal: "Nuevo: portales. Entra por uno y sal por el otro.",
     levelOf: "Nivel {n} de {of}",
     goal: "Cómete todas las manzanas y la puerta dorada se abre.",
     undo: "Deshacer",
@@ -134,9 +149,12 @@ export const WORDS: Record<Locale, Words> = {
     starsIn: "{stars} på {n}",
     world: "Värld",
     garden: "Trädgården",
-    maze: "Labyrinten",
+    tricks: "Knepen",
     gardenBlurb: "Ät i rätt ordning. Din kropp står i vägen.",
-    mazeBlurb: "Trånga hörn och en lång svans.",
+    tricksBlurb: "Varje nivå har en ny ruta.",
+    hintKey: "Nytt: en nyckel. Ta den så öppnas alla lås.",
+    hintOneway: "Nytt: pilar. Kliv bara på en åt det håll den pekar.",
+    hintPortal: "Nytt: portaler. Gå in i den ena, ut ur den andra.",
     levelOf: "Nivå {n} av {of}",
     goal: "Ät alla äpplen, sedan öppnas guldporten.",
     undo: "Ångra",
@@ -156,6 +174,11 @@ export const WORDS: Record<Locale, Words> = {
     notYet: "inte löst än",
   },
 };
+
+/** The hint line for a tile a level introduces. */
+export function hintFor(T: Words, t: Trick): string {
+  return t === "key" ? T.hintKey : t === "oneway" ? T.hintOneway : T.hintPortal;
+}
 
 /** Put values into a sentence: `fill("Level {n} of {of}", { n: 3, of: 6 })`. */
 export function fill(template: string, values: Record<string, string | number>): string {

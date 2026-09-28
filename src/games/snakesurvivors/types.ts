@@ -20,6 +20,13 @@ export type LevelKey = "calm" | "normal" | "wild";
  */
 export type Kind = "runner" | "orb" | "brute" | "warden";
 
+/**
+ * Which boss a run is working toward: 1, 2 or 3 (round four, operator ruling:
+ * "three stages, three bosses, then win"). It only counts up, once per warden
+ * beaten - never resets, never skips.
+ */
+export type Stage = 1 | 2 | 3;
+
 export type Pt = { x: number; y: number };
 
 export interface Foe {
@@ -38,23 +45,42 @@ export interface Foe {
   dash: number;
   /** ms until the warden may lunge again. */
   dashCool: number;
+  /**
+   * ms left of the warden's WIND-UP: it stands still, glowing, before a lunge -
+   * the telegraph that lets a player see it coming (round three, 2026-09-28).
+   */
+  windup: number;
 }
 
 export interface Gem {
   x: number;
   y: number;
-  /** How much it is worth, to the bar and to the snake's length. */
+  /**
+   * What it is worth, to the bar and to the snake's length, in BLUE gems:
+   * 1 blue, 2 red, 3 yellow (NePo's colours). A blue gem is the old gem.
+   */
   v: number;
   /** Laid on the floor by the clock (`floor.ts`), not dropped by a crushed shape. */
   floor?: true;
 }
 
 /**
- * The six cards. `fangs` and `spikes` are the two WEAPONS - two different ways
- * the snake hurts a shape without closing a loop, and they look different: a
- * bite at the head, spikes along the body. The other four change the snake.
+ * The nine cards. `fangs`, `spikes` and `spit` are the three WEAPONS - three
+ * different ways the snake hurts a shape without closing a loop, and they look
+ * different: a bite at the head, spikes along the body, a shot from the mouth.
+ * The other six change the snake.
  */
-export type CardId = "fangs" | "spikes" | "magnet" | "swift" | "regrow" | "shockwave";
+export type CardId = "fangs" | "spikes" | "magnet" | "swift" | "regrow" | "shockwave" | "spit" | "lasso" | "shield";
+
+/** A Spit shot in flight. */
+export interface Shot {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  /** ms before it fizzles out. */
+  life: number;
+}
 
 /**
  * What one step did, for the scene to draw and play. The rules never read these
@@ -64,7 +90,10 @@ export type Ev =
   | { k: "crush"; n: number; x: number; y: number; poly: Pt[] }
   | { k: "ko"; kind: Kind; x: number; y: number }
   | { k: "hurt"; kind: Kind; x: number; y: number }
-  | { k: "hit" }
+  | { k: "hit"; kind: Kind; x: number; y: number }
+  | { k: "shield" }
+  | { k: "spit"; x: number; y: number }
+  | { k: "windup"; x: number; y: number }
   | { k: "bite"; x: number; y: number }
   | { k: "spike"; x: number; y: number }
   | { k: "gem" }
@@ -72,6 +101,8 @@ export type Ev =
   | { k: "boss" }
   | { k: "bosshit"; x: number; y: number }
   | { k: "lunge" }
+  /** A boss fell and it was not the last one: the next stage just opened. */
+  | { k: "stage"; stage: Stage }
   | { k: "won" }
   | { k: "dead" };
 
@@ -120,7 +151,15 @@ export interface Run {
   loopCool: number;
   /** ms banked toward the next regrown segment. */
   regrowAt: number;
+  /** Spit shots in flight. */
+  shots: Shot[];
+  /** ms until Spit may shoot again. */
+  spitIn: number;
+  /** ms until the Shield is ready again; 0 = ready (with the card). */
+  shieldIn: number;
   crushed: number;
   phase: Phase;
+  /** Which boss is next - 1, 2 or 3. See `Stage`. */
+  stage: Stage;
   events: Ev[];
 }

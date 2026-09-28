@@ -8,6 +8,18 @@
 // what it can trust - a known id with a whole number from 1 to 3 - and throws
 // nothing: a corrupt save reads as "fewer stars", never as a crash on the way
 // into a game.
+//
+// KEPT ACROSS THE 2026-09-28 REDRAW, deliberately. Ten of the twelve levels
+// got a new drawing that day, same id, same slot in the ladder - and nothing
+// here clears a star for it. Three reasons: (1) the id is the thing the store
+// is keyed on, and `CLAUDE.md`'s own law is that a persisted id never gets
+// reused for a different meaning - clearing on a redraw would be quietly
+// treating the id as if it HAD changed; (2) there is no backend, so a cleared
+// star is gone for good, on a game whose whole pitch to a stuck seven-year-old
+// is "you cannot lose"; (3) a par moving under a level a player already solved
+// is not special - it happens to some level almost every time the roster is
+// retuned, and this store was never a promise that a given board stays the
+// board that earned the star, only that solving IT once is remembered.
 import { LEVEL_IDS } from "./levels";
 
 export type StarCount = 1 | 2 | 3;

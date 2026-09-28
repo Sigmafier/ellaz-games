@@ -94,15 +94,84 @@ function drawFangs(g: Pen, run: Run, a: number): void {
   }
 }
 
-/** A gem: a small glowing diamond. */
-export function drawGem(g: Pen, x: number, y: number, pulse: number): void {
-  const s = 3.2 + 0.5 * Math.sin(pulse);
-  g.fillStyle(INK.gem, 0.25);
-  g.fillCircle(x, y, s * 2.2);
-  g.fillStyle(INK.gem, 1);
+/**
+ * How a gem of each value looks (NePo's colours): blue +1, red +2, yellow +3.
+ * `size` is the diamond's half-width and `glow` the halo's radius as a multiple
+ * of it - both grow with the value, so a richer gem reads richer at a glance.
+ */
+export const GEM_LOOK: Record<number, { ink: number; size: number; glow: number }> = {
+  1: { ink: INK.gem, size: 3.2, glow: 2.2 },
+  2: { ink: INK.red, size: 3.8, glow: 2.7 },
+  3: { ink: INK.gold, size: 4.4, glow: 3.2 },
+};
+
+/** A gem: a small glowing diamond in its value's colour. */
+export function drawGem(g: Pen, x: number, y: number, pulse: number, v = 1): void {
+  const look = GEM_LOOK[Math.max(1, Math.min(3, Math.round(v)))];
+  const s = look.size + 0.5 * Math.sin(pulse);
+  g.fillStyle(look.ink, 0.25);
+  g.fillCircle(x, y, s * look.glow);
+  g.fillStyle(look.ink, 1);
   g.fillPoints([{ x, y: y - s }, { x: x + s, y }, { x, y: y + s }, { x: x - s, y }], true);
   g.fillStyle(INK.gemLit, 1);
   g.fillCircle(x - s * 0.3, y - s * 0.3, s * 0.35);
+}
+
+/** The dashes of a straight line from `a` to `b`, `dash` long with `gap` between. */
+export function dashes(a: Pt, b: Pt, dash = 6, gap = 5): [Pt, Pt][] {
+  const d = Math.hypot(b.x - a.x, b.y - a.y);
+  if (d === 0) return [];
+  const ux = (b.x - a.x) / d;
+  const uy = (b.y - a.y) / d;
+  const out: [Pt, Pt][] = [];
+  for (let t = 0; t < d; t += dash + gap) {
+    const e = Math.min(d, t + dash);
+    out.push([{ x: a.x + ux * t, y: a.y + uy * t }, { x: a.x + ux * e, y: a.y + uy * e }]);
+  }
+  return out;
+}
+
+const ring = (c: Pt, r: number, n = 18): Pt[] =>
+  Array.from({ length: n }, (_, i) => ({ x: c.x + Math.cos((i / n) * 2 * Math.PI) * r, y: c.y + Math.sin((i / n) * 2 * Math.PI) * r }));
+
+/**
+ * THE SNAP GUIDE (round three): a dashed mint line from the head to the body
+ * point the loop is about to snap shut on, and a small ring on that point - the
+ * mock the operator ACKed. Drawn while `snapHint` finds one.
+ */
+export function drawSnapGuide(g: Pen, head: Pt, at: Pt, pulse: number): void {
+  g.lineStyle(3, INK.mint, 0.85);
+  for (const [a, b] of dashes(head, at)) g.strokePoints([a, b], false);
+  g.lineStyle(2.5, INK.mint, 0.9);
+  g.strokePoints(ring(at, 8 + 1.5 * Math.sin(pulse)), true);
+}
+
+/** A Spit shot: a small gold drop with a faint trail. */
+export function drawShot(g: Pen, s: { x: number; y: number; vx: number; vy: number }): void {
+  const d = Math.hypot(s.vx, s.vy) || 1;
+  g.fillStyle(INK.gold, 0.35);
+  g.fillCircle(s.x - (s.vx / d) * 6, s.y - (s.vy / d) * 6, 3);
+  g.fillStyle(INK.gold, 1);
+  g.fillCircle(s.x, s.y, 3.6);
+}
+
+/** The Shield, while it is ready: a thin blue ring round the head. */
+export function drawShieldRing(g: Pen, head: Pt, pulse: number): void {
+  g.lineStyle(2, INK.gem, 0.55 + 0.25 * Math.sin(pulse));
+  g.strokePoints(ring(head, 15, 22), true);
+}
+
+/**
+ * The warden WINDING UP: a red dashed line from it to the head and a ring
+ * closing in on it as the lunge comes - the warning that was missing when the
+ * reviewer was bitten at length 60 and read it as biting his own tail.
+ */
+export function drawWindup(g: Pen, from: Pt, to: Pt, left: number, total: number): void {
+  const k = 1 - Math.max(0, Math.min(1, left / total));
+  g.lineStyle(3, INK.red, 0.45 + 0.45 * k);
+  for (const [a, b] of dashes(from, to, 8, 6)) g.strokePoints([a, b], false);
+  g.lineStyle(3, INK.red, 0.9);
+  g.strokePoints(ring(from, 44 - 16 * k, 24), true);
 }
 
 /** A loop that just closed: filled mint, outlined white, fading over `life`. */

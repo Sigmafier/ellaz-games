@@ -25,6 +25,18 @@ export function stageOf(score: number): number {
 }
 
 /**
+ * Where a score sits inside its stage, for the band: the stage, the apples
+ * still to eat before the next one (1 to FOOD_PER_LEVEL, never 0 - the step
+ * that eats the last one IS the next stage), and how far through it the run
+ * is, 0 to just under 1. "It would be nice to know how much I need to the
+ * next level" - a player, 2026-09-28.
+ */
+export function stageProgress(score: number): { stage: number; toGo: number; done: number } {
+  const into = score % FOOD_PER_LEVEL;
+  return { stage: stageOf(score), toGo: FOOD_PER_LEVEL - into, done: into / FOOD_PER_LEVEL };
+}
+
+/**
  * The most wall the classic board ever carries: 18 cells, 6% of the 289.
  *
  * Today's board, hand-tuned to play fair on an EMPTY start, runs 8-24. The

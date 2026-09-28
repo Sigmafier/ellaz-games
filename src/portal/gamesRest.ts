@@ -45,6 +45,7 @@ import { meta as survivors } from "../games/survivors/meta";
 import { meta as holdtheline } from "../games/holdtheline/meta";
 import { meta as snakesurvivors } from "../games/snakesurvivors/meta";
 import { meta as puzzlesnake } from "../games/puzzlesnake/meta";
+import { meta as snakearena } from "../games/snakearena/meta";
 import { meta as chess } from "../games/chess/meta";
 import { meta as backgammon } from "../games/backgammon/meta";
 
@@ -194,6 +195,10 @@ export const REST: ReadonlyArray<GameMeta> = [
   // twelve fixed levels in two worlds. Appended, so its metadata and card art
   // land in the lazy half by construction.
   puzzlesnake,
+  // The Snake family's fourth game: the classic grid snake in a 90-second
+  // round against three to five computer snakes. Appended, so its metadata
+  // and card art land in the lazy half by construction.
+  snakearena,
 ];
 
 /**
@@ -242,4 +247,5 @@ export const REST_LOADERS: Record<string, () => Promise<{ default: GameModule }>
   holdtheline: () => import("../games/holdtheline/index"),
   snakesurvivors: () => import("../games/snakesurvivors/index"),
   puzzlesnake: () => import("../games/puzzlesnake/index"),
+  snakearena: () => import("../games/snakearena/index"),
 };

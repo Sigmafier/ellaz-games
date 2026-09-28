@@ -7,9 +7,11 @@ import { puzzlesnakeFr } from "./fr/puzzlesnake";
  * the levels, their board sizes and their snakes out of `levels.ts`, the star
  * margin out of `logic.ts`, and everything the solver or the greedy bot found
  * out of `solver.test.ts`, which re-derives each figure on every test run - the
- * pars of 5 and 39, the 11-or-19 of level 1-2, the 12 trap apples of 24 in the
- * Maze, the bot stuck on all 6 Maze levels, and the 277 presses of the whole
- * game at its best. A redrawn level that moves one of them reds that test
+ * pars of 5 and 24, the 11-or-17 of level 1-2, the 9 trap apples of 16 in
+ * Tricks, the bot failing all 6 Tricks levels, every trick tile being needed,
+ * and the 210 presses of the whole game at its best. World 2 was the Maze
+ * until 2026-09-28, when five of its six levels were redrawn around one new
+ * tile each, and 1-2 to 1-5 of the Garden around one idea each. A redrawn level that moves one of them reds that test
  * before this page can quote a stale number.
  */
 export const puzzlesnake: GameContent = {
@@ -29,9 +31,9 @@ export const puzzlesnake: GameContent = {
 
         "הקושי הוא הגוף שלכם. כל תפוח מוסיף משבצת, והזנב הולך בדיוק במסלול שהראש עשה, כך שהמעבר שעברתם בו לפני רגע יכול להיות עכשיו מלא בכם. הראש רשאי להיכנס למשבצת שהזנב עוזב, כי הזנב זז באותה לחיצה. הוא לא יכול להסתובב לתוך הצוואר, לא יכול לעבור קיר, והדלת נשארת סגורה עד התפוח האחרון. לחיצה שנחסמת היא רק טלטול קטן של הראש. זה הכול. אין עונש ואין שעון.",
 
-        "יש 12 שלבים בשני עולמות. בגינה ששת השלבים הם על לוח של 7 על 7, הנחש מתחיל באורך 2 או 3, ולומדים שם שהתפוח הקרוב הוא לא תמיד הנכון. במבוך ששת השלבים הם על לוח של 9 על 9, הנחש מתחיל באורך 5 ומסיים באורך 9.",
+        "יש 12 שלבים בשני עולמות. בגינה ששת השלבים הם על לוח של 7 על 7, הנחש מתחיל באורך 2 או 3, ולומדים שם שהתפוח הקרוב הוא לא תמיד הנכון. בטריקים יש שישה שלבים קצרים על לוח של 9 על 9, ובכל אחד משבצת חדשה: מפתח שפותח את כל המנעולים, חצים שעולים עליהם רק בכיוון שהם מצביעים, וזוג פורטלים שמעבירים אתכם לצד השני של הלוח. שלב אחד, 2-2, הוא לוח קשה של ארבעה חדרים שנשאר מהגרסה הראשונה, והנחש מתחיל בו באורך 5.",
 
-        "בדקנו כל שלב פעמיים. פעם עם פותר שמנסה כל רצף לחיצות אפשרי ומוצא את המספר הקטן ביותר, ופעם עם בוט חמדן שתמיד הולך אל התפוח הקרוב אליו. הבוט מסיים את השלב הראשון במספר הלחיצות המינימלי, 5. בכל 6 שלבי המבוך הוא נתקע. במבוך, 12 מתוך 24 התפוחים הופכים את השלב לבלתי פתיר אם אוכלים אותם ראשונים. ובשלב 1-2 הסדר לבדו קובע אם תצטרכו 11 לחיצות או 19.",
+        "בדקנו כל שלב פעמיים. פעם עם פותר שמנסה כל רצף לחיצות אפשרי ומוצא את המספר הקטן ביותר, ופעם עם בוט חמדן שתמיד הולך אל התפוח הקרוב אליו. הבוט מסיים את השלב הראשון במספר הלחיצות המינימלי, 5. את אף אחד מ-6 שלבי הטריקים הוא לא מצליח לסיים. בטריקים, 9 מתוך 16 התפוחים הופכים את השלב לבלתי פתיר אם אוכלים אותם ראשונים, ואם סוגרים בקיר את המשבצת החדשה של שלב, הפותר לא מוצא שום דרך לסיים אותו. ובשלב 1-2 הסדר לבדו קובע אם תצטרכו 11 לחיצות או 17.",
 
         "הכוכבים סופרים לחיצות. שלושה במספר המינימלי, שניים בטווח קטן ממנו, ואחד על כל פתרון.",
       ],
@@ -62,11 +64,11 @@ export const puzzlesnake: GameContent = {
         },
         {
           title: "התפוח הקרוב הוא שאלה",
-          body: "חפשו את התפוח שיסגור אתכם אם תאכלו אותו מוקדם, והשאירו אותו לסוף. כמעט בכל שלב במבוך יש לפחות אחד כזה.",
+          body: "חפשו את התפוח שיסגור אתכם אם תאכלו אותו מוקדם, והשאירו אותו לסוף. בחמישה מששת שלבי הטריקים יש לפחות אחד כזה.",
         },
         {
           title: "הזנב מפנה מקום",
-          body: "המשבצת שהזנב עומד לעזוב פנויה כבר באותה לחיצה. בפינות הצפופות של המבוך זה בדיוק מה שמאפשר לעבור.",
+          body: "המשבצת שהזנב עומד לעזוב פנויה כבר באותה לחיצה. בפינות הצפופות של שלב 2-2 זה בדיוק מה שמאפשר לעבור.",
         },
         {
           title: "הביטול לא עולה כלום",
@@ -96,11 +98,11 @@ export const puzzlesnake: GameContent = {
         },
         {
           title: "7 עד 12",
-          body: "הגינה בגודל הנכון. המבוך הוא אתגר אמיתי בגיל הזה, ובדרך כלל נפתר עם הרבה ביטולים.",
+          body: "הגינה בגודל הנכון. הטריקים הם אתגר אמיתי בגיל הזה, ובדרך כלל נפתר עם הרבה ביטולים.",
         },
         {
           title: "נוער ומבוגרים",
-          body: "המבוך בשבילכם. שלושה כוכבים בשלב 2-6 פירושם למצוא את המסלול היחיד הטוב ביותר, של 39 לחיצות.",
+          body: "הטריקים בשבילכם. שלושה כוכבים בשלב 2-6 פירושם למצוא את המסלול הטוב ביותר, של 24 לחיצות.",
         },
       ],
 
@@ -169,9 +171,9 @@ export const puzzlesnake: GameContent = {
 
         "Your body is the puzzle. Every apple adds a square, and the tail follows exactly where the head has been, so the corridor you walked through a moment ago may now be full of you. The head may step into the square the tail is leaving, because the tail moves out on the same press, but it cannot turn back into its own neck or walk through a wall, and the door stays shut until the last apple. A refused press is a small bump of the head and nothing more. Order matters.",
 
-        "There are 12 levels in two worlds. The Garden has six on a 7 by 7 board, where the snake starts 2 or 3 squares long and finds out that the nearest apple is often the wrong one. The Maze has six on 9 by 9, where it starts 5 long and is 9 long by the last apple.",
+        "There are 12 levels in two worlds. The Garden has six on a 7 by 7 board, where the snake starts 2 or 3 squares long and finds out that the nearest apple is often the wrong one. Tricks has six short levels on 9 by 9, and each brings one new tile: a key that opens every lock, arrows you can only step onto the way they point, and a pair of portals that carry you across the board. One of them, 2-2, is a harder four-room board kept from the first version, where the snake starts 5 long.",
 
-        "We checked every level twice: with a solver that tries every possible sequence of presses, and with a greedy bot that always walks to the nearest apple. The bot finishes the first level in the fewest possible presses, 5. It gets stuck on all 6 Maze levels. That is the trap. In the Maze, 12 of the 24 apples leave the level impossible if you eat them first, and on level 1-2 the order alone decides whether the level takes 11 presses or 19. The whole game at its best is 277 presses.",
+        "We checked every level twice: with a solver that tries every possible sequence of presses, and with a greedy bot that always walks to the nearest apple. The bot finishes the first level in the fewest possible presses, 5. It cannot finish any of the 6 Tricks levels. That is the trap. In Tricks, 9 of the 16 apples leave the level impossible if you eat them first, and if you wall over a level's new tile the solver finds no way through at all. On level 1-2 the order alone decides whether the level takes 11 presses or 17. The whole game at its best is 210 presses.",
 
         "Stars count your presses. Three at the best possible, two for a detour or two, one for any finish.",
       ],
@@ -202,11 +204,11 @@ export const puzzlesnake: GameContent = {
         },
         {
           title: "The nearest apple is a question",
-          body: "Find the apple that would box you in if you ate it early, and leave it for last. Almost every Maze level has at least one.",
+          body: "Find the apple that would box you in if you ate it early, and leave it for last. Five of the six Tricks levels have at least one.",
         },
         {
           title: "Borrow the tail's step",
-          body: "The square your tail is about to leave is free on the same press. In the Maze's tight corners that is often the only way through.",
+          body: "The square your tail is about to leave is free on the same press. In the tight corners of 2-2 that is often the only way through.",
         },
         {
           title: "Undo costs nothing",
@@ -236,11 +238,11 @@ export const puzzlesnake: GameContent = {
         },
         {
           title: "7 to 12",
-          body: "The Garden is the right size. The Maze is a real challenge, and it is usually solved with a lot of undo.",
+          body: "The Garden is the right size. Tricks is a real challenge, and it is usually solved with a lot of undo.",
         },
         {
           title: "Teens and adults",
-          body: "The Maze is yours. Three stars on 2-6 means finding the single best route, 39 presses long.",
+          body: "Tricks is yours. Three stars on 2-6 means finding the best route, 24 presses long.",
         },
       ],
 
@@ -311,9 +313,9 @@ export const puzzlesnake: GameContent = {
 
         "Cada manzana suma una casilla, y la cola pisa exactamente por donde pasó la cabeza, así que el pasillo que acabas de recorrer puede estar ahora ocupado por tu propio cuerpo. La cabeza sí puede entrar en la casilla que la cola deja libre, porque la cola se mueve en la misma pulsación. Lo que no puede es girarse hacia su propio cuello ni atravesar un muro, y la puerta sigue cerrada mientras quede una manzana. Si un paso no vale, la cabeza da un pequeño respingo y ya está.",
 
-        "Son 12 niveles repartidos en el Jardín y el Laberinto. Los seis del Jardín van en un tablero de 7 por 7 y la serpiente empieza con 2 o 3 casillas. Los seis del Laberinto van en 9 por 9, con una serpiente que empieza con 5 y termina con 9.",
+        "Son 12 niveles repartidos en el Jardín y los Trucos. Los seis del Jardín van en un tablero de 7 por 7 y la serpiente empieza con 2 o 3 casillas. Los seis de los Trucos son cortos, en 9 por 9, y cada uno trae una casilla nueva: una llave que abre todos los candados, flechas que solo se pisan en la dirección que señalan y un par de portales que te llevan al otro lado del tablero. El 2-2, un tablero de cuatro salas en el que la serpiente empieza con 5, se queda de la primera versión.",
 
-        "Probamos cada nivel con un programa que prueba todas las secuencias posibles y con un robot glotón que siempre va a la manzana más cercana. El robot termina el primer nivel en el mínimo, 5 pulsaciones, pero se queda atascado en los 6 niveles del Laberinto. En el Laberinto, 12 de las 24 manzanas dejan el nivel sin solución si te las comes primero. Y en el nivel 1-2, solo el orden decide si necesitas 11 pulsaciones o 19.",
+        "Probamos cada nivel con un programa que prueba todas las secuencias posibles y con un robot glotón que siempre va a la manzana más cercana. El robot termina el primer nivel en el mínimo, 5 pulsaciones, pero no consigue terminar ninguno de los 6 niveles de los Trucos. En los Trucos, 9 de las 16 manzanas dejan el nivel sin solución si te las comes primero, y si tapas con pared la casilla nueva de un nivel, el programa no encuentra ninguna salida. Y en el nivel 1-2, solo el orden decide si necesitas 11 pulsaciones o 17.",
       ],
 
       howToPlay: [
@@ -331,7 +333,7 @@ export const puzzlesnake: GameContent = {
         },
         {
           title: "Deshacer, reiniciar y elegir nivel",
-          body: "Deshacer quita una pulsación, tantas veces como quieras. Reiniciar devuelve el nivel a su primer momento. Niveles abre el mapa del Jardín y del Laberinto, y cada nivel se abre al resolver el anterior.",
+          body: "Deshacer quita una pulsación, tantas veces como quieras. Reiniciar devuelve el nivel a su primer momento. Niveles abre el mapa del Jardín y de los Trucos, y cada nivel se abre al resolver el anterior.",
         },
       ],
 
@@ -342,11 +344,11 @@ export const puzzlesnake: GameContent = {
         },
         {
           title: "La manzana más cercana es una pregunta",
-          body: "Busca la manzana que te encerraría si te la comes pronto y déjala para el final. Casi todos los niveles del Laberinto tienen al menos una.",
+          body: "Busca la manzana que te encerraría si te la comes pronto y déjala para el final. Cinco de los seis niveles de los Trucos tienen al menos una.",
         },
         {
           title: "Aprovecha el paso de la cola",
-          body: "La casilla que la cola está a punto de dejar ya está libre en esa misma pulsación. En las esquinas estrechas del Laberinto, muchas veces es el único camino.",
+          body: "La casilla que la cola está a punto de dejar ya está libre en esa misma pulsación. En las esquinas estrechas del 2-2, muchas veces es el único camino.",
         },
         {
           title: "Deshacer es gratis",
@@ -376,11 +378,11 @@ export const puzzlesnake: GameContent = {
         },
         {
           title: "De 7 a 12 años",
-          body: "El Jardín tiene el tamaño justo. El Laberinto es un reto de verdad, y normalmente se resuelve deshaciendo mucho.",
+          body: "El Jardín tiene el tamaño justo. Los Trucos son un reto de verdad, y normalmente se resuelve deshaciendo mucho.",
         },
         {
           title: "Adolescentes y adultos",
-          body: "El Laberinto es para vosotros. Tres estrellas en el 2-6 significan encontrar el mejor camino, de 39 pulsaciones.",
+          body: "Los Trucos son para vosotros. Tres estrellas en el 2-6 significan encontrar el mejor camino, de 24 pulsaciones.",
         },
       ],
 
@@ -443,20 +445,29 @@ export const puzzlesnake: GameContent = {
 
   provenance: [
     { claim: "12 levels in two worlds, six each", source: "src/games/puzzlesnake/levels.ts" },
-    { claim: "The Garden is a 7 by 7 board, the Maze 9 by 9", source: "src/games/puzzlesnake/solver.test.ts" },
+    { claim: "The Garden has six on a 7 by 7 board, Tricks has six short levels on 9 by 9", source: "src/games/puzzlesnake/solver.test.ts" },
     {
-      claim: "the snake starts 2 or 3 long in the Garden, 5 long in the Maze and is 9 long by the last apple",
-      source: "src/games/puzzlesnake/levels.ts",
+      claim: "each brings one new tile: a key that opens every lock, arrows you can only step onto the way they point, and a pair of portals",
+      source: "src/games/puzzlesnake/tiles.test.ts",
     },
-    { claim: "The bot finishes the first level in the fewest possible presses, 5", source: "src/games/puzzlesnake/solver.test.ts" },
-    { claim: "It gets stuck on all 6 Maze levels", source: "src/games/puzzlesnake/solver.test.ts" },
     {
-      claim: "In the Maze, 12 of the 24 apples leave the level impossible if you eat them first",
+      claim: "the snake starts 2 or 3 squares long in the Garden; 2-2 is kept from the first version, where the snake starts 5 long",
       source: "src/games/puzzlesnake/solver.test.ts",
     },
-    { claim: "on level 1-2 the order alone decides whether the level takes 11 presses or 19", source: "src/games/puzzlesnake/solver.test.ts" },
-    { claim: "The whole game at its best is 277 presses", source: "src/games/puzzlesnake/solver.test.ts" },
-    { claim: "Three stars on 2-6 means finding the single best route, 39 presses long", source: "src/games/puzzlesnake/solver.test.ts" },
+    { claim: "The bot finishes the first level in the fewest possible presses, 5", source: "src/games/puzzlesnake/solver.test.ts" },
+    { claim: "It cannot finish any of the 6 Tricks levels", source: "src/games/puzzlesnake/solver.test.ts" },
+    {
+      claim: "In Tricks, 9 of the 16 apples leave the level impossible if you eat them first",
+      source: "src/games/puzzlesnake/solver.test.ts",
+    },
+    {
+      claim: "if you wall over a level's new tile the solver finds no way through at all",
+      source: "src/games/puzzlesnake/solver.test.ts",
+    },
+    { claim: "Five of the six Tricks levels have at least one", source: "src/games/puzzlesnake/solver.test.ts" },
+    { claim: "on level 1-2 the order alone decides whether the level takes 11 presses or 17", source: "src/games/puzzlesnake/solver.test.ts" },
+    { claim: "The whole game at its best is 210 presses", source: "src/games/puzzlesnake/solver.test.ts" },
+    { claim: "Three stars on 2-6 means finding the best route, 24 presses long", source: "src/games/puzzlesnake/solver.test.ts" },
     {
       claim: "two stars within 20 percent more presses than the best, and always at least 2 more",
       source: "src/games/puzzlesnake/logic.ts",

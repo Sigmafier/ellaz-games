@@ -1,7 +1,8 @@
 // Puzzle Snake - the solver and the greedy bot. Pure, node-only in practice
 // (the game never imports this file; the tests and the level designer do).
 //
-// The solver is a breadth-first search over (head, body, apples eaten). It asks
+// The solver is a breadth-first search over (head, body, apples eaten, keys
+// picked up). It asks
 // `judge` from `logic.ts` what every press does, so it cannot disagree with the
 // game about a rule - there is one copy of the rules, and this reads it.
 //
@@ -9,7 +10,7 @@
 // it always heads for the nearest apple it can reach, then the exit. A level it
 // finishes can be finished without thinking ahead; `solver.test.ts` requires it
 // to fail most of World 2.
-import { DIRS, judge, newGame, stepCell, step, type Dir, type Level, type PuzzleState } from "./logic";
+import { DIRS, changes, holdsKey, judge, landing, newGame, step, type Dir, type Level, type PuzzleState } from "./logic";
 
 export interface Solution {
   /** The fewest presses that solve the level. */
@@ -20,27 +21,38 @@ export interface Solution {
   explored: number;
 }
 
-/** A position as the search stores it: the body and a bitmask of apples eaten. */
+/** A position as the search stores it: the body, and bitmasks of apples eaten and keys held. */
 interface Node {
   body: number[];
   mask: number;
+  keys: number;
 }
 
 function stateOf(level: Level, n: Node): PuzzleState {
-  return { ...newGame(level), body: n.body, eaten: level.apples.map((_, i) => (n.mask & (1 << i)) !== 0) };
+  return {
+    ...newGame(level),
+    body: n.body,
+    eaten: level.apples.map((_, i) => (n.mask & (1 << i)) !== 0),
+    got: level.keys.map((_, i) => (n.keys & (1 << i)) !== 0),
+  };
 }
 
 /**
- * The key: the mask, the head and the body as a chain of 2-bit turns. Unique
- * because a mask fixes the length (start + apples eaten). Fits a double exactly
- * up to 2^53: 6 apples, 100 cells and a 16-long body is 45 bits.
+ * The key: the masks, the head and the body as a chain of 2-bit links. Unique
+ * because a mask fixes the length (start + apples eaten), and each link is the
+ * PRESS that carried the head from one body cell to the next - which, through
+ * a portal, is not the direction between the two cells. Reading the body back
+ * from the head is `landing` run in reverse, so two different bodies never
+ * share a key. Refuses a key past 2^53 rather than let two collide.
  */
 function keyOf(level: Level, n: Node): number {
-  let k = n.mask * level.width * level.height + n.body[0];
+  let k = (n.keys * 2 ** level.apples.length + n.mask) * level.width * level.height + n.body[0];
   for (let i = 1; i < n.body.length; i++) {
-    const d = n.body[i] - n.body[i - 1];
-    k = k * 4 + (d === -level.width ? 0 : d === level.width ? 1 : d === -1 ? 2 : 3);
+    const d = DIRS.findIndex((dir) => landing(level, n.body[i], dir) === n.body[i - 1]);
+    if (d < 0) throw new Error(`body cells ${n.body[i]} and ${n.body[i - 1]} are not one press apart`);
+    k = k * 4 + d;
   }
+  if (k > Number.MAX_SAFE_INTEGER) throw new Error("position key passed 2^53");
   return k;
 }
 
@@ -50,11 +62,17 @@ function keyOf(level: Level, n: Node): number {
  * `first`, when given, allows only that apple (an index into `level.apples`)
  * to be the first one eaten - which is how a level's comment can say "this
  * apple loses the level if you eat it first" and have a test hold it to that.
+ *
+ * `tailBlocks`, when true, switches OFF the rule that the head may enter the
+ * square the tail is leaving - a counterfactual, never a rule the game plays
+ * by. A level that has no solution under it is a level whose idea is "your
+ * tail is a door", and `solver.test.ts` holds 1-4 to exactly that.
  */
-export function solve(level: Level, opts: { maxNodes?: number; first?: number } = {}): Solution | null {
-  const { maxNodes = 2_000_000, first } = opts;
+export function solve(level: Level, opts: { maxNodes?: number; first?: number; tailBlocks?: boolean } = {}): Solution | null {
+  const { maxNodes = 2_000_000, first, tailBlocks = false } = opts;
   if (level.apples.length > 16) throw new Error("the solver's mask holds 16 apples");
-  const start: Node = { body: [...level.body], mask: 0 };
+  if (level.apples.length + level.keys.length > 16) throw new Error("the solver's masks hold 16 apples and keys");
+  const start: Node = { body: [...level.body], mask: 0, keys: 0 };
   const parent = new Map<number, { from: number; dir: Dir } | null>([[keyOf(level, start), null]]);
   let frontier: Node[] = [start];
   for (let depth = 0; frontier.length > 0; depth++) {
@@ -64,14 +82,16 @@ export function solve(level: Level, opts: { maxNodes?: number; first?: number } 
       const s = stateOf(level, n);
       for (const dir of DIRS) {
         const o = judge(s, dir);
-        if (o === "wall" || o === "body" || o === "shut") continue;
-        const to = stepCell(level, n.body[0], dir);
+        if (!changes(o)) continue;
+        const to = landing(level, n.body[0], dir);
+        if (tailBlocks && to === n.body[n.body.length - 1]) continue;
         if (o === "solved") return { par: depth + 1, path: [...lineTo(parent, from), dir], explored: parent.size };
         const grows = o === "ate";
         if (grows && first !== undefined && n.mask === 0 && level.apples.indexOf(to) !== first) continue;
         const child: Node = {
           body: grows ? [to, ...n.body] : [to, ...n.body.slice(0, -1)],
           mask: grows ? n.mask | (1 << level.apples.indexOf(to)) : n.mask,
+          keys: o === "key" ? n.keys | (1 << level.keys.indexOf(to)) : n.keys,
         };
         const k = keyOf(level, child);
         if (parent.has(k)) continue;
@@ -98,8 +118,8 @@ export type GreedyResult =
   | { finished: false; moves: number; why: "stuck" | "looped" };
 
 /**
- * Always walk the shortest route to the nearest apple still on the board, then
- * to the exit. The route is found around the body as it stands (only the tail
+ * Always walk the shortest route to the nearest apple still on the board (or
+ * key, until one is held), then to the exit. The route is found around the body as it stands (only the tail
  * cell counts as free), and the first step of it is taken. When the body cuts
  * every route off, it does not give up: it takes the legal press that leaves
  * the head the most room, and tries again next press - so it fails only by
@@ -132,16 +152,29 @@ function roomiest(s: PuzzleState): Dir | null {
   return best;
 }
 
-function reach(s: PuzzleState): number {
+/**
+ * Where the head could go from `c` on `d`, by the terrain alone - walls, locks
+ * without a key, arrows pointing the other way, portals - or -1. The body and
+ * the door are the callers' business.
+ */
+function terrainStep(s: PuzzleState, c: number, d: Dir): number {
   const { level } = s;
+  const n = landing(level, c, d);
+  if (n < 0 || level.walls[n]) return -1;
+  if (level.locks[n] && !holdsKey(s)) return -1;
+  const arrow = level.arrows[n];
+  return arrow && arrow !== d ? -1 : n;
+}
+
+function reach(s: PuzzleState): number {
   const blocked = new Set(s.body);
   const seen = new Set<number>([s.body[0]]);
   const todo = [s.body[0]];
   while (todo.length > 0) {
     const c = todo.pop()!;
     for (const d of DIRS) {
-      const n = stepCell(level, c, d);
-      if (n < 0 || level.walls[n] || blocked.has(n) || seen.has(n)) continue;
+      const n = terrainStep(s, c, d);
+      if (n < 0 || blocked.has(n) || seen.has(n)) continue;
       seen.add(n);
       todo.push(n);
     }
@@ -153,14 +186,16 @@ function reach(s: PuzzleState): number {
 function firstStep(s: PuzzleState): Dir | null {
   const { level } = s;
   const open = s.eaten.every(Boolean);
-  const goals = new Set(open ? [level.exit] : level.apples.filter((_, i) => !s.eaten[i]));
+  // A key is a goal too until one is held: the bot walks to the nearest
+  // thing worth walking to, and on a locked board a key is that thing.
+  const keys = holdsKey(s) ? [] : level.keys;
+  const goals = new Set(open ? [level.exit] : [...level.apples.filter((_, i) => !s.eaten[i]), ...keys]);
   const blocked = new Set(s.body.slice(0, -1));
   const seen = new Map<number, Dir>();
   let frontier: number[] = [];
   for (const dir of DIRS) {
-    const o = judge(s, dir);
-    if (o !== "moved" && o !== "ate" && o !== "solved") continue;
-    const c = stepCell(level, s.body[0], dir);
+    if (!changes(judge(s, dir))) continue;
+    const c = landing(level, s.body[0], dir);
     if (goals.has(c)) return dir;
     seen.set(c, dir);
     frontier.push(c);
@@ -169,8 +204,8 @@ function firstStep(s: PuzzleState): Dir | null {
     const next: number[] = [];
     for (const c of frontier) {
       for (const d of DIRS) {
-        const n = stepCell(level, c, d);
-        if (n < 0 || level.walls[n] || blocked.has(n) || seen.has(n)) continue;
+        const n = terrainStep(s, c, d);
+        if (n < 0 || blocked.has(n) || seen.has(n)) continue;
         if (n === level.exit && !open) continue;
         const first = seen.get(c)!;
         if (goals.has(n)) return first;

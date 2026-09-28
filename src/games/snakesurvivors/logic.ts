@@ -4,20 +4,22 @@
 // caller hands in, so the same seed and the same hands play the same run.
 //
 // THE GAME IN ONE SENTENCE: close a loop with your body and every shape inside
-// it is crushed. The tail is your health - a shape reaching your head costs two
-// segments - and the gems the crushed shapes drop grow it back.
+// it is crushed. The tail is your health - a shape reaching your head costs one
+// segment - and the gems the crushed shapes drop grow it back.
 
 import { worldFor } from "../survivors/world";
 import {
   BODY_R, HEAD_R, HIT_COST, MAX_LEN, MIN_LEN, SEG, SPACING, START_LEN,
   advance, centreOf, findLoop, inside, trimTrail,
 } from "./body";
-import { applyCard, biteOf, noneTaken, offerCards, pullOf, regrowEvery, shockOf, spikeEvery } from "./cards";
-import { KINDS, LEVELS, SAFE_START_MS, moveFoes, startBoss, tickSpawns } from "./crowd";
+import {
+  SPIT, applyCard, biteOf, noneTaken, offerCards, pullOf, regrowEvery, shieldEvery, shockOf, spikeEvery, spitEvery,
+} from "./cards";
+import { KINDS, SAFE_START_MS, STAGE_BREATHER_MS, bossDue, moveFoes, startBoss, tickSpawns } from "./crowd";
 import { FLOOR_GEMS, tickFloorGems } from "./floor";
-import type { Arena, CardId, Foe, LevelKey, Pt, Run, Steer } from "./types";
+import type { Arena, CardId, Foe, LevelKey, Pt, Run, Stage, Steer } from "./types";
 
-export type { Arena, CardId, Foe, LevelKey, Run, Steer } from "./types";
+export type { Arena, CardId, Foe, LevelKey, Run, Stage, Steer } from "./types";
 
 /** The view on a phone and on a PC: two shapes of the same area, Neon Survival's pair. */
 export const ARENA: Arena = { w: 420, h: 560 };
@@ -27,7 +29,7 @@ export const ARENA_WIDE: Arena = { w: 648, h: 364 };
 export const BLINK_MS = 1400;
 /** ms after a crush before another may land - one closing is one crush. */
 export const LOOP_COOL_MS = 350;
-/** What one gem grows the snake by, in segments. */
+/** What one BLUE gem grows the snake by, in segments; a red is two, a yellow three. */
 export const GROW = 1 / 3;
 /** How close a gem must come to the head to be collected. */
 const PICKUP = 16;
@@ -64,8 +66,10 @@ export function newRun(level: LevelKey, arena: Arena = ARENA, rng: () => number 
     choosing: null,
     taken: noneTaken(),
     blink: 0, loopCool: 0, regrowAt: 0,
+    shots: [], spitIn: 0, shieldIn: 0,
     crushed: 0,
     phase: "stage",
+    stage: 1,
     events: [],
   };
 }
@@ -78,13 +82,15 @@ export function step(run: Run, dt: number, steer: Steer, rng: () => number = Mat
   run.blink = Math.max(0, run.blink - dt);
   run.loopCool = Math.max(0, run.loopCool - dt);
   regrow(run, dt);
+  run.shieldIn = Math.max(0, run.shieldIn - dt);
 
   advance(run, dt, steer);
-  if (run.phase === "stage" && run.t >= LEVELS[run.level].stageMs) startBoss(run, rng);
+  if (run.phase === "stage" && bossDue(run)) startBoss(run, rng);
   tickSpawns(run, dt, rng);
   tickFloorGems(run, dt, rng);
   moveFoes(run, dt, rng);
   bodyContacts(run, rng);
+  spit(run, dt, rng);
   if (run.loopCool === 0) {
     const loop = findLoop(run);
     if (loop) crush(run, loop, rng);
@@ -128,17 +134,33 @@ function wound(run: Run, f: Foe, rng: () => number): void {
   else run.events.push({ k: "hurt", kind: f.kind, x: f.x, y: f.y });
 }
 
-function kill(run: Run, f: Foe, rng: () => number): void {
-  run.foes = run.foes.filter((o) => o !== f);
-  run.crushed += 1;
-  for (let i = 0; i < KINDS[f.kind].gems; i++) {
-    run.gems.push({ x: f.x + (rng() - 0.5) * 14, y: f.y + (rng() - 0.5) * 14, v: 1 });
-  }
-  run.events.push({ k: "ko", kind: f.kind, x: f.x, y: f.y });
-  if (f.kind === "warden") {
+/**
+ * A warden falling either OPENS the next stage or WINS the run (round four,
+ * operator ruling: "three stages, three bosses, then win"). Opening a stage
+ * hands the crowd back to `bossDue` - stage 1's own path, just with a higher
+ * `run.stage` reading a tougher trigger - and grants a breather
+ * (`STAGE_BREATHER_MS`) the same way the run's own start does.
+ */
+function nextStage(run: Run): void {
+  if (run.stage < 3) {
+    run.stage = (run.stage + 1) as Stage;
+    run.phase = "stage";
+    run.calmMs = Math.max(run.calmMs, run.t + STAGE_BREATHER_MS);
+    run.events.push({ k: "stage", stage: run.stage });
+  } else {
     run.phase = "won";
     run.events.push({ k: "won" });
   }
+}
+
+function kill(run: Run, f: Foe, rng: () => number): void {
+  run.foes = run.foes.filter((o) => o !== f);
+  run.crushed += 1;
+  for (const v of KINDS[f.kind].drops) {
+    run.gems.push({ x: f.x + (rng() - 0.5) * 14, y: f.y + (rng() - 0.5) * 14, v });
+  }
+  run.events.push({ k: "ko", kind: f.kind, x: f.x, y: f.y });
+  if (f.kind === "warden") nextStage(run);
 }
 
 /**
@@ -208,15 +230,63 @@ function headContacts(run: Run, rng: () => number): void {
       continue;
     }
     if (run.blink > 0) continue;
-    run.len -= HIT_COST;
     run.blink = BLINK_MS;
-    run.events.push({ k: "hit" });
-    trimTrail(run);
+    if (run.taken.shield && run.shieldIn === 0) {
+      // The Shield takes this one: no segment, and it recharges.
+      run.shieldIn = shieldEvery(run);
+      run.events.push({ k: "shield" });
+    } else {
+      run.len -= HIT_COST;
+      run.events.push({ k: "hit", kind: f.kind, x: f.x, y: f.y });
+      trimTrail(run);
+    }
     const d = Math.hypot(dx, dy) || 1;
     f.x += (dx / d) * 30;
     f.y += (dy / d) * 30;
     f.stun = Math.max(f.stun, 400);
   }
+}
+
+/**
+ * SPIT: every `spitEvery` a shot leaves the mouth at the nearest shape within
+ * `SPIT.range` - never the warden, whose fight stays a loop fight - and the
+ * first shape it meets takes one hit, the same hit a loop gives. A waiting shot
+ * is held until there is something to shoot, so it fires the moment a shape
+ * comes in range.
+ */
+function spit(run: Run, dt: number, rng: () => number): void {
+  const every = spitEvery(run);
+  if (Number.isFinite(every)) {
+    run.spitIn = Math.max(0, run.spitIn - dt);
+    if (run.spitIn === 0) {
+      let target: Foe | null = null;
+      let best = SPIT.range * SPIT.range;
+      for (const f of run.foes) {
+        if (f.kind === "warden") continue;
+        const d2 = (f.x - run.x) ** 2 + (f.y - run.y) ** 2;
+        if (d2 < best) (best = d2), (target = f);
+      }
+      if (target) {
+        const d = Math.sqrt(best) || 1;
+        const vx = ((target.x - run.x) / d) * SPIT.speed;
+        const vy = ((target.y - run.y) / d) * SPIT.speed;
+        run.shots.push({ x: run.x, y: run.y, vx, vy, life: SPIT.lifeMs });
+        run.spitIn = every;
+        run.events.push({ k: "spit", x: run.x, y: run.y });
+      }
+    }
+  }
+  const sec = dt / 1000;
+  const flying = [];
+  for (const s of run.shots) {
+    s.x += s.vx * sec;
+    s.y += s.vy * sec;
+    s.life -= dt;
+    const hit = run.foes.find((f) => f.kind !== "warden" && (f.x - s.x) ** 2 + (f.y - s.y) ** 2 < (KINDS[f.kind].r + 4) ** 2);
+    if (hit) wound(run, hit, rng);
+    else if (s.life > 0) flying.push(s);
+  }
+  run.shots = flying;
 }
 
 function collectGems(run: Run, dt: number, rng: () => number): void {

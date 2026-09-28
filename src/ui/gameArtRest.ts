@@ -672,4 +672,26 @@ export const REST: Record<string, Scene> = {
     <circle cx="146" cy="64" r="12" fill="${PAL.raspberry}" stroke="${I}" stroke-width="3"/>
     <rect x="166" y="48" width="30" height="32" rx="6" fill="none" stroke="${PAL.sunflower}"
           stroke-width="4" stroke-dasharray="6 5"/>` },
+
+  /* Snake Arena. Three snakes of rounded squares closing on one apple from
+     three sides - the player's green one nearest it - which is the whole
+     round: everyone wants the same food, and the first head there wins it.
+     On the Snake family's green, as the approved mock's header was. */
+  snakearena: { a: "#0F7F60", b: "#3AAE89", d: "arc", s: `
+    <g stroke="${I}" stroke-width="3">
+      <rect x="14" y="92" width="24" height="24" rx="7" fill="${PAL.lime}"/>
+      <rect x="40" y="92" width="24" height="24" rx="7" fill="${PAL.lime}"/>
+      <rect x="66" y="92" width="24" height="24" rx="7" fill="${PAL.lime}"/>
+      <rect x="66" y="66" width="24" height="24" rx="8" fill="${PAL.lime}"/>
+      <rect x="160" y="14" width="24" height="24" rx="7" fill="${PAL.sunflower}"/>
+      <rect x="160" y="40" width="24" height="24" rx="7" fill="${PAL.sunflower}"/>
+      <rect x="134" y="40" width="24" height="24" rx="8" fill="${PAL.sunflower}"/>
+      <rect x="160" y="118" width="24" height="24" rx="7" fill="${PAL.raspberry}"/>
+      <rect x="134" y="118" width="24" height="24" rx="7" fill="${PAL.raspberry}"/>
+      <rect x="134" y="92" width="24" height="24" rx="8" fill="${PAL.raspberry}"/></g>
+    <g fill="${I}"><circle cx="74" cy="73" r="3"/><circle cx="83" cy="73" r="3"/>
+      <circle cx="141" cy="47" r="3"/><circle cx="141" cy="57" r="3"/>
+      <circle cx="141" cy="99" r="3"/><circle cx="151" cy="99" r="3"/></g>
+    <circle cx="112" cy="72" r="12" fill="${PAL.clay}" stroke="${I}" stroke-width="3"/>
+    <path d="M112 60c2-6 7-8 11-7-2 5-6 7-11 7z" fill="${PAL.lime}" stroke="${I}" stroke-width="2"/>` },
 };

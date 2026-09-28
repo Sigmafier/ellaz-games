@@ -22,8 +22,20 @@ const BUTTON_H = 49;
 
 type Cell = { label: string; value: number | string };
 
-/** THE BAND. Part of the board: its colours, its width, its corners. */
-export function Band({ score, mid, best }: { score: Cell; mid: Cell; best: Cell }) {
+/** How far to the next stage: the words beside the stage, and the bar's fill, 0 to 1. */
+export type StageProgress = { text: string; done: number };
+
+/** "1 apple to go" / "3 apples to go": the singular only for one, `{n}` filled in the plural. */
+export function toGoLine(n: number, w: { toGoOne: string; toGoMany: string }): string {
+  return n === 1 ? w.toGoOne : w.toGoMany.replace("{n}", String(n));
+}
+
+/**
+ * THE BAND. Part of the board: its colours, its width, its corners. Its
+ * height is FIXED and nothing in it wraps, so neither a digit nor the words
+ * beside the stage can ever move the frame.
+ */
+export function Band({ score, mid, best, progress }: { score: Cell; mid: Cell; best: Cell; progress?: StageProgress }) {
   return (
     <div
       className="snake-band"
@@ -41,8 +53,30 @@ export function Band({ score, mid, best }: { score: Cell; mid: Cell; best: Cell 
       }}
     >
       <BandCell {...score} color={INK.mint} />
-      <BandCell {...mid} color={INK.text} small />
+      {progress ? <StageCell {...mid} progress={progress} /> : <BandCell {...mid} color={INK.text} small />}
       <BandCell {...best} color={INK.gold} />
+    </div>
+  );
+}
+
+/**
+ * The stage, "· N apples to go" beside it, and a thin bar under both - the
+ * approved mock's band (round three, 2026-09-28). 10 + 3 + 17 + 3 + 4 = 37px
+ * of content in a 44px band, so it fits with nothing moving.
+ */
+function StageCell({ label, value, progress }: Cell & { progress: StageProgress }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 48, whiteSpace: "nowrap" }}>
+      <span style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", opacity: 0.75 }}>{label}</span>
+      <span style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+        <b style={{ fontSize: 17, color: INK.text }}>{value}</b>
+        <span className="snake-to-go" style={{ fontSize: 12, opacity: 0.85 }}>
+          · {progress.text}
+        </span>
+      </span>
+      <span aria-hidden="true" style={{ width: 90, height: 4, borderRadius: 3, background: "#ffffff22", overflow: "hidden" }}>
+        <span style={{ display: "block", height: "100%", width: `${Math.round(progress.done * 100)}%`, background: INK.mint, borderRadius: 3 }} />
+      </span>
     </div>
   );
 }
