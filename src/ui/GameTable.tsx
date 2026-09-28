@@ -42,47 +42,66 @@ export function isTablePage(): boolean {
   return typeof document !== "undefined" && document.body?.dataset.layout === "table";
 }
 
-// The page's own restart and pause (`[data-restart]`, `[data-pause]`) stay in
-// the document and stay WIRED - the end-of-run strip's "Play again" goes
-// through the same slot - they are only not drawn, because the piece on the
-// mat is the one a player presses.
 const BAR = "oklch(from var(--g) .30 calc(c * 1.05) h)"; // the page header's own colour
 const SHADE = (n: number) => `color-mix(in srgb,var(--text) ${n}%,transparent)`;
 const LIGHT = (n: number) => `color-mix(in srgb,var(--on-brand) ${n}%,transparent)`;
-// ONLY THEME TOKENS, no colour literal: Day's --surface / --text / --text-dim
-// are exactly the mock's card, ink and label, and a theme sheet that sets them
-// repaints the table without this file knowing the theme exists
-// (token-hygiene.test.ts holds it).
+
+/**
+ * THE KINDS (games-doctrine G8, operator ruling 2026-09-28: "we always
+ * generalize buttons and make them modular so we can change them easily").
+ * Every piece is one of a few kinds, and how a kind LOOKS - size, shape, tilt,
+ * fill, ink, edge, shadow, type - is read only from that kind's settings:
+ *
+ *   mat-*   the mat under the board      disc-*   the level disc
+ *   card-*  a number card                token-*  restart / pause
+ *   tray-*  the tray, tray-key-* its keys
+ *
+ * A theme or a new style is a list of these settings and nothing else - never a
+ * rule aimed at one button. Each is read with Day's value as its fallback, so a
+ * sheet sets only what it changes and an unset setting draws exactly today. Set
+ * them on `body` (or `:root[data-theme=x] body`): the game colour `--g` lives on
+ * <body>, so a setting that reads it resolves there and not on :root.
+ * `game-table-kinds.test.ts` holds the list and refuses a literal look below.
+ */
+const K = (name: string, day: string) => `var(--${name},${day})`;
+const MAT = "color-mix(in oklab,var(--g) 13%,var(--bg))";
+const TRAY = "color-mix(in oklab,var(--text) 14%,var(--surface-2))";
+const TRAY_EDGE = `inset 0 4px 0 ${SHADE(8)}`;
+// The page's own restart and pause (`[data-restart]`, `[data-pause]`) stay in
+// the document and stay WIRED - the end-of-run strip's "Play again" goes
+// through the same slot - they are only not drawn, because the piece on the
+// mat is the one a player presses. Only settings and theme tokens below: no
+// colour literal (token-hygiene.test.ts) and no literal look (the kinds test).
 const CSS = `
 body[data-layout=table] [data-restart],body[data-layout=table] [data-pause]{display:none!important}
 .gc-table{position:relative;isolation:isolate}
-.gc-table::before{content:"";position:absolute;z-index:-1;inset:2px 3px 6px;border-radius:26px;
- background:color-mix(in oklab,var(--g) 13%,var(--bg));box-shadow:inset 0 0 0 3px ${SHADE(6)}}
+.gc-table::before{content:"";position:absolute;z-index:-1;inset:2px 3px 6px;border-radius:${K("mat-radius", "26px")};
+ background:${K("mat-fill", MAT)};box-shadow:${K("mat-edge", `inset 0 0 0 3px ${SHADE(6)}`)}}
 .gc-table>.gc-head{padding:5px 12px 0!important}
 .gc-table>.ellaz-play-surface{padding:6px 0 6px!important}
 .gt-row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center}
-.gt-disc{width:64px;height:64px;flex:none;border:0;border-radius:50%;padding:0;cursor:pointer;
- background:${BAR};color:var(--on-brand);display:grid;place-items:center;align-content:center;gap:4px;
- font:800 12px/1 Heebo,system-ui,sans-serif;text-transform:uppercase;transform:rotate(-5deg);
- box-shadow:var(--shadow-2),inset 0 0 0 4px ${LIGHT(20)}}
+.gt-disc{width:${K("disc-size", "64px")};height:${K("disc-size", "64px")};flex:none;border:0;border-radius:${K("disc-radius", "50%")};padding:0;cursor:pointer;
+ background:${K("disc-fill", BAR)};color:${K("disc-ink", "var(--on-brand)")};display:grid;place-items:center;align-content:center;gap:4px;
+ font:${K("disc-font", "800 12px/1 Heebo,system-ui,sans-serif")};text-transform:uppercase;transform:rotate(${K("disc-tilt", "-5deg")});
+ box-shadow:${K("disc-shadow", `var(--shadow-2),inset 0 0 0 4px ${LIGHT(20)}`)}}
 .gt-disc>span:first-child{max-width:56px;line-height:1.2;overflow:hidden;text-align:center;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.gt-dots{display:flex;gap:4px;font-size:11px;letter-spacing:.04em}.gt-dots i{width:7px;height:7px;border-radius:50%;background:${LIGHT(35)}}
-.gt-dots i.on{background:var(--on-brand)}
-.gt-card{min-width:78px;flex:none;padding:7px 8px;border-radius:10px;background:var(--surface);color:var(--text);
- text-align:center;box-shadow:var(--shadow-1);transform:rotate(3deg);line-height:1.1}
-.gt-card:nth-of-type(odd){transform:rotate(-2deg)}
-.gt-card small{display:block;font:700 11px Heebo,system-ui,sans-serif;letter-spacing:.04em;color:var(--text-dim);text-transform:uppercase}
-.gt-card b{display:block;font:800 20px Fredoka,Heebo,system-ui,sans-serif}
-.gt-card em{display:block;font:700 10.5px Heebo,system-ui,sans-serif;font-style:normal;color:var(--text-dim)}
-.gt-tok{width:56px;height:56px;flex:none;border:0;border-radius:50%;padding:0;cursor:pointer;display:grid;place-items:center;
- background:var(--surface);color:var(--text);font-size:30px;transform:rotate(-4deg);
- box-shadow:var(--shadow-2),inset 0 0 0 4px ${BAR}}
-.gt-tok+.gt-tok{transform:rotate(6deg)}
-.gc-table>.ellaz-game-footer{margin:2px 7px 10px!important;width:auto!important;padding:8px 7px!important;border-radius:18px;
- background:color-mix(in oklab,var(--text) 14%,var(--surface-2));box-shadow:inset 0 4px 0 ${SHADE(8)};
- --key-bg:var(--surface);--key-ink:var(--text);--key-radius:14px;--key-shadow:var(--shadow-2)}
+.gt-dots{display:flex;gap:4px;font-size:${K("disc-dots-text", "11px")};letter-spacing:.04em}.gt-dots i{width:${K("disc-dot-size", "7px")};height:${K("disc-dot-size", "7px")};border-radius:${K("disc-dot-radius", "50%")};background:${K("disc-dot", LIGHT(35))}}
+.gt-dots i.on{background:${K("disc-dot-on", "var(--on-brand)")}}
+.gt-card{min-width:${K("card-min", "78px")};flex:none;padding:7px 8px;border-radius:${K("card-radius", "10px")};background:${K("card-fill", "var(--surface)")};color:${K("card-ink", "var(--text)")};
+ text-align:center;box-shadow:${K("card-shadow", "var(--shadow-1)")};transform:rotate(${K("card-tilt", "3deg")});line-height:1.1}
+.gt-card:nth-of-type(odd){transform:rotate(${K("card-tilt-alt", "-2deg")})}
+.gt-card small{display:block;font:${K("card-label-font", "700 11px Heebo,system-ui,sans-serif")};letter-spacing:.04em;color:${K("card-label", "var(--text-dim)")};text-transform:uppercase}
+.gt-card b{display:block;font:${K("card-value-font", "800 20px Fredoka,Heebo,system-ui,sans-serif")}}
+.gt-card em{display:block;font:${K("card-note-font", "700 10.5px Heebo,system-ui,sans-serif")};font-style:normal;color:${K("card-label", "var(--text-dim)")}}
+.gt-tok{width:${K("token-size", "56px")};height:${K("token-size", "56px")};flex:none;border:0;border-radius:${K("token-radius", "50%")};padding:0;cursor:pointer;display:grid;place-items:center;
+ background:${K("token-fill", "var(--surface)")};color:${K("token-ink", "var(--text)")};font-size:${K("token-icon", "30px")};transform:rotate(${K("token-tilt", "-4deg")});
+ box-shadow:${K("token-shadow", `var(--shadow-2),inset 0 0 0 4px ${BAR}`)}}
+.gt-tok+.gt-tok{transform:rotate(${K("token-tilt-alt", "6deg")})}
+.gc-table>.ellaz-game-footer{margin:2px 7px 10px!important;width:auto!important;padding:8px 7px!important;border-radius:${K("tray-radius", "18px")};
+ background:${K("tray-fill", TRAY)};box-shadow:${K("tray-edge", TRAY_EDGE)};
+ --key-bg:${K("tray-key-fill", "var(--surface)")};--key-ink:${K("tray-key-ink", "var(--text)")};--key-radius:${K("tray-key-radius", "14px")};--key-shadow:${K("tray-key-shadow", "var(--shadow-2)")}}
 @media (min-width:900px){
- .gc-table::before{inset:6px 24px 6px;border-radius:40px}
+ .gc-table::before{inset:6px 24px 6px;border-radius:${K("mat-radius-pc", "40px")}}
  .gc-table>.ellaz-play-surface{padding:14px 16px!important}
  .gc-table.gc-cols{grid-template-rows:minmax(0,1fr)}
  .gc-table>*{grid-row:1!important}
@@ -94,12 +113,12 @@ body[data-layout=table] [data-restart],body[data-layout=table] [data-pause]{disp
  .gc-table.gc-cols:has(>.ellaz-game-side)>.ellaz-game-side{grid-row:2!important}
  .gc-table>.gc-head{grid-column:1;align-self:center;max-width:none!important;margin:0!important}
  .gc-table .gt-row{gap:22px;max-width:280px;margin-inline:auto}
- .gc-table .gt-disc{width:120px;height:120px;font-size:17px;gap:6px}.gc-table .gt-disc>span:first-child{max-width:96px}
- .gc-table .gt-tok{width:76px;height:76px;font-size:34px}
- .gc-table .gt-card{min-width:96px;padding:10px}
+ .gc-table .gt-disc{width:${K("disc-size-pc", "120px")};height:${K("disc-size-pc", "120px")};font-size:${K("disc-text-pc", "17px")};gap:6px}.gc-table .gt-disc>span:first-child{max-width:96px}
+ .gc-table .gt-tok{width:${K("token-size-pc", "76px")};height:${K("token-size-pc", "76px")};font-size:${K("token-icon-pc", "34px")}}
+ .gc-table .gt-card{min-width:${K("card-min-pc", "96px")};padding:10px}
  .gc-table>.ellaz-game-footer{margin:0!important;padding:12px 16px!important;background:none;box-shadow:none}
- .gc-table>.ellaz-game-side>*,.gc-table>.ellaz-game-footer>*{width:100%;box-sizing:border-box;padding:14px;border-radius:22px;
-  background:color-mix(in oklab,var(--text) 14%,var(--surface-2));box-shadow:inset 0 4px 0 ${SHADE(8)}}
+ .gc-table>.ellaz-game-side>*,.gc-table>.ellaz-game-footer>*{width:100%;box-sizing:border-box;padding:14px;border-radius:${K("tray-radius-pc", "22px")};
+  background:${K("tray-fill", TRAY)};box-shadow:${K("tray-edge", TRAY_EDGE)}}
  .gc-table .ellaz-board:not([data-own-chrome]){--b-chrome:${TABLE_CHROME}px!important}
 }`;
 
