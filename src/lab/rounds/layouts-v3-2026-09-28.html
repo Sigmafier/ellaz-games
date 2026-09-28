@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Button Layout Studios</title>
+<style>
+@font-face{font-family:Fredoka;src:url("/src/ui/fonts/fredoka-latin.woff2") format("woff2");font-weight:300 700;font-display:block}
+@font-face{font-family:Heebo;src:url("/src/ui/fonts/heebo-latin.woff2") format("woff2");font-weight:100 900;font-display:block}
+
+/* ---------- the lab page around the mocks ---------- */
+:root{--bg:#0b1020;--card:#141b2e;--line:#243049;--ink:#e8ecf6;--dim:#93a0bb;--on:#2563eb;--good:#16a34a;--bad:#dc2626;--mid:#b45309}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Heebo,system-ui,sans-serif}
+.page{max-width:none;margin:0 auto;padding:0 16px 190px}
+body.folded .page{padding-bottom:70px}
+h1{font:700 22px Fredoka,sans-serif;margin:0 0 2px}
+h2{font:700 18px Fredoka,sans-serif;margin:18px 0 8px;display:flex;gap:12px;align-items:baseline}
+h2 small{font:400 13px Heebo,sans-serif;color:var(--dim)}
+.sub{color:var(--dim);margin:0 0 12px;max-width:1100px}
+.top{position:sticky;top:0;z-index:45;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 0 8px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.zoom{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:12px;padding:3px;background:var(--card)}
+.zoom button{min-width:44px;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--ink);font:700 15px Heebo,sans-serif;cursor:pointer;padding:0 10px}
+.zoom button:hover,.zoom button[aria-pressed="true"]{background:var(--line)}
+.zoom output{min-width:52px;text-align:center;color:var(--dim);font:600 13px Heebo,sans-serif}
+.tab{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 14px;font:600 14px Heebo,sans-serif;cursor:pointer;min-height:44px}
+.tab[aria-selected="true"]{background:var(--on);border-color:var(--on);color:#fff}
+.tab .v{margin-inline-start:6px}
+.idea{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 4px}
+.idea b{font-size:17px}
+.idea .rule{display:flex;gap:18px;flex-wrap:wrap;margin-top:6px;color:var(--dim)}
+.idea .rule i{font-style:normal;color:var(--ink)}
+.row6,.grid2{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.fr p{margin:0 0 5px;color:var(--dim);font-weight:600;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+.fr p b{color:var(--ink)}
+.fr p em{font-style:normal;color:#ffd166}
+.clip{position:relative;overflow:hidden;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);background:#fff;cursor:zoom-in}
+.clip.phone{width:calc(390px * var(--sp));height:calc(844px * var(--sp))}
+.clip.pc{width:calc(1536px * var(--sc));height:calc(639px * var(--sc))}
+.clip>*{position:absolute;left:0;top:0;transform-origin:0 0}
+.clip.phone>*{transform:scale(var(--sp))}
+.clip.pc>*{transform:scale(var(--sc))}
+.fr{max-width:100%}
+.clip>img{display:block}
+.box{position:fixed;inset:0;background:rgba(5,8,16,.88);display:none;place-items:center;z-index:50;cursor:zoom-out}
+.box.on{display:grid}
+.box .clip{cursor:zoom-out}
+.verdict{position:fixed;left:0;right:0;bottom:0;background:#0f1628;border-top:1px solid var(--line);padding:10px 16px;display:grid;gap:8px;z-index:40}
+.verdict .in{max-width:1560px;margin:0 auto;width:100%;display:grid;gap:8px}
+.fold{position:absolute;left:16px;top:-40px;min-height:40px;padding:0 14px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:#0f1628;color:var(--ink);font:700 14px Heebo,sans-serif;cursor:pointer}
+body.folded .verdict .in{display:none}
+body.folded .verdict{padding:0;height:0;border-top-width:0}
+body.folded .fold{top:-40px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pick{background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:7px 13px;min-height:44px;font:600 14px Heebo,sans-serif;cursor:pointer}
+.pick[aria-pressed="true"].yes{background:var(--good);border-color:var(--good);color:#fff}
+.pick[aria-pressed="true"].maybe{background:var(--mid);border-color:var(--mid);color:#fff}
+.pick[aria-pressed="true"].no{background:var(--bad);border-color:var(--bad);color:#fff}
+.pick[aria-pressed="true"].why{background:var(--on);border-color:var(--on);color:#fff}
+input.note{flex:1;min-width:260px;min-height:44px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:14px Heebo,sans-serif}
+.dim{color:var(--dim);font-size:13px}
+
+/* ---------- the mock app: Day, held constant ---------- */
+.app{width:390px;height:844px;overflow:hidden;background:#fff6e9;color:#241c17;font-family:Heebo,sans-serif;position:relative}
+.app.pc{width:1536px;height:639px}
+.app *{box-sizing:border-box}
+.ab{position:absolute}
+.fx{display:flex;align-items:center}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.f{fill:currentColor;stroke:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:none;color:inherit;font:700 14px Heebo,sans-serif;padding:0;cursor:pointer;flex:none}
+.disp{font-family:Fredoka,sans-serif}
+.coin{display:inline-block;width:14px;height:14px;border-radius:50%;background:#ffc93c;box-shadow:inset 0 -2px 0 #e0a400}
+
+/* the boards, drawn as the live games draw them */
+.sdk{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));grid-template-rows:repeat(9,minmax(0,1fr));background:#20244a;border:3px solid #6c5ce7;border-radius:8px;overflow:hidden}
+.sdk i{display:grid;place-items:center;font-style:normal;font-weight:800;color:#fff;border-right:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1)}
+.sdk i.r{border-right:2px solid #6c5ce7}.sdk i.b{border-bottom:2px solid #6c5ce7}
+.sdk i.s{background:#3a3f7a}
+.snk{display:flex;flex-direction:column;background:#0b0c24;border:3px solid #6c5ce7;border-radius:12px;overflow:hidden}
+.snk .band{display:grid;grid-template-columns:repeat(3,1fr);background:linear-gradient(#1a1c44,#10122e);border-bottom:2px solid #6c5ce7;text-align:center;font-weight:800;color:#fff}
+.snk .band small{display:block;letter-spacing:.14em;color:#c8cbe8;font-weight:700}
+.snk .arena{flex:1;position:relative;background:#0b0c24 radial-gradient(circle,rgba(255,255,255,.14) 1px,transparent 1.6px) 0 0/22px 22px}
+.snk .seg{position:absolute;border-radius:6px}
+.mem{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr))}
+.mem i{border-radius:12%;background:linear-gradient(#ff9ec2,#ff4d8d);box-shadow:0 3px 0 rgba(36,28,23,.16);display:grid;place-items:center}
+.mem i{min-height:0;overflow:hidden}.mem i svg{width:50%;height:50%;max-height:60px;fill:rgba(255,255,255,.55)}
+.wg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(6,minmax(0,1fr))}
+.wg i{border-radius:10px;background:#fffdf8;border:2px solid #eadfce}
+.t48{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));background:#bbad9f;border-radius:12px}
+.t48 i{border-radius:7px;background:#cdc1b4;display:grid;place-items:center;font-style:normal;font-weight:800;color:#776e65}
+.t48 i.two{background:#eee4da}
+.col{background:#f4f3fa;border:3px solid #2b2b2b;border-radius:10px;display:grid;place-items:center}
+
+/* keys and controls, as the live games draw them, with the studios' skins */
+.key{display:grid;place-items:center;background:#fffdf8;border-radius:10px;box-shadow:0 3px 0 rgba(36,28,23,.16);font:800 22px Heebo,sans-serif;color:#241c17}
+.key.er{background:#fff3e0;box-shadow:none}
+.key.hot{background:#c2185b!important;color:#fff!important}
+.arrow{display:grid;place-items:center;background:#fffdf8;border-radius:12px;box-shadow:0 4px 0 rgba(36,28,23,.16);color:#241c17}
+.arrow svg{width:40%;height:40%;fill:currentColor;stroke:none}
+.chip{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:999px;background:#fffdf8;box-shadow:0 3px 0 rgba(36,28,23,.12);font:700 13px Heebo,sans-serif;color:#241c17}
+.chip.on{background:#c2185b;color:#fff}
+.flat{box-shadow:none!important;border:1.5px solid #e0d2bf;border-radius:8px!important}
+.chunky{border-radius:16px!important;box-shadow:0 5px 0 rgba(36,28,23,.22)!important}
+.round{border-radius:50%!important;background:#dcc3a4;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 2px 0 rgba(255,255,255,.6)!important}
+.tile{box-shadow:0 4px 0 #c9ad8c!important;border-radius:8px!important}
+.tint{background:#fff3e0!important}
+.dots{display:inline-flex;gap:4px}.dots u{width:7px;height:7px;border-radius:9px;background:currentColor;opacity:.28}.dots u.on{opacity:1}
+.lbl{font:700 11px Heebo,sans-serif;letter-spacing:.04em}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-erase" viewBox="0 0 24 24"><path d="M9 5h11v14H9l-6-7z"/><path d="M12 9l5 6M17 9l-5 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-level" viewBox="0 0 24 24"><path d="M5 20v-5M12 20V9M19 20V4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-fill" viewBox="0 0 24 24"><path d="M5 11l7-7 8 8-7 7z"/><path d="M20 15c0 2-2 3-2 5a2 2 0 0 0 4 0c0-2-2-3-2-5z"/></symbol>
+  <symbol id="i-brush" viewBox="0 0 24 24"><path d="M18 3l3 3-9 9-3-3z"/><path d="M9 12c-3 0-5 2-5 5 0 1-1 2-2 2 2 2 7 2 9-1 1-1.5 1-3 1-3"/></symbol>
+  <symbol id="i-two" viewBox="0 0 24 24"><circle cx="8" cy="7" r="3"/><circle cx="16.5" cy="7.5" r="2.5"/><path d="M2.5 20c0-3.5 2.5-6 5.5-6s5.5 2.5 5.5 6M13 14.5c.9-.4 2.1-.5 3.5-.5 2.8 0 5 2 5 5.5"/></symbol>
+  <symbol id="i-paw" viewBox="0 0 24 24"><ellipse cx="12" cy="16" rx="5.5" ry="4.5"/><circle cx="6" cy="9.5" r="2.2"/><circle cx="10" cy="6" r="2.2"/><circle cx="14" cy="6" r="2.2"/><circle cx="18" cy="9.5" r="2.2"/></symbol>
+  <symbol id="t-up" viewBox="0 0 24 24"><path d="M12 4l9 15H3z"/></symbol>
+  <symbol id="t-down" viewBox="0 0 24 24"><path d="M12 20L3 5h18z"/></symbol>
+  <symbol id="t-left" viewBox="0 0 24 24"><path d="M4 12l15-9v18z"/></symbol>
+  <symbol id="t-right" viewBox="0 0 24 24"><path d="M20 12L5 21V3z"/></symbol>
+</svg>
+
+<div class="page">
+  <h1 style="margin-top:14px">Button Layout Studios</h1>
+  <p class="sub">Same look (Day), same buttons. Only WHERE they sit changes. <b>Game buttons</b> = restart, pause, level, the numbers, and the game's own controls. <b>App buttons</b> = home, language, sound, coins (and share, full screen, tell us). Each studio is shown on six games with different controls, phone then PC. Tap any picture to see it big.</p>
+  <div class="top">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="zoom" aria-label="Zoom">
+      <button data-z="out" title="Zoom out (-)" aria-label="Zoom out">&minus;</button>
+      <output id="zlabel"></output>
+      <button data-z="in" title="Zoom in (+)" aria-label="Zoom in">+</button>
+      <button data-z="fit" title="Fit: every picture whole on screen (0)">Fit</button>
+      <button data-z="real" title="Real size (1)">100%</button>
+    </div>
+  </div>
+  <div class="idea" id="idea"></div>
+  <div id="stage"></div>
+</div>
+<div class="box" id="box"></div>
+<div class="verdict"><button class="fold" id="fold" aria-expanded="true">Hide verdict</button><div class="in" id="verdict"></div></div>
+
+<script>
+/* ============ REAL CONTENT, read off the live pages 2026-09-28 ============ */
+const GRID = ["513296.8.", "2...74.63", ".4.3..91.", "..7.....4", "3.1.5....", "82.917..5", "4.2531..6", "17528.3..", "....4.2.1"].join("");
+const PALETTE = ["#ff5b5b", "#ff8a5b", "#ffab3d", "#ffd23d", "#ffe95b", "#c6e64f", "#6ecb57", "#2fb59a", "#37c6d0", "#4aa3ff", "#5c6ce0", "#a061e0", "#e857a6", "#ff9ec4", "#a9744f", "#e0b585", "#ffd9bf", "#9aa7b0", "#3a4a54", "#ffffff"];
+// ratio = board height / width; base = the live board's width in px (phone, PC), measured 2026-09-28
+const GAMES = {
+  sudoku: { name: "Sudoku", bar: "oklch(0.3 0.194 315.3)", tint: "oklab(0.931 0.021 -0.015)", level: ["Easy", 6, 3],
+    stats: [["Time", "0:42"], ["Filled", "42/81"]], acts: [["restart", "Restart"]], ratio: 1, input: "keys", base: [367, 384] },
+  snake: { name: "Snake", bar: "oklch(0.3 0.148 166.2)", tint: "oklab(0.947 -0.022 0.011)", level: ["Normal", 3, 2],
+    stats: [], acts: [["pause", "Pause"], ["restart", "Restart"]], ratio: 1.13, input: "arrows", base: [315, 340] },
+  coloring: { name: "Coloring", bar: "oklch(0.3 0.175 50.5)", tint: "#fff3e0", level: null,
+    stats: [], acts: [["restart", "Restart"]], ratio: 1, input: "palette", base: [353, 440] },
+  memory: { name: "Memory", bar: "oklch(0.3 0.229 3.1)", tint: "oklab(0.945 0.035 0.008)", level: ["Easy", 3, 1],
+    stats: [["Pairs", "0/6"], ["Moves", "0"]], acts: [["restart", "Restart"]], ratio: 0.744, input: "sets", base: [359, 516] },
+  wordguess: { name: "Word Guess", bar: "oklch(0.3 0.194 315.3)", tint: "oklab(0.931 0.021 -0.015)", level: ["4 letters", 3, 1],
+    stats: [["Streak", "0"], ["Tries", "0/6"]], acts: [["restart", "Restart"]], ratio: 1.51, input: "keyboard", base: [288, 254] },
+  g2048: { name: "2048", bar: "oklch(0.3 0.172 86.3)", tint: "oklab(0.972 0.002 0.032)", level: ["Classic", 3, 2],
+    stats: [["Score", "0"], ["Highest", "2"]], acts: [["restart", "Restart"]], ratio: 1, input: "swipe", base: [343, 384] },
+};
+const ORDER = ["sudoku", "snake", "coloring", "memory", "wordguess", "g2048"];
+const TODAY = { sudoku: "sudoku", snake: null, coloring: "coloring", memory: "memory", wordguess: "wordguess", g2048: "2048" };
+
+/* ============ building blocks ============ */
+const I = (id, cls = "") => `<svg class="i ${cls}"><use href="#i-${id}"/></svg>`;
+const T = (id) => `<svg><use href="#t-${id}"/></svg>`;
+const P = (x, y, w, h, more = "") => `style="left:${x}px;top:${y}px;${w != null ? `width:${w}px;` : ""}${h != null ? `height:${h}px;` : ""}${more}"`;
+const dots = (g) => `<span class="dots">${Array.from({ length: g.level[1] }, (_, i) => `<u class="${i < g.level[2] ? "on" : ""}"></u>`).join("")}</span>`;
+const coins = () => `<span class="fx" style="gap:6px;font-weight:800"><i class="coin"></i>0 ${I("star", "f")}<span style="margin-inline-start:-3px">0</span></span>`;
+const frac = (g) => g.stats.map((s) => /^(\d+)\/(\d+)$/.exec(s[1])).find(Boolean);
+
+/** The board at a width. Returns {html, h}. */
+function board(g, w, x, y, extra = "") {
+  const h = Math.round(w * g.ratio);
+  const box = (cls, inner, more = "") => `<div class="ab ${cls} bd" ${P(x, y, w, h, more + extra)}>${inner}</div>`;
+  if (g === GAMES.sudoku) {
+    const f = Math.round(w / 9 * 0.5);
+    return { h, html: box("sdk", [...GRID].map((d, i) => `<i class="${i % 9 === 2 || i % 9 === 5 ? "r" : ""} ${Math.floor(i / 9) === 2 || Math.floor(i / 9) === 5 ? "b" : ""} ${i === 30 ? "s" : ""}" style="font-size:${f}px">${d === "." ? "" : d}</i>`).join("")) };
+  }
+  if (g === GAMES.snake) {
+    const bh = Math.round(w * 0.13), u = w / 100;
+    const seg = (sx, sy, c) => `<i class="seg" style="left:${sx * u}px;top:${sy * u}px;width:${5 * u}px;height:${5.4 * u}px;background:${c}"></i>`;
+    return { h, html: box("snk", `<div class="band" style="height:${bh}px;font-size:${Math.round(w * 0.055)}px;align-items:center">
+      <div><small style="font-size:${Math.round(w * 0.028)}px">SCORE</small><span style="color:#55efc4">0</span></div><div><small style="font-size:${Math.round(w * 0.028)}px">STAGE</small>1</div><div><small style="font-size:${Math.round(w * 0.028)}px">BEST</small><span style="color:#ffd166">0</span></div></div>
+      <div class="arena">${seg(61, 52, "#6c5ce7")}${seg(61, 58, "#7aa7ff")}${seg(61, 64, "#74b9ff")}<i class="seg" style="left:${60 * u}px;top:${70 * u}px;width:${7 * u}px;height:${7 * u}px;border-radius:50%;background:#55efc4;box-shadow:0 0 ${3 * u}px #55efc4"></i><i class="seg" style="left:${38 * u}px;top:${14 * u}px;width:${5 * u}px;height:${5 * u}px;border-radius:50%;background:#e74c3c"></i></div>`) };
+  }
+  if (g === GAMES.memory) {
+    const gap = Math.round(w * 0.03);
+    return { h, html: box("mem", Array.from({ length: 12 }, () => `<i><svg><use href="#i-paw"/></svg></i>`).join(""), `gap:${gap}px;`) };
+  }
+  if (g === GAMES.wordguess) {
+    const gap = Math.round(w * 0.035);
+    return { h, html: box("wg", Array.from({ length: 24 }, () => "<i></i>").join(""), `gap:${gap}px;`) };
+  }
+  if (g === GAMES.g2048) {
+    const gap = Math.round(w * 0.028), f = Math.round(w * 0.09);
+    return { h, html: box("t48", Array.from({ length: 16 }, (_, i) => i === 10 || i === 12 ? `<i class="two" style="font-size:${f}px">2</i>` : "<i></i>").join(""), `gap:${gap}px;padding:${gap}px;`) };
+  }
+  // coloring: the sun, as the live picture draws it
+  const rays = Array.from({ length: 12 }, (_, i) => { const a = i * Math.PI / 6, c = Math.cos(a), s = Math.sin(a); return `<path d="M${50 + 30 * c - 6 * s} ${50 + 30 * s + 6 * c}L${50 + 46 * c} ${50 + 46 * s}L${50 + 30 * c + 6 * s} ${50 + 30 * s - 6 * c}"/>`; }).join("");
+  return { h, html: box("col", `<svg viewBox="0 0 100 100" style="width:88%;height:88%;fill:none;stroke:#2b2b2b;stroke-width:1.6;stroke-linejoin:round">${rays}<circle cx="50" cy="50" r="26" stroke-width="2.2"/><circle cx="42" cy="44" r="3"/><circle cx="58" cy="44" r="3"/><circle cx="38" cy="55" r="4.5"/><circle cx="62" cy="55" r="4.5"/><path d="M40 58q10 8 20 0"/></svg>`) };
+}
+
+/* ---- the game's own controls, laid into a width. Every panel returns {html, h}. ---- */
+function panel(g, x, y, w, sk = "", ink = "#6b5c50") {
+  const hint = (t) => `<div class="ab" ${P(x, y, w, 20, `text-align:center;color:${ink};font-size:14px;font-weight:600`)}>${t}</div>`;
+  if (g.input === "keys") {
+    const cols = w >= 300 ? 5 : 3, gap = 8, kw = (w - gap * (cols - 1)) / cols, kh = Math.round(cols === 5 ? Math.min(70, kw) : Math.min(62, kw * 0.85)), rows = cols === 5 ? 2 : 4;
+    const k = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<b class="key ${sk}" style="height:${kh}px">${n}</b>`).join("") + (cols === 3 ? "<b></b>" : "") + `<b class="key er ${sk}" style="height:${kh}px">${I("erase")}</b>`;
+    return { h: 28 + rows * kh + (rows - 1) * gap, html: hint("Pick a cell, tap a number") + `<div class="ab" ${P(x, y + 28, w, null, `display:grid;grid-template-columns:repeat(${cols},1fr);gap:${gap}px`)}>${k}</div>` };
+  }
+  if (g.input === "arrows") {
+    const two = w < 290, mh = two ? 78 : 36, k = Math.min(70, Math.floor((w - 12) / 3)), cross = 3 * k + 12, cx = x + (w - cross) / 2, cy = y + mh + 14;
+    const a = (d, i, j) => `<b class="ab arrow ${sk}" ${P(cx + i * (k + 6), cy + j * (k + 6), k, k)}>${T(d)}</b>`;
+    return { h: mh + 14 + cross, html: `<div class="ab fx" ${P(x, y, w, mh, "gap:6px;flex-wrap:wrap;justify-content:center;align-content:flex-start")}><span class="chip on">Arrows</span><span class="chip">Joystick</span><span class="chip">On the board</span></div>${a("up", 1, 0)}${a("left", 0, 1)}${a("right", 2, 1)}${a("down", 1, 2)}` };
+  }
+  if (g.input === "keyboard") {
+    const cols = w < 300 ? 7 : 10, gap = 5, kw = (w - (cols - 1) * gap) / cols, kh = Math.round(Math.min(50, kw * 1.3)), rows = cols === 7 ? 4 : 3, L = "abcdefghijklmnopqrstuvwxyz";
+    const key = (t, span = 1, cls = "", fs = Math.round(kh * 0.4)) => `<b class="key ${sk} ${cls}" style="height:${kh}px;grid-column:span ${span};font-size:${fs}px">${t}</b>`;
+    const k = [...L].map((c) => key(c)).join("") + key(I("erase"), cols === 7 ? 1 : 2, "er") + key(cols === 7 ? `<svg class="i" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>` : "Check", cols === 7 ? 1 : 2, "hot");
+    return { h: rows * kh + (rows - 1) * 6, html: `<div class="ab" ${P(x, y, w, null, `display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:6px ${gap}px`)}>${k}</div>` };
+  }
+  if (g.input === "sets") {
+    const s = Math.min(72, Math.floor((w - 24) / 4)), pics = [["#bfe3ff", "#8d5a3b"], ["#e2f5c8", "#e74c3c"], ["#fff1b8", "#e84a5f"], ["#cfeaff", "#ffb830"]];
+    const tile = ([bg, c], i) => `<b class="key ${sk}" style="height:${s}px;background:${bg};${i === 0 ? "box-shadow:0 0 0 3px #ff4d8d;" : ""}"><i style="width:44%;height:44%;border-radius:${i === 2 ? "22%" : "50%"};background:${c}"></i></b>`;
+    return { h: s + 12 + 56, html: `<div class="ab" ${P(x, y, w, null, "display:grid;grid-template-columns:repeat(4,1fr);gap:8px")}>${pics.map(tile).join("")}</div>
+      <b class="ab key ${sk}" ${P(x, y + s + 12, w, 56, "display:flex;gap:10px;justify-content:center;font-size:16px")}>Two players ${I("two")}</b>` };
+  }
+  if (g.input === "swipe") return { h: 56, html: `<b class="ab key ${sk}" ${P(x, y, w, 56, "font-size:16px")}>Swipe or arrow keys</b>` };
+  // coloring: pictures, tools, colours
+  const t = 52, n = Math.floor((w + 8) / (t + 8)), sw = Math.min(46, (w - 6 * 8) / 7);
+  const pics = Array.from({ length: n }, (_, i) => `<b class="key ${sk}" style="width:${t}px;height:${t}px;flex:none;${i === 1 ? "box-shadow:0 0 0 3px #ff4d8d;" : ""}">${i === 0 ? I("brush") : `<i style="width:60%;height:60%;border-radius:50%;border:2px solid #2b2b2b"></i>`}</b>`).join("");
+  const tools = `<div class="ab" ${P(x, y + 20 + t + 10, w, 44, "display:grid;grid-template-columns:1fr 1fr;gap:8px")}><b class="key hot ${sk}" style="height:44px;font-size:15px;gap:6px;display:flex;justify-content:center">${I("fill")} Fill</b><b class="key ${sk}" style="height:44px;font-size:15px;gap:6px;display:flex;justify-content:center">${I("brush")} Brush</b></div>
+    <div class="ab fx" ${P(x, y + 20 + t + 62, w, 44, "gap:8px")}>${[6, 10, 14, 18].map((d, i) => `<b class="key ${sk}" style="width:44px;height:44px;${i === 1 ? "box-shadow:0 0 0 3px #ff4d8d;" : ""}"><i style="width:${d}px;height:${d}px;border-radius:50%;background:#ff5b5b"></i></b>`).join("")}<span style="flex:1"></span><b class="key ${sk}" style="height:44px;padding:0 14px;font-size:15px;display:flex;gap:6px;color:#6b5c50">${I("undo")} Undo</b></div>`;
+  const py = y + 20 + t + 116;
+  const pal = `<div class="ab" ${P(x, py, w, null, `display:grid;grid-template-columns:repeat(7,${sw}px);justify-content:space-between;row-gap:8px`)}>${PALETTE.map((c, i) => `<i style="width:${sw}px;height:${sw}px;border-radius:50%;background:${c};box-shadow:0 3px 0 rgba(36,28,23,.16)${i === 0 ? ",0 0 0 3px #241c17" : ""}"></i>`).join("")}</div>`;
+  return { h: 20 + t + 116 + 3 * sw + 16, html: `<div class="ab lbl" ${P(x, y, w, 16, `color:${ink}`)}>Pick a picture</div><div class="ab fx" ${P(x, y + 20, w, t, "gap:8px;overflow:hidden")}>${pics}</div>${tools}${pal}` };
+}
+/** The panel's height at a width, without drawing it anywhere that matters. */
+const panelH = (g, w) => panel(g, 0, 0, w).h;
+
+/** Phone: board on top, the game's controls anchored in the thumb zone. */
+function phoneStack(g, top, bottom, o = {}) {
+  const pw = o.pw ?? 362, px = o.px ?? (390 - pw) / 2, ph = panelH(g, pw), gap = o.gap ?? 18, below = o.below ?? 0;
+  const room = bottom - top - ph - gap - below;
+  const w = Math.min(o.maxW ?? 374, Math.floor(room / g.ratio)), bx = o.bx ?? Math.round((390 - w) / 2);
+  const bd = board(g, w, bx, top, o.bextra ?? "");
+  const p = panel(g, px, bottom - ph, pw, o.sk ?? "", o.ink);
+  return { html: bd.html + p.html, w, h: bd.h, x: bx, y: top, py: bottom - ph };
+}
+/** PC: the biggest board that fits a box, centred in it. */
+function pcBoard(g, x0, y0, x1, y1, extra = "") {
+  let h = y1 - y0, w = Math.floor(h / g.ratio);
+  if (w > x1 - x0) { w = x1 - x0; h = Math.round(w * g.ratio); }
+  const x = Math.round(x0 + (x1 - x0 - w) / 2), y = Math.round(y0 + (y1 - y0 - h) / 2);
+  const bd = board(g, w, x, y, extra);
+  return { html: bd.html, w, h: bd.h, x, y };
+}
+const statLine = (g, sep = " · ") => [g.level ? g.level[0] : "", ...g.stats.map(([k, v]) => `${k} ${v}`)].filter(Boolean).join(sep);
+
+/* ============ the studios ============ */
+const DIRS = [
+  { id: "today", name: "0 Today (live)", idea: "What ships now, captured from the live dev page, not redrawn.",
+    game: "Top bar row, a numbers row above the board, controls under it (phone) or at the far right (PC)", app: "Top bar; on a PC also a tools row beside the breadcrumb" },
+  { id: "handheld", name: "1 Handheld console", idea: "The page is a game console. The board is its screen. Game buttons are real buttons on the console body; app buttons are small and printed on the top edge.",
+    game: "On the console body, around the screen", app: "Tiny, on the top edge; HOME as a console button (PC)", phone: handheldPhone, pc: handheldPc },
+  { id: "onebtn", name: "2 One button", idea: "Nothing on screen but the game. One round button opens a menu with everything: the game's buttons on top, the app's below (shown open as the last phone).",
+    game: "Inside the menu; the numbers stay as one quiet line", app: "Inside the same menu; coins stay visible", phone: onebtnPhone, pc: onebtnPc },
+  { id: "puzzle", name: "3 Puzzle page", idea: "Calm, like a daily puzzle page. A slim white app bar and one line of word-buttons for the game right above the board. On a PC the game gets a card beside a big board.",
+    game: "One tool line above the board (phone), a side card (PC)", app: "Slim white bar on top", phone: puzzlePhone, pc: puzzlePc },
+  { id: "casual", name: "4 Casual game", idea: "Like a mobile casual game. No bars: app buttons float as round badges in the top corners; the game's numbers are a big bold ribbon; its buttons are big round buttons with names.",
+    game: "Big ribbon on top, big round buttons by the board", app: "Floating badges in the top corners", phone: casualPhone, pc: casualPc },
+  { id: "rails", name: "5 App rail + game panel", idea: "Like an app. App buttons live in a rail: a tab bar at the bottom of a phone, a side rail on the left of a PC. The game gets its own coloured strip (phone) or panel (PC).",
+    game: "Coloured strip on top (phone), right panel (PC)", app: "Bottom tab bar (phone), left rail (PC)", phone: railsPhone, pc: railsPc },
+  { id: "table", name: "6 Game table", idea: "A board game on a table mat. The level, the numbers and restart are tokens laid on the mat; the game's controls sit in a tray. App buttons sit small in the corners, off the mat.",
+    game: "Tokens and a tray on the mat", app: "Small, in the two top corners", phone: tablePhone, pc: tablePc },
+  { id: "player", name: "7 Player bar", idea: "Like a video player. The app keeps its top bar; the game's buttons are one control bar joined to the bottom of the board: restart, pause, the numbers, the level.",
+    game: "One bar joined under the board", app: "Top bar", phone: playerPhone, pc: playerPc },
+  { id: "tabs", name: "8 Frame tabs", idea: "The board sits in a thick frame and the game's buttons are tabs growing out of it. On a PC the game's controls slide out of the frame's side like a drawer.",
+    game: "Tabs on the board's frame; controls as a drawer (PC)", app: "Slim top bar", phone: tabsPhone, pc: tabsPc },
+];
+
+/* 1 HANDHELD */
+const BODY = "#ecd8bf", DEEP = "#dcc3a4";
+function handheldPhone(g) {
+  const pill = (t) => `<div style="display:grid;justify-items:center;gap:6px"><i style="display:block;width:58px;height:18px;border-radius:12px;background:#4b3f38;transform:rotate(-20deg);box-shadow:inset 0 -3px 0 rgba(0,0,0,.35)"></i><span class="lbl" style="color:#6b5c50">${t}</span></div>`;
+  const pills = [...(g.level ? ["LEVEL"] : []), ...g.acts.map((a) => a[1].toUpperCase())];
+  const status = statLine(g, "  ·  ").toUpperCase();
+  const top = 66 + 10 + (status ? 26 : 0);
+  const st = phoneStack(g, top, 822, { maxW: 334, below: 62, sk: g.input === "keys" ? "round" : "", pw: 346 });
+  return `<div class="ab" ${P(8, 8, 374, 828, `border-radius:34px;background:${BODY};box-shadow:inset 0 -8px 0 rgba(0,0,0,.08)`)}></div>
+    <div class="ab fx" ${P(22, 18, 346, 40, "gap:6px;color:#6b5c50")}><span class="btn" style="height:36px;padding:0 10px;border-radius:18px;background:${DEEP}">${I("back")}${I("home")}</span>
+      <span class="disp" style="font-weight:700;letter-spacing:.08em;font-size:13px;margin-inline-start:4px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:1">${g.name.toUpperCase()}</span>${coins()}<span class="btn" style="width:32px">${I("globe")}</span><span class="btn" style="width:32px">${I("sound")}</span><span class="btn" style="width:32px">${I("more")}</span></div>
+    <div class="ab" ${P(st.x - 12, 66, st.w + 24, st.h + (top - 66) + 12, "border-radius:20px;background:#2a2d4f;box-shadow:inset 0 0 0 4px #1b1d35")}></div>
+    ${status ? `<div class="ab" ${P(st.x, 76, st.w, 22, "color:#e8e6ff;font:800 12px Heebo;letter-spacing:.1em;text-align:center;white-space:nowrap;overflow:hidden")}>${status}</div>` : ""}
+    ${st.html}<div class="ab fx" ${P(0, st.y + st.h + 22, 390, 50, "justify-content:center;gap:30px")}>${pills.map(pill).join("")}</div>`;
+}
+function handheldPc(g) {
+  const round = (ic, t, bg) => `<div style="display:grid;justify-items:center;gap:6px"><span class="btn" style="width:62px;height:62px;border-radius:50%;background:${bg};color:#fff;box-shadow:inset 0 -5px 0 rgba(0,0,0,.25),0 3px 0 rgba(36,28,23,.2)">${I(ic)}</span><span class="lbl" style="color:#6b5c50">${t.toUpperCase()}</span></div>`;
+  const cols = { level: "#6c5ce7", restart: "#e17055", pause: "#00a07a" };
+  const btns = [...(g.level ? [["level", "Level"]] : []), ...g.acts];
+  const bd = pcBoard(g, 500, 50, 1036, 590);
+  const lcdRows = [...(g.level ? [["LEVEL", `${g.level[0]} ${dots(g)}`]] : []), ...g.stats.map(([k, v]) => [k.toUpperCase(), v])];
+  const lcd = lcdRows.length ? `<div class="ab" ${P(180, 96, 270, null, "border-radius:14px;background:#2b3a2f;color:#b8f5c8;padding:14px 18px;display:grid;gap:10px;font:800 16px Heebo;box-shadow:inset 0 3px 0 rgba(0,0,0,.4)")}>${lcdRows.map(([k, v]) => `<div class="fx" style="justify-content:space-between;gap:8px">${k}<span class="fx" style="gap:8px">${v}</span></div>`).join("")}</div>` : "";
+  const p = panel(g, 1100, 100, 260, g.input === "keys" ? "round" : "");
+  return `<div class="ab" ${P(110, 14, 1316, 611, `border-radius:80px;background:${BODY};box-shadow:inset 0 -10px 0 rgba(0,0,0,.08)`)}></div>
+    <div class="ab" ${P(bd.x - 14, bd.y - 14, bd.w + 28, bd.h + 28, "border-radius:22px;background:#2a2d4f;box-shadow:inset 0 0 0 5px #1b1d35")}></div>${bd.html}
+    <div class="ab disp" ${P(180, 44, 300, 40, "font-weight:700;letter-spacing:.16em;color:#6b5c50;font-size:20px")}>${g.name.toUpperCase()}</div>${lcd}
+    <div class="ab fx" ${P(170, lcdRows.length ? 110 + lcdRows.length * 36 + 40 : 120, 300, null, "gap:22px;justify-content:center")}>${btns.map(([ic, t]) => round(ic, t, cols[ic])).join("")}</div>
+    <div class="ab fx" ${P(1100, 40, 260, 40, "gap:8px;color:#6b5c50")}>${coins()}<span style="flex:1"></span><span class="btn" style="width:36px">${I("globe")}</span><span class="btn" style="width:36px">${I("sound")}</span><span class="btn" style="width:36px">${I("more")}</span></div>
+    ${p.html}<div class="ab" ${P(1300, 540, null, null, "display:grid;justify-items:center;gap:2px")}><span class="btn" style="width:50px;height:50px;border-radius:50%;background:${DEEP};color:#4b3f38;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)">${I("home")}</span><span class="lbl" style="color:#6b5c50">HOME</span></div>`;
+}
+
+/* 2 ONE BUTTON */
+function onebtnPhone(g, open) {
+  const st = phoneStack(g, 84, 826);
+  let html = `<span class="ab btn" ${P(12, 14, 52, 52, `border-radius:50%;background:${g.bar};color:#fff;box-shadow:0 3px 0 rgba(36,28,23,.2)`)}>${I("menu")}</span>
+    <div class="ab" ${P(76, 14, 190, 56)}><div class="disp" style="font:700 20px Fredoka;white-space:nowrap">${g.name}</div><div style="font-size:13px;color:#6b5c50;font-weight:600;white-space:nowrap">${statLine(g)}</div></div>
+    <span class="ab fx" ${P(276, 18, null, 44, "padding:0 14px;border-radius:22px;background:#fffdf8;box-shadow:0 3px 0 rgba(36,28,23,.14)")}>${coins()}</span>${st.html}`;
+  if (!open) return html;
+  const row = (ic, t, right = "") => `<div class="fx" style="gap:14px;height:50px;border-bottom:1px solid #f0e4d4;font-weight:700;font-size:16px">${I(ic)}<span style="flex:1">${t}</span><span class="fx" style="gap:6px;color:#6b5c50;font-weight:600">${right}</span></div>`;
+  return html + `<div class="ab" ${P(0, 0, 390, 844, "background:rgba(36,28,23,.5)")}></div>
+    <div class="ab" ${P(0, 190, 390, 654, "background:#fffdf8;border-radius:26px 26px 0 0;padding:14px 22px")}>
+      <i style="display:block;width:44px;height:5px;border-radius:3px;background:#e0d2bf;margin:0 auto 12px"></i>
+      <div class="disp" style="font:700 22px Fredoka;margin-bottom:12px">Paused</div>
+      <span class="btn" style="width:100%;height:56px;border-radius:16px;background:#c2185b;color:#fff;font-size:17px;margin-bottom:12px">${I("play")} Back to the game</span>
+      <div class="lbl" style="color:#6b5c50;margin:4px 0">THIS GAME</div>
+      ${g.acts.filter((a) => a[0] !== "pause").map(([ic, t]) => row(ic, t)).join("")}${g.level ? row("level", "Level", `${g.level[0]} ${dots(g)}`) : ""}
+      <div class="lbl" style="color:#6b5c50;margin:14px 0 4px">ELLAZ</div>
+      ${row("home", "All games")}${row("globe", "Language", "English")}${row("sound", "Sound", "On")}
+      <div class="fx" style="gap:10px;margin-top:10px">${["share", "full", "flag"].map((i) => `<span class="btn" style="flex:1;height:48px;border-radius:14px;background:#fff3e0">${I(i)}</span>`).join("")}</div></div>`;
+}
+function onebtnPc(g) {
+  const bd = pcBoard(g, 460, 20, 1076, 619);
+  const p = panel(g, bd.x + bd.w + 50, 120, 300);
+  return `<span class="ab btn" ${P(24, 20, 58, 58, `border-radius:50%;background:${g.bar};color:#fff;box-shadow:0 3px 0 rgba(36,28,23,.2)`)}>${I("menu")}</span>
+    <div class="ab" ${P(96, 22, 340, 60)}><div class="disp" style="font:700 26px Fredoka">${g.name}</div><div style="font-size:15px;color:#6b5c50;font-weight:600">${statLine(g)}</div></div>
+    <span class="ab fx" ${P(1400, 26, null, 44, "padding:0 14px;border-radius:22px;background:#fffdf8;box-shadow:0 3px 0 rgba(36,28,23,.14)")}>${coins()}</span>${bd.html}${p.html}`;
+}
+
+/* 3 PUZZLE PAGE */
+const RULE = "1px solid #eadfce";
+function puzzlePhone(g) {
+  const tools = [...(g.level ? [`${g.level[0]} ${I("down")}`] : []), ...g.stats.map(([k, v]) => k === "Time" ? `${I("clock")} ${v}` : `${k} ${v}`), ...g.acts.map(([ic, t]) => `${I(ic)} ${t}`)];
+  const st = phoneStack(g, 106, 826, { maxW: 382, sk: "flat" });
+  return `<div class="ab fx" ${P(0, 0, 390, 50, `background:#fffdf8;border-bottom:${RULE};padding:0 8px;gap:4px`)}>
+      <span class="btn" style="width:44px">${I("back")}</span><span style="flex:1;text-align:center" class="disp"><b style="font:700 19px Fredoka">${g.name}</b></span>${coins()}<span class="btn" style="width:40px">${I("sound")}</span><span class="btn" style="width:40px">${I("more")}</span></div>
+    <div class="ab fx" ${P(0, 50, 390, 46, `background:#fffdf8;border-bottom:${RULE}`)}>${tools.map((t, i) => `<span class="btn" style="flex:1;height:46px;font-size:14px;white-space:nowrap;${i ? `border-left:${RULE}` : ""}">${t}</span>`).join("")}</div>${st.html}`;
+}
+function puzzlePc(g) {
+  const pw = 360, ph = panelH(g, pw - 40);
+  const cardH = 140 + g.stats.length * 50 + ph;
+  const bd0 = pcBoard(g, 0, 68, 1100, 623);
+  const gx = Math.round((1536 - bd0.w - 32 - pw) / 2);
+  const bd = pcBoard(g, gx, 68, gx + bd0.w, 623);
+  const px = gx + bd0.w + 32;
+  const stat = ([k, v]) => `<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:${RULE};padding:10px 0"><span style="color:#6b5c50;font-weight:600">${k}</span><b style="font:800 22px Heebo">${v}</b></div>`;
+  const p = panel(g, px + 20, 68 + cardH - ph - 18, pw - 40, "flat tint");
+  return `<div class="ab fx" ${P(0, 0, 1536, 52, `background:#fffdf8;border-bottom:${RULE};padding:0 24px;gap:10px;font-weight:600`)}>${I("back")}<span>Ellaz</span><span style="color:#6b5c50">› ${g.name}</span><span style="flex:1"></span>
+      <span class="btn" style="width:44px">${I("globe")}</span><span class="btn" style="width:44px">${I("sound")}</span>${coins()}<span class="btn" style="width:44px">${I("more")}</span></div>${bd.html}
+    <div class="ab" ${P(px, 68, pw, Math.max(cardH, 200), `background:#fffdf8;border:${RULE};border-radius:14px;padding:18px 20px`)}>
+      <div class="disp" style="font:700 26px Fredoka;margin-bottom:10px">${g.name}</div>
+      <div class="fx" style="gap:8px;margin-bottom:12px">${g.level ? `<span class="chip on" style="box-shadow:none">${g.level[0]}</span>${dots(g)}` : ""}<span style="flex:1"></span>${g.acts.map(([ic, t]) => `<span class="btn" style="height:38px;padding:0 12px;border:1.5px solid #e0d2bf;border-radius:10px">${I(ic)} ${t}</span>`).join("")}</div>
+      ${g.stats.map(stat).join("")}</div>${p.html}`;
+}
+
+/* 4 CASUAL */
+function casualPhone(g) {
+  const badge = (x, y, s, ic) => `<span class="ab btn" ${P(x, y, s, s, "border-radius:50%;background:#fffdf8;box-shadow:0 4px 0 rgba(36,28,23,.18)")}>${I(ic)}</span>`;
+  const rib = g.level || g.stats.length;
+  const ribbon = rib ? `<div class="ab fx" ${P(24, 78, 342, 62, `border-radius:22px;background:${g.bar};color:#fff;justify-content:space-around;box-shadow:0 5px 0 rgba(0,0,0,.22)`)}>
+      ${g.level ? `<div style="display:grid;justify-items:center;gap:3px"><b style="font:800 15px Heebo;letter-spacing:.05em">${g.level[0].toUpperCase()}</b>${dots(g)}</div>` : ""}
+      ${g.stats.map(([k, v]) => `<div style="display:grid;justify-items:center"><small style="font:700 11px Heebo;opacity:.85">${k.toUpperCase()}</small><b style="font:800 24px Heebo">${v}</b></div>`).join("")}</div>` : "";
+  const top = rib ? 154 : 80;
+  const st = phoneStack(g, top, 826, { below: 96, sk: "chunky", maxW: 366 });
+  const boosts = [...g.acts, ...(g.level ? [["level", g.level[0]]] : [])];
+  const cols = { level: "#0984e3", restart: "#e17055", pause: "#00a07a" };
+  return `${badge(12, 12, 56, "home")}<span class="ab fx" ${P(146, 18, 108, 44, "justify-content:center;border-radius:22px;background:#fffdf8;box-shadow:0 4px 0 rgba(36,28,23,.18)")}>${coins()}</span>${badge(264, 14, 52, "sound")}${badge(324, 14, 52, "gear")}${ribbon}${st.html}
+    <div class="ab fx" ${P(0, st.y + st.h + 12, 390, null, "justify-content:center;gap:30px")}>${boosts.map(([ic, t]) => `<div style="display:grid;justify-items:center;gap:4px"><span class="btn" style="width:58px;height:58px;border-radius:50%;background:${cols[ic]};color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.22)">${I(ic)}</span><b style="font:800 13px Heebo">${t}</b></div>`).join("")}</div>`;
+}
+function casualPc(g) {
+  const badge = (x, y, s, ic) => `<span class="ab btn" ${P(x, y, s, s, "border-radius:50%;background:#fffdf8;box-shadow:0 4px 0 rgba(36,28,23,.18)")}>${I(ic)}</span>`;
+  const bd = pcBoard(g, 460, 40, 1076, 620);
+  const card = (k, v) => `<div style="border-radius:20px;background:${g.bar};color:#fff;padding:12px 18px;box-shadow:0 5px 0 rgba(0,0,0,.22);display:grid;justify-items:center"><small style="font:700 12px Heebo;opacity:.85">${k}</small><b style="font:800 28px Heebo">${v}</b></div>`;
+  const cards = [...(g.level ? [["LEVEL", g.level[0]]] : []), ...g.stats.map(([k, v]) => [k.toUpperCase(), v])];
+  const cols = { level: "#0984e3", restart: "#e17055", pause: "#00a07a" };
+  const boosts = [...g.acts, ...(g.level ? [["level", g.level[0]]] : [])];
+  const px = bd.x + bd.w + 50;
+  const p = panel(g, px, 210, 300, "chunky");
+  return `${badge(20, 16, 60, "home")}<span class="ab fx" ${P(1270, 22, 118, 48, "justify-content:center;border-radius:24px;background:#fffdf8;box-shadow:0 4px 0 rgba(36,28,23,.18)")}>${coins()}</span>${badge(1398, 18, 56, "sound")}${badge(1462, 18, 56, "gear")}
+    ${cards.length ? `<div class="ab" ${P(bd.x - 280, 130, 230, null, "display:grid;gap:14px")}>${cards.map(([k, v]) => card(k, v)).join("")}</div>` : ""}${bd.html}
+    <div class="ab fx" ${P(px, 96, 330, null, "gap:24px")}>${boosts.map(([ic, t]) => `<div style="display:grid;justify-items:center;gap:4px"><span class="btn" style="width:66px;height:66px;border-radius:50%;background:${cols[ic]};color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.22)">${I(ic)}</span><b style="font:800 13px Heebo">${t}</b></div>`).join("")}</div>${p.html}`;
+}
+
+/* 5 RAILS */
+function railsPhone(g) {
+  const tabs = [["home", "Games"], ["globe", "English"], ["sound", "Sound"], ["coin", "0 coins"], ["more", "More"]];
+  const line = g.stats.map(([k, v]) => `${k} ${v}`).join("  ·  ");
+  const st = phoneStack(g, line ? 92 : 70, 758);
+  return `<div class="ab fx" ${P(0, 0, 390, 58, `background:${g.bar};color:#fff;padding:0 10px 0 16px;gap:8px`)}><b class="disp" style="font:700 20px Fredoka;flex:1;white-space:nowrap">${g.name}</b>
+      ${g.level ? `<span class="fx" style="gap:8px;height:38px;padding:0 12px;border-radius:19px;background:rgba(255,255,255,.16);font-weight:700;white-space:nowrap">${g.level[0]} ${dots(g)}</span>` : ""}
+      ${g.acts.map(([ic]) => `<span class="btn" style="width:44px;height:44px">${I(ic)}</span>`).join("")}</div>
+    ${line ? `<div class="ab" ${P(0, 64, 390, 24, "text-align:center;color:#6b5c50;font-weight:700;font-size:14px")}>${line}</div>` : ""}${st.html}
+    <div class="ab fx" ${P(0, 772, 390, 72, "background:#fffdf8;border-top:1px solid #eadfce;box-shadow:0 -3px 10px rgba(36,28,23,.06)")}>${tabs.map(([ic, t], i) => `<span class="btn" style="flex:1;flex-direction:column;gap:3px;height:72px;font-size:11px;${i === 0 ? "color:#c2185b" : "color:#6b5c50"}">${ic === "coin" ? `<i class="coin" style="width:22px;height:22px"></i>` : I(ic)}${t}</span>`).join("")}</div>`;
+}
+function railsPc(g) {
+  const rail = [["home", "Games"], ["globe", "English"], ["sound", "Sound"], ["star", "Favourite"], ["share", "Share"], ["full", "Full"], ["flag", "Tell us"]];
+  const pw = 380, px = 1536 - pw;
+  const bd = pcBoard(g, 108, 20, px - 20, 619);
+  const top = 150 + g.stats.length * 46;
+  const p = panel(g, px + 24, top, pw - 48, "tint");
+  return `<div class="ab" ${P(0, 0, 88, 639, `background:${g.bar};color:#fff;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:2px`)}>${rail.map(([ic, t]) => `<span class="btn" style="flex-direction:column;gap:3px;width:80px;height:66px;font-size:11px">${I(ic)}${t}</span>`).join("")}
+      <span style="flex:1"></span><span style="display:grid;justify-items:center;gap:4px;padding-bottom:16px;font-weight:800"><i class="coin"></i>0</span></div>${bd.html}
+    <div class="ab" ${P(px, 0, pw, 639, "background:#fffdf8;border-left:1px solid #eadfce;padding:20px 24px")}>
+      <div class="disp" style="font:700 28px Fredoka;margin-bottom:10px">${g.name}</div>
+      <div class="fx" style="gap:8px;margin-bottom:12px">${g.level ? `<span class="chip on" style="box-shadow:none">${g.level[0]}</span>${dots(g)}` : ""}<span style="flex:1"></span>${g.acts.map(([ic, t]) => `<span class="btn" style="height:44px;padding:0 14px;border-radius:12px;background:${ic === "pause" ? g.bar : "#fff3e0"};color:${ic === "pause" ? "#fff" : "#241c17"}">${I(ic)} ${t}</span>`).join("")}</div>
+      ${g.stats.map(([k, v]) => `<div class="fx" style="justify-content:space-between;padding:8px 0;border-top:1px solid #eadfce"><span style="color:#6b5c50;font-weight:600">${k}</span><b style="font:800 22px Heebo">${v}</b></div>`).join("")}</div>${p.html}`;
+}
+
+/* 6 TABLE */
+function tokens(g, s, disc) {
+  const d = g.level ? `<div style="width:${disc}px;height:${disc}px;border-radius:50%;background:${g.bar};color:#fff;display:grid;place-items:center;align-content:center;gap:3px;transform:rotate(-5deg);box-shadow:0 5px 0 rgba(0,0,0,.25),inset 0 0 0 4px rgba(255,255,255,.2)"><b style="font:800 ${g.level[0].length > 6 ? 11 : 14}px Heebo;text-align:center;line-height:1.1">${g.level[0].toUpperCase()}</b>${dots(g)}</div>` : "";
+  const c = g.stats.map(([k, v], i) => `<div style="min-width:78px;padding:8px 8px;border-radius:10px;background:#fffdf8;text-align:center;transform:rotate(${i ? -2 : 3}deg);box-shadow:0 5px 0 rgba(36,28,23,.16)"><small style="display:block;font:700 11px Heebo;color:#6b5c50">${k.toUpperCase()}</small><b style="font:800 20px Heebo">${v}</b></div>`).join("");
+  const t = g.acts.map(([ic], i) => `<span class="btn" style="width:${s}px;height:${s}px;border-radius:50%;background:#fffdf8;transform:rotate(${i ? 6 : -4}deg);box-shadow:0 5px 0 rgba(36,28,23,.2),inset 0 0 0 4px ${g.bar};color:${g.bar}">${I(ic)}</span>`).join("");
+  return d + c + t;
+}
+function tablePhone(g) {
+  const lid = (x, w, inner) => `<div class="ab fx" ${P(x, 12, w, 42, "gap:4px;padding:0 8px;border-radius:12px;background:rgba(36,28,23,.06);color:#6b5c50")}>${inner}</div>`;
+  const st = phoneStack(g, 170, 806, { maxW: 346, sk: "tile", pw: 318, gap: 44, ink: "#4b3f38", bextra: "box-shadow:0 8px 0 rgba(36,28,23,.18);" });
+  return `${lid(10, 148, `${I("back")}${I("home")}<b class="disp" style="font:700 15px Fredoka;color:#241c17;white-space:nowrap">${g.name}</b>`)}${lid(212, 168, `${coins()}<span style="flex:1"></span>${I("globe")}${I("sound")}${I("more")}`)}
+    <div class="ab" ${P(10, 62, 370, 774, `border-radius:30px;background:${g.tint};box-shadow:inset 0 0 0 3px rgba(36,28,23,.06)`)}></div>
+    <div class="ab fx" ${P(16, 74, 358, 90, "gap:12px;justify-content:center")}>${tokens(g, 64, 78)}</div>
+    <div class="ab" ${P(24, st.py - 16, 342, 806 - st.py + 24, "border-radius:18px;background:#e7d2b8;box-shadow:inset 0 4px 0 rgba(0,0,0,.08)")}></div>${st.html}`;
+}
+function tablePc(g) {
+  const lid = (x, w, inner) => `<div class="ab fx" ${P(x, 10, w, 42, "gap:4px;padding:0 8px;border-radius:12px;background:rgba(36,28,23,.06);color:#6b5c50")}>${inner}</div>`;
+  const bd = pcBoard(g, 490, 80, 1046, 606, "box-shadow:0 10px 0 rgba(36,28,23,.18);");
+  const ph = panelH(g, 250), py = Math.max(96, Math.round(342 - ph / 2));
+  const p = panel(g, 1106, py, 250, "tile", "#4b3f38");
+  return `${lid(20, 210, `${I("back")}${I("home")}<b class="disp" style="font:700 17px Fredoka;color:#241c17">${g.name}</b>`)}${lid(1300, 216, `${coins()}<span style="flex:1"></span>${I("globe")}${I("sound")}${I("more")}`)}
+    <div class="ab" ${P(150, 60, 1236, 570, `border-radius:40px;background:${g.tint};box-shadow:inset 0 0 0 3px rgba(36,28,23,.06)`)}></div>
+    <div class="ab" ${P(180, 110, 280, 460, "display:flex;flex-wrap:wrap;gap:22px;justify-content:center;align-content:center")}>${tokens(g, 76, 120)}</div>${bd.html}
+    <div class="ab" ${P(1086, py - 20, 290, ph + 40, "border-radius:22px;background:#e7d2b8;box-shadow:inset 0 4px 0 rgba(0,0,0,.08)")}></div>${p.html}`;
+}
+
+/* 7 PLAYER BAR */
+function pbar(g, h) {
+  const f = frac(g);
+  return `<div class="fx" style="height:${h}px;background:#151836;color:#fff;border-radius:0 0 14px 14px;padding:0 10px;gap:8px;white-space:nowrap">
+    ${g.acts.map(([ic]) => `<span class="btn" style="width:40px;height:44px">${I(ic)}</span>`).join("")}
+    <span style="flex:1;display:flex;align-items:center;gap:8px;min-width:0;font:700 13px Heebo">${g.stats.map(([k, v]) => `<span>${k} <b style="font-size:15px">${v}</b></span>`).join("")}
+      ${f ? `<span style="flex:1;min-width:30px;height:6px;border-radius:3px;background:rgba(255,255,255,.18);position:relative"><i style="position:absolute;inset:0 ${100 - Math.round(f[1] / f[2] * 100)}% 0 0;border-radius:3px;background:#55efc4"></i></span>` : ""}</span>
+    ${g.level ? `<span class="fx" style="gap:6px;height:36px;padding:0 12px;border-radius:18px;background:rgba(255,255,255,.12);font:700 13px Heebo">${g.level[0]} ${I("down")}</span>` : ""}</div>`;
+}
+function playerApp(g, w, pad) {
+  return `<div class="ab fx" ${P(0, 0, w, 54, `background:${g.bar};color:#fff;padding:0 ${pad}px;gap:${w > 400 ? 6 : 3}px`)}><span class="btn" style="height:40px;padding:0 ${w > 400 ? 10 : 6}px;border-radius:20px;background:rgba(255,255,255,.14)">${I("back")}${I("home")}</span>
+    <b class="disp" style="font:700 17px Fredoka;margin-inline-start:4px;white-space:nowrap;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${g.name}</b><span class="btn" style="width:${w > 400 ? 38 : 30}px">${I("globe")}</span><span class="btn" style="width:${w > 400 ? 38 : 30}px">${I("sound")}</span>
+    <span class="fx" style="height:40px;padding:0 ${w > 400 ? 10 : 8}px;border-radius:20px;background:rgba(255,255,255,.14)">${coins()}</span><span class="btn" style="width:${w > 400 ? 38 : 30}px">${I("more")}</span></div>`;
+}
+function playerPhone(g) {
+  const st = phoneStack(g, 66, 826, { below: 56, bextra: "border-radius:8px 8px 0 0;" });
+  return `${playerApp(g, 390, 8)}${st.html}<div class="ab" ${P(Math.min(st.x, 8), st.y + st.h, Math.max(st.w, 374), null)}>${pbar(g, 56)}</div>`;
+}
+function playerPc(g) {
+  const bd = pcBoard(g, 400, 68, 1136, 572, "border-radius:8px 8px 0 0;");
+  const bw = Math.max(bd.w, 440), bx = bd.x - (bw - bd.w) / 2;
+  const p = panel(g, bx + bw + 50, 140, 280);
+  return `${playerApp(g, 1536, 20)}${bd.html}<div class="ab" ${P(bx, bd.y + bd.h, bw, null)}>${pbar(g, 54)}</div>${p.html}`;
+}
+
+/* 8 FRAME TABS */
+const FC = "#6c5ce7";
+function tabsBar(g, w, pc) {
+  return `<div class="ab fx" ${P(0, 0, w, 50, `background:${g.bar};color:#fff;padding:0 10px;gap:6px`)}><span class="btn" style="width:${pc ? 60 : 40}px;height:40px">${I("back")}${pc ? I("home") : ""}</span><b class="disp" style="font:700 17px Fredoka;white-space:nowrap;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${g.name}</b>
+    <span class="btn" style="width:38px">${I("globe")}</span><span class="btn" style="width:38px">${I("sound")}</span>${coins()}<span class="btn" style="width:38px">${I("more")}</span></div>`;
+}
+function tabsPhone(g) {
+  const tab = (inner, w) => `<span class="fx" style="justify-content:center;gap:8px;min-width:${w}px;padding:0 12px;height:44px;border-radius:14px 14px 0 0;background:${FC};color:#fff;font:800 14px Heebo;white-space:nowrap">${inner}</span>`;
+  const lip = g.stats.length ? 34 : 10;
+  const st = phoneStack(g, 128, 826, { maxW: 350, below: lip + 30, bextra: "border-color:transparent;" });
+  const fx = st.x - 10, fy = st.y - 10;
+  return `${tabsBar(g, 390, false)}
+    <div class="ab fx" ${P(fx + 12, fy - 44, Math.max(st.w - 4, 250), 44, "gap:8px")}>${g.level ? tab(`${g.level[0]} ${dots(g)}`, 110) : ""}<span style="flex:1"></span>${g.acts.map(([ic]) => tab(I(ic), 52)).join("")}</div>
+    <div class="ab" ${P(fx, fy, st.w + 20, st.h + 20 + lip, `background:${FC};border-radius:18px;box-shadow:0 5px 0 rgba(36,28,23,.2)`)}></div>
+    ${g.stats.length ? `<div class="ab fx" ${P(fx, fy + st.h + 20, st.w + 20, lip - 4, "justify-content:center;gap:18px;color:#fff;font:800 15px Heebo;white-space:nowrap")}>${g.stats.map(([k, v]) => `<span>${k} ${v}</span>`).join("")}</div>` : ""}${st.html}`;
+}
+function tabsPc(g) {
+  const lip = g.stats.length ? 30 : 10;
+  const bd = pcBoard(g, 400, 76, 1010, 609 - lip, "border-color:transparent;");
+  const fx = bd.x - 10, fy = bd.y - 10;
+  const side = (inner) => `<span class="fx" style="flex-direction:column;justify-content:center;gap:4px;width:78px;min-height:74px;border-radius:14px 0 0 14px;background:${FC};color:#fff;font:800 13px Heebo;text-align:center">${inner}</span>`;
+  const dx = fx + bd.w + 20, ph = panelH(g, 280);
+  const p = panel(g, dx + 26, fy + 30, 280, "", "#fff");
+  return `${tabsBar(g, 1536, true)}
+    <div class="ab" ${P(fx - 78, fy + 30, 78, null, "display:grid;gap:10px")}>${g.level ? side(`${I("level")}${g.level[0]}`) : ""}${g.acts.map(([ic, t]) => side(`${I(ic)}${t}`)).join("")}</div>
+    <div class="ab" ${P(fx, fy, bd.w + 20, bd.h + 20 + lip, `background:${FC};border-radius:18px 0 18px 18px`)}></div>${bd.html}
+    ${g.stats.length ? `<div class="ab fx" ${P(fx, fy + bd.h + 20, bd.w + 20, lip - 6, "justify-content:center;gap:24px;color:#fff;font:800 15px Heebo")}>${g.stats.map(([k, v]) => `<span>${k} ${v}</span>`).join("")}</div>` : ""}
+    <div class="ab" ${P(dx, fy + 10, 332, Math.min(560, ph + 60), `background:${FC};border-radius:0 18px 18px 0`)}></div>${p.html}`;
+}
+
+/* ============ zoom and fold ============ */
+// zoom is "fit" or a number: the scale of a phone frame; a PC frame follows at the same pixel density.
+let zoom = "fit", folded = false;
+try { zoom = JSON.parse(localStorage.getItem("ellaz:layout-lab:zoom") || '"fit"'); folded = localStorage.getItem("ellaz:layout-lab:folded") === "1"; } catch {}
+const STEPS = [0.25, 0.33, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5];
+/** Fit: a whole phone and a whole PC on screen, six phones to a row and two PCs where they fit. */
+function fitScales() {
+  const w = document.querySelector(".page").clientWidth - 32;
+  const top = document.querySelector(".top").offsetHeight, bar = folded ? 0 : document.querySelector(".verdict").offsetHeight;
+  const h = innerHeight - top - bar - 70;
+  const n = cur === "onebtn" ? 7 : 6;
+  const sp = Math.min((w - (n - 1) * 14) / n / 390, h / 844);
+  const sc = Math.min((w - 14) / 2 / 1536, h / 639);
+  return [sp, sc];
+}
+function applyZoom() {
+  const [fp, fc] = fitScales();
+  const sp = zoom === "fit" ? fp : zoom, sc = zoom === "fit" ? fc : zoom;
+  document.documentElement.style.setProperty("--sp", sp.toFixed(4));
+  document.documentElement.style.setProperty("--sc", sc.toFixed(4));
+  document.getElementById("zlabel").textContent = `${Math.round(sp * 100)}%`;
+  document.querySelectorAll(".zoom [data-z]").forEach((b) => b.setAttribute("aria-pressed", String((b.dataset.z === "fit" && zoom === "fit") || (b.dataset.z === "real" && zoom === 1))));
+  try { localStorage.setItem("ellaz:layout-lab:zoom", JSON.stringify(zoom)); } catch {}
+}
+function stepZoom(dir) {
+  const now = zoom === "fit" ? fitScales()[0] : zoom;
+  const next = dir > 0 ? STEPS.find((s) => s > now + 0.001) : [...STEPS].reverse().find((s) => s < now - 0.001);
+  zoom = next ?? now; applyZoom();
+}
+function applyFold() {
+  document.body.classList.toggle("folded", folded);
+  const b = document.getElementById("fold");
+  b.textContent = folded ? "Show verdict" : "Hide verdict";
+  b.setAttribute("aria-expanded", String(!folded));
+  try { localStorage.setItem("ellaz:layout-lab:folded", folded ? "1" : "0"); } catch {}
+  applyZoom();
+}
+addEventListener("resize", () => zoom === "fit" && applyZoom());
+
+/* ============ the page ============ */
+const KEY = "ellaz:layout-lab:layouts:v2";
+let verdicts = {};
+try { verdicts = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
+fetch("/__lab/v/layouts-v3-2026-09-28").then((r) => r.json()).then((v) => { if (v && v.verdicts) { verdicts = { ...v.verdicts, ...verdicts }; draw(); } }).catch(() => {});
+const qs = new URLSearchParams(location.search);
+let cur = qs.get("d") || "handheld";
+try { if (!qs.get("d")) cur = localStorage.getItem(KEY + ":tab") || cur; } catch {}
+
+const todayImg = (id, screen) => id === "snake" ? `/__lab/t/today-snake-${screen === "phone" ? "phone" : "pc"}.jpg` : `/__lab/shots/${TODAY[id]}-${screen === "phone" ? "phone" : "laptop"}-today.jpg`;
+function frame(d, id, screen, open = false) {
+  const g = GAMES[id], pc = screen === "pc";
+  const inner = d.id === "today"
+    ? `<img src="${todayImg(id, screen)}" width="${pc ? 1536 : 390}" height="${pc ? 639 : 844}" alt="${g.name} today">`
+    : `<div class="app ${pc ? "pc" : ""}" data-mock-source="author">${pc ? d.pc(g) : d.phone(g, open)}</div>`;
+  return `<div class="fr"><p><b>${g.name}${open ? ", menu open" : ""}</b><em data-gain="${id}|${pc ? 1 : 0}"></em></p><div class="clip ${pc ? "pc" : "phone"}">${inner}</div></div>`;
+}
+
+function draw() {
+  const d = DIRS.find((x) => x.id === cur);
+  document.getElementById("tabs").innerHTML = DIRS.map((x) => {
+    const v = verdicts[x.id];
+    const mark = v && v.verdict ? { yes: "✓", maybe: "?", no: "✗" }[v.verdict] : "";
+    return `<button class="tab" role="tab" aria-selected="${x.id === cur}" data-id="${x.id}" title="${x.name}">${x.name.replace(" (live)", "").replace(" console", "").replace(" game", "").replace(" + game panel", "")}${mark ? `<span class="v">${mark}</span>` : ""}</button>`;
+  }).join("") + `<button class="tab" role="tab" aria-selected="${cur === "set"}" data-id="set">All</button>`;
+  if (!d) return drawSet();
+  document.getElementById("idea").innerHTML = `<b>${d.name}</b><br>${d.idea}<div class="rule"><span>Game buttons: <i>${d.game}</i></span><span>App buttons: <i>${d.app}</i></span></div>`;
+  document.getElementById("stage").innerHTML =
+    `<h2>Phone <small>390 x 844, six games${d.id === "onebtn" ? ", plus the menu open" : ""}</small></h2><div class="row6">${ORDER.map((id) => frame(d, id, "phone")).join("")}${d.id === "onebtn" ? frame(d, "sudoku", "phone", true) : ""}</div>` +
+    `<h2>PC <small>1536 x 639, the same six games</small></h2><div class="grid2">${ORDER.map((id) => frame(d, id, "pc")).join("")}</div>`;
+  measure();
+  drawVerdict(d);
+  applyZoom();
+}
+
+function drawVerdict(d) {
+  const el = document.getElementById("verdict");
+  if (d.id === "today") { el.innerHTML = `<div class="row"><b>Today is the control.</b> <span class="dim">Flip to a studio and come back to compare.</span></div>`; return; }
+  const v = verdicts[d.id] || {};
+  const pick = (k, val, cls, label) => `<button class="pick ${cls}" aria-pressed="${v[k] === val}" data-k="${k}" data-val="${val}">${label}</button>`;
+  const done = DIRS.filter((x) => x.pc && verdicts[x.id]?.verdict && verdicts[x.id]?.why).length;
+  el.innerHTML = `<div class="row"><b>${d.name}:</b>${pick("verdict", "yes", "yes", "Yes, this direction")}${pick("verdict", "maybe", "maybe", "Maybe")}${pick("verdict", "no", "no", "No")}
+      <span class="dim" style="margin-inline-start:auto">${done} of ${DIRS.length - 1} judged</span><span class="dim" id="saved"></span></div>
+    <div class="row"><b>Mostly because of:</b>${pick("why", "game", "why", "Where the game buttons sit")}${pick("why", "app", "why", "Where the app buttons sit")}${pick("why", "space", "why", "How it uses the space")}${pick("why", "busy", "why", "Too busy / too empty")}${pick("why", "all", "why", "All of it")}
+      <input class="note" id="note" placeholder="Anything to keep or change (optional)" value="${(v.note || "").replace(/"/g, "&quot;")}"></div>`;
+}
+
+function drawSet() {
+  const v = verdicts.set || {};
+  document.getElementById("idea").innerHTML = `<b>All eight, one question</b><br>Do these read as eight different layouts, or do some feel like the same thing?`;
+  document.getElementById("stage").innerHTML = "";
+  const pick = (val, cls, label) => `<button class="pick ${cls}" aria-pressed="${v.verdict === val}" data-k="verdict" data-val="${val}">${label}</button>`;
+  document.getElementById("verdict").innerHTML = `<div class="row">${pick("distinct", "yes", "Eight different layouts")}${pick("some", "maybe", "Some feel the same")}${pick("same", "no", "They all feel the same")}<span class="dim" id="saved"></span></div>
+    <div class="row"><input class="note" id="note" placeholder="Which ones feel the same? (optional)" value="${(v.note || "").replace(/"/g, "&quot;")}"></div>`;
+}
+
+/** Board size per frame, read off the render, against the live page's board. */
+function measure() {
+  requestAnimationFrame(() => document.querySelectorAll("[data-gain]").forEach((em) => {
+    const [id, pc] = em.dataset.gain.split("|");
+    const base = GAMES[id].base[+pc];
+    const bd = em.closest(".fr").querySelector(".app .bd");
+    if (!bd) { em.textContent = `board ${base} px`; return; }
+    const w = Math.round(parseFloat(bd.style.width));
+    const pct = Math.round(((w / base) ** 2 - 1) * 100);
+    em.textContent = `board ${w} px (${pct >= 0 ? "+" : ""}${pct}% area)`;
+  }));
+}
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(verdicts)); } catch {}
+  const payload = { at: new Date().toISOString(), round: "layout-studios-2026-09-28-v2", constants: "Day theme; sudoku, snake, coloring, memory, wordguess, 2048; 390x844 + 1536x639; the live button set", verdicts };
+  fetch("/__lab/v/layouts-v3-2026-09-28", { method: "POST", body: JSON.stringify(payload) })
+    .then((r) => { const s = document.getElementById("saved"); if (s) s.textContent = r.ok ? "Saved." : "Not saved."; })
+    .catch(() => { const s = document.getElementById("saved"); if (s) s.textContent = "Kept in this browser only."; });
+}
+
+document.addEventListener("click", (e) => {
+  const z = e.target.closest(".zoom [data-z]");
+  if (z) { const k = z.dataset.z; k === "in" ? stepZoom(1) : k === "out" ? stepZoom(-1) : (zoom = k === "fit" ? "fit" : 1, applyZoom()); return; }
+  if (e.target.closest("#fold")) { folded = !folded; applyFold(); return; }
+  const clip = e.target.closest(".page .clip");
+  if (clip) {
+    const pc = clip.classList.contains("pc"), sc = Math.min((innerWidth - 40) / (pc ? 1536 : 390), (innerHeight - 40) / (pc ? 639 : 844));
+    const box = document.getElementById("box");
+    box.innerHTML = `<div class="clip" style="width:${(pc ? 1536 : 390) * sc}px;height:${(pc ? 639 : 844) * sc}px">${clip.innerHTML.replace(/^\s*<(div|img)/, `<$1 style="transform:scale(${sc})"`)}</div>`;
+    box.classList.add("on");
+    return;
+  }
+  if (e.target.closest("#box")) { document.getElementById("box").classList.remove("on"); return; }
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.classList.contains("tab")) {
+    cur = t.dataset.id;
+    try { localStorage.setItem(KEY + ":tab", cur); } catch {}
+    draw(); scrollTo(0, 0);
+  } else if (t.classList.contains("pick")) {
+    verdicts[cur] = { ...(verdicts[cur] || {}), [t.dataset.k]: t.dataset.val };
+    draw(); save();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("box").classList.remove("on");
+  if (e.target.closest("input, textarea")) return;
+  if (e.key === "+" || e.key === "=") stepZoom(1);
+  else if (e.key === "-") stepZoom(-1);
+  else if (e.key === "0") { zoom = "fit"; applyZoom(); }
+  else if (e.key === "1") { zoom = 1; applyZoom(); }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.id !== "note") return;
+  verdicts[cur] = { ...(verdicts[cur] || {}), note: e.target.value };
+  save();
+});
+draw();
+applyFold();
+</script>
+<script src="http://localhost:8772/_assets/beetle.js" data-surface="ellaz-layout-studios"></script>
+</body>
+</html>

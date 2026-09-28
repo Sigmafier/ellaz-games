@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Button Layout Studios</title>
+<style>
+@font-face{font-family:Fredoka;src:url("/src/ui/fonts/fredoka-latin.woff2") format("woff2");font-weight:300 700;font-display:block}
+@font-face{font-family:Heebo;src:url("/src/ui/fonts/heebo-latin.woff2") format("woff2");font-weight:100 900;font-display:block}
+
+/* ---------- the lab page around the mocks ---------- */
+:root{--bg:#0b1020;--card:#141b2e;--line:#243049;--ink:#e8ecf6;--dim:#93a0bb;--on:#2563eb;--good:#16a34a;--bad:#dc2626;--mid:#b45309}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Heebo,system-ui,sans-serif}
+.page{max-width:1500px;margin:0 auto;padding:16px}
+h1{font:700 22px Fredoka,sans-serif;margin:0 0 2px}
+.sub{color:var(--dim);margin:0 0 12px;max-width:980px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.tab{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 14px;font:600 14px Heebo,sans-serif;cursor:pointer;min-height:44px}
+.tab[aria-selected="true"]{background:var(--on);border-color:var(--on);color:#fff}
+.tab .v{margin-inline-start:6px}
+.bar2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{background:var(--card);color:var(--ink);border:0;padding:9px 16px;font:600 14px Heebo,sans-serif;min-height:44px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.idea{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 12px}
+.idea b{font-size:17px}
+.idea .rule{display:flex;gap:18px;flex-wrap:wrap;margin-top:6px;color:var(--dim)}
+.idea .rule i{font-style:normal;color:var(--ink)}
+.stage{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.fr p{margin:0 0 6px;color:var(--dim);font-weight:600;display:flex;justify-content:space-between;gap:10px}
+.fr p em{font-style:normal;color:#ffd166}
+.clip{position:relative;overflow:hidden;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.4);background:#fff}
+.clip.phone{width:312px;height:675px}
+.clip.pc{width:952px;height:396px}
+.clip>*{position:absolute;left:0;top:0;transform-origin:0 0}
+.clip.phone>*{transform:scale(.8)}
+.clip.pc>*{transform:scale(.62)}
+.clip>img{display:block}
+.verdict{margin:16px 0 0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:10px;max-width:1290px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pick{background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px 14px;min-height:44px;font:600 14px Heebo,sans-serif;cursor:pointer}
+.pick[aria-pressed="true"].yes{background:var(--good);border-color:var(--good);color:#fff}
+.pick[aria-pressed="true"].maybe{background:var(--mid);border-color:var(--mid);color:#fff}
+.pick[aria-pressed="true"].no{background:var(--bad);border-color:var(--bad);color:#fff}
+.pick[aria-pressed="true"].why{background:var(--on);border-color:var(--on);color:#fff}
+textarea{width:100%;min-height:56px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px;font:14px Heebo,sans-serif}
+.dim{color:var(--dim);font-size:13px}
+
+/* ---------- the mock app: Day, held constant ---------- */
+.app{width:390px;height:844px;overflow:hidden;background:#fff6e9;color:#241c17;font-family:Heebo,sans-serif;position:relative}
+.app.pc{width:1536px;height:639px}
+.app *{box-sizing:border-box}
+.ab{position:absolute}
+.fx{display:flex;align-items:center}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.f{fill:currentColor;stroke:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:none;color:inherit;font:700 14px Heebo,sans-serif;padding:0;cursor:pointer;flex:none}
+.disp{font-family:Fredoka,sans-serif}
+.coin{display:inline-block;width:14px;height:14px;border-radius:50%;background:#ffc93c;box-shadow:inset 0 -2px 0 #e0a400}
+
+/* the two boards, drawn as the live game draws them */
+.sdk{display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);background:#20244a;border:3px solid #6c5ce7;border-radius:8px;overflow:hidden}
+.sdk i{display:grid;place-items:center;font-style:normal;font-family:Heebo,sans-serif;font-weight:800;color:#fff;border-right:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1)}
+.sdk i.r{border-right:2px solid #6c5ce7}.sdk i.b{border-bottom:2px solid #6c5ce7}
+.sdk i.s{background:#3a3f7a}
+.snk{display:flex;flex-direction:column;background:#0b0c24;border:3px solid #6c5ce7;border-radius:12px;overflow:hidden}
+.snk .band{display:grid;grid-template-columns:repeat(3,1fr);background:linear-gradient(#1a1c44,#10122e);border-bottom:2px solid #6c5ce7;text-align:center;font-family:Heebo,sans-serif;font-weight:800;color:#fff}
+.snk .band small{display:block;letter-spacing:.14em;color:#c8cbe8;font-weight:700}
+.snk .arena{flex:1;position:relative;background:#0b0c24 radial-gradient(circle,rgba(255,255,255,.14) 1px,transparent 1.6px) 0 0/22px 22px}
+.snk .seg{position:absolute;border-radius:6px}
+
+/* keys, as the live keypad draws them */
+.key{display:grid;place-items:center;background:#fffdf8;border-radius:10px;box-shadow:0 3px 0 rgba(36,28,23,.16);font:800 22px Heebo,sans-serif;color:#241c17}
+.key.er{background:#fff3e0;box-shadow:none}
+.tint{background:#fff3e0!important}
+.arrow{display:grid;place-items:center;background:#fffdf8;border-radius:12px;box-shadow:0 4px 0 rgba(36,28,23,.16);color:#241c17}
+.arrow svg{width:40%;height:40%;fill:currentColor;stroke:none}
+.chip{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:999px;background:#fffdf8;box-shadow:0 3px 0 rgba(36,28,23,.12);font:700 13px Heebo,sans-serif;color:#241c17}
+.chip.on{background:#c2185b;color:#fff}
+.dots{display:inline-flex;gap:4px}.dots u{width:7px;height:7px;border-radius:9px;background:currentColor;opacity:.28}.dots u.on{opacity:1}
+.lbl{font:700 11px Heebo,sans-serif;letter-spacing:.04em}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-erase" viewBox="0 0 24 24"><path d="M9 5h11v14H9l-6-7z"/><path d="M12 9l5 6M17 9l-5 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-level" viewBox="0 0 24 24"><path d="M5 20v-5M12 20V9M19 20V4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></symbol>
+  <symbol id="t-up" viewBox="0 0 24 24"><path d="M12 4l9 15H3z"/></symbol>
+  <symbol id="t-down" viewBox="0 0 24 24"><path d="M12 20L3 5h18z"/></symbol>
+  <symbol id="t-left" viewBox="0 0 24 24"><path d="M4 12l15-9v18z"/></symbol>
+  <symbol id="t-right" viewBox="0 0 24 24"><path d="M20 12L5 21V3z"/></symbol>
+</svg>
+
+<div class="page">
+  <h1>Button Layout Studios</h1>
+  <p class="sub">Same look (Day), same game, same buttons. Only WHERE they sit changes. <b>Game buttons</b> = restart, pause, level, the numbers, the keys. <b>App buttons</b> = home, language, sound, coins (and share, full screen, tell us). Pick a studio, flip Sudoku and Snake, then give one verdict.</p>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div class="bar2">
+    <span class="seg" id="games"><button data-g="sudoku">Sudoku</button><button data-g="snake">Snake (running)</button></span>
+    <span class="dim" id="gain"></span>
+  </div>
+  <div class="idea" id="idea"></div>
+  <div class="stage" id="stage"></div>
+  <div class="verdict" id="verdict"></div>
+</div>
+
+<script>
+/* ============ REAL CONTENT, read off the live pages 2026-09-28 ============ */
+// Sudoku board as the lab shot it (seeded): 42 of 81 filled.
+const GRID = ["513296.8.", "2...74.63", ".4.3..91.", "..7.....4", "3.1.5....", "82.917..5", "4.2531..6", "17528.3..", "....4.2.1"].join("");
+// Snake mid-run, from the live page: Score 0, Stage 1, Best 0, level Normal, pause shown while it runs.
+const GAMES = {
+  sudoku: { name: "Sudoku", bar: "#520069", tint: "#f3e3f4", level: "Easy", dots: 6, on: 3, pause: false,
+    stats: [["Time", "0:42"], ["Filled", "42/81"]], ratio: 1, input: "keys", hint: "Pick a cell, tap a number" },
+  snake: { name: "Snake", bar: "#00401f", tint: "#e2f2e6", level: "Normal", dots: 3, on: 2, pause: true,
+    stats: [], ratio: 1.13, input: "arrows", hint: "Controls" },
+};
+
+/* ============ building blocks ============ */
+const I = (id, cls = "") => `<svg class="i ${cls}"><use href="#i-${id}"/></svg>`;
+const T = (id) => `<svg><use href="#t-${id}"/></svg>`;
+const P = (x, y, w, h, more = "") => `style="left:${x}px;top:${y}px;${w != null ? `width:${w}px;` : ""}${h != null ? `height:${h}px;` : ""}${more}"`;
+const dots = (g) => `<span class="dots">${Array.from({ length: g.dots }, (_, i) => `<u class="${i < g.on ? "on" : ""}"></u>`).join("")}</span>`;
+const coins = (cls = "") => `<span class="fx ${cls}" style="gap:6px;font-weight:800"><i class="coin"></i>0 ${I("star", "f")}<span style="margin-inline-start:-3px">0</span></span>`;
+
+/** The board, drawn at a width; returns {html, h}. `x,y` place it. */
+function board(g, w, x, y, extra = "") {
+  if (g === GAMES.sudoku) {
+    const f = Math.round(w / 9 * 0.5);
+    const cells = [...GRID].map((d, i) => {
+      const c = i % 9, r = Math.floor(i / 9);
+      return `<i class="${c === 2 || c === 5 ? "r" : ""} ${r === 2 || r === 5 ? "b" : ""} ${i === 30 ? "s" : ""}" style="font-size:${f}px">${d === "." ? "" : d}</i>`;
+    }).join("");
+    return { html: `<div class="ab sdk bd" ${P(x, y, w, w, extra)}>${cells}</div>`, h: w };
+  }
+  const h = Math.round(w * 1.13), bh = Math.round(w * 0.13), u = w / 100;
+  const seg = (sx, sy, c) => `<i class="seg" style="left:${sx * u}px;top:${sy * u}px;width:${5 * u}px;height:${5.4 * u}px;background:${c}"></i>`;
+  return { h, html: `<div class="ab snk bd" ${P(x, y, w, h, extra)}>
+    <div class="band" style="height:${bh}px;font-size:${Math.round(w * 0.055)}px;align-items:center;padding-top:${Math.round(bh * .1)}px">
+      <div><small style="font-size:${Math.round(w * 0.028)}px">SCORE</small><span style="color:#55efc4">0</span></div>
+      <div><small style="font-size:${Math.round(w * 0.028)}px">STAGE</small>1</div>
+      <div><small style="font-size:${Math.round(w * 0.028)}px">BEST</small><span style="color:#ffd166">0</span></div></div>
+    <div class="arena">${seg(61, 52, "#6c5ce7")}${seg(61, 58, "#7aa7ff")}${seg(61, 64, "#74b9ff")}
+      <i class="seg" style="left:${60 * u}px;top:${70 * u}px;width:${7 * u}px;height:${7 * u}px;border-radius:50%;background:#55efc4;box-shadow:0 0 ${3 * u}px #55efc4"></i>
+      <i class="seg" style="left:${38 * u}px;top:${14 * u}px;width:${5 * u}px;height:${5 * u}px;border-radius:50%;background:#e74c3c;box-shadow:0 0 ${3 * u}px #e74c3c"></i></div></div>` };
+}
+
+/** The keypad: 1-9 and erase in `cols` columns. */
+function keys(x, y, cols, kw, kh, gap, style = "", keyCls = "key") {
+  const k = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<b class="${keyCls}" style="height:${kh}px;${style}">${n}</b>`).join("")
+    + (cols === 3 ? "<b></b>" : "") + `<b class="${keyCls} er" style="height:${kh}px;${style}">${I("erase")}</b>`;
+  return `<div class="ab" ${P(x, y, cols * kw + (cols - 1) * gap, null, `display:grid;grid-template-columns:repeat(${cols},${kw}px);gap:${gap}px`)}>${k}</div>`;
+}
+
+/** The four arrows as a cross, key size k. */
+function arrows(x, y, k, gap = 6, cls = "arrow") {
+  const a = (d, cx, cy) => `<b class="ab ${cls}" ${P(x + cx * (k + gap), y + cy * (k + gap), k, k)}>${T(d)}</b>`;
+  return a("up", 1, 0) + a("left", 0, 1) + a("right", 2, 1) + a("down", 1, 2);
+}
+const modes = (x, y, vertical = false) =>
+  `<div class="ab fx" ${P(x, y, null, null, `gap:6px;${vertical ? "flex-direction:column;align-items:stretch" : ""}`)}><span class="chip on">Arrows</span><span class="chip">Joystick</span><span class="chip">On the board</span></div>`;
+
+/** A phone's game input in the thumb zone: its bottom edge at `bottom`. Keys with their hint above, or arrows with the control picker above. */
+function thumb(g, top, bottom, keyStyle = "", arrowCls = "arrow") {
+  if (g.input === "keys") {
+    const kh = Math.min(76, Math.floor((bottom - top - 50 - 8) / 2)), y = bottom - 2 * kh - 8;
+    return `<div class="ab" ${P(0, y - 30, 390, null, "text-align:center;color:#6b5c50;font-size:14px")}>${g.hint}</div>${keys(14, y, 5, 66, kh, 8, keyStyle)}`;
+  }
+  // the arrows shrink to the room the board leaves, never under it
+  const k = Math.min(70, Math.floor((bottom - top - 14 - 48 - 12) / 3)), cross = 3 * k + 12, y = bottom - cross;
+  return `${modes(48, y - 48)}${arrows((390 - cross) / 2, y, k, 6, arrowCls)}`;
+}
+
+/** The game's input for this game at a size: keypad or arrows. Returns html. */
+function input(g, x, y, kw, cols = 5, kh = kw * 0.9, gap = 8) {
+  return g.input === "keys" ? keys(x, y, cols, kw, kh, gap) : arrows(x, y, kw, gap);
+}
+
+/* ============ the studios ============ */
+// Each returns the whole page for (game, pc). Numbers are the frame's real px.
+const DIRS = [
+  { id: "today", name: "0 Today (the live page)", idea: "What ships now. Captured from the live dev page, not redrawn.",
+    game: "Top bar row, a numbers row above the board, keys under it (phone) or far right (PC)", app: "Top bar; on a PC also a tools row beside the breadcrumb" },
+  { id: "handheld", name: "1 Handheld console", idea: "The page is a game console. The board is its screen. Game buttons are real buttons on the console body; app buttons are small and printed on the top edge.",
+    game: "On the console body, around the screen", app: "Tiny, on the top edge; HOME as a console button (PC)", draw: handheld },
+  { id: "onebtn", name: "2 One button", idea: "Nothing on screen but the game. One round button opens a menu with everything: game on top, app below. Shown open as a third picture.",
+    game: "Inside the menu (numbers stay as one quiet line)", app: "Inside the same menu; coins stay visible", draw: onebtn },
+  { id: "puzzle", name: "3 Puzzle page", idea: "Calm, like a daily puzzle page. A slim white app bar, one line of word-buttons for the game right above the board. On a PC the game gets a side card beside a big board.",
+    game: "One tool line above the board (phone), a side card (PC)", app: "Slim white bar on top", draw: puzzle },
+  { id: "casual", name: "4 Casual game", idea: "Like a mobile casual game. No bars at all: app buttons float as round badges in the top corners; game numbers are a big bold ribbon; game buttons are big round buttons with names.",
+    game: "Big ribbon on top, big round buttons under the board", app: "Floating badges in the top corners", draw: casual },
+  { id: "rails", name: "5 App rail + game panel", idea: "Like an app. App buttons live in a rail: a tab bar at the bottom of a phone, a side rail on the left of a PC. The game gets its own strip (phone) or panel (PC).",
+    game: "Coloured strip on top (phone), right panel (PC)", app: "Bottom tab bar (phone), left rail (PC)", draw: rails },
+  { id: "table", name: "6 Game table", idea: "A board game on a table mat. The level, the clock and restart are tokens laid on the mat; the keys are tiles in a tray. App buttons sit small in the corners, off the mat.",
+    game: "Tokens and a tile tray on the mat", app: "Small in the two top corners", draw: table },
+  { id: "player", name: "7 Player bar", idea: "Like a video player. The app keeps its top bar; the game's buttons are one control bar joined to the bottom of the board: restart, pause, progress, level.",
+    game: "One bar joined under the board", app: "Top bar", draw: player },
+  { id: "tabs", name: "8 Frame tabs", idea: "The board sits in a thick frame, and the game's buttons are tabs growing out of that frame. On a PC the keys slide out of the frame's side like a drawer.",
+    game: "Tabs on the board's frame, keys as a drawer (PC)", app: "Slim top bar", draw: frameTabs },
+];
+
+function handheld(g, pc) {
+  const body = "#ecd8bf", deep = "#dcc3a4";
+  const pill = (t) => `<div style="display:grid;justify-items:center;gap:8px"><i style="display:block;width:62px;height:20px;border-radius:12px;background:#4b3f38;transform:rotate(-20deg);box-shadow:inset 0 -3px 0 rgba(0,0,0,.35)"></i><span class="lbl" style="color:#6b5c50">${t}</span></div>`;
+  const round = (ic, t, bg) => `<div style="display:grid;justify-items:center;gap:6px"><span class="btn" style="width:62px;height:62px;border-radius:50%;background:${bg};color:#fff;box-shadow:inset 0 -5px 0 rgba(0,0,0,.25),0 3px 0 rgba(36,28,23,.2)">${I(ic)}</span><span class="lbl" style="color:#6b5c50">${t}</span></div>`;
+  const btns = [["level", "LEVEL", "#6c5ce7"], ["restart", "RESTART", "#e17055"]].concat(g.pause ? [["pause", "PAUSE", "#00b894"]] : []);
+  const roundKey = `border-radius:50%;background:${deep};box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 2px 0 rgba(255,255,255,.6)`;
+  if (!pc) {
+    const sw = 358, bw = 342, bd = board(g, bw, 24, 102);
+    const scrH = 8 + 26 + bd.h + 8;
+    const status = `<div class="ab fx" ${P(24, 74, bw, 26, "color:#e8e6ff;font:800 12px Heebo;letter-spacing:.12em;gap:10px;justify-content:center")}>${g.level.toUpperCase()} ${dots(g)}${g.stats.map(([k, v]) => ` · ${k.toUpperCase()} ${v}`).join("")}</div>`;
+    const py = 66 + scrH + 16;
+    let inp;
+    if (g.input === "keys") inp = `<div class="ab" ${P(80, py + 64, 230, null, "display:grid;grid-template-columns:repeat(3,64px);gap:12px 19px")}>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<b class="key" style="height:64px;${roundKey}">${n}</b>`).join("")}<b></b><b class="key er" style="height:64px;${roundKey}">${I("erase")}</b></div>`;
+    else inp = `${arrows(34, py + 70, 66, 4, "arrow")}<div class="ab" ${P(260, py + 96, null, null, "display:grid;gap:8px")}><span class="chip on">Arrows</span><span class="chip">Joystick</span><span class="chip">Board</span></div>`;
+    return `<div class="ab" ${P(8, 8, 374, 828, `border-radius:34px;background:${body};box-shadow:inset 0 -8px 0 rgba(0,0,0,.08),0 4px 0 rgba(36,28,23,.15)`)}></div>
+      <div class="ab fx" ${P(22, 18, 346, 40, "gap:6px;color:#6b5c50")}>
+        <span class="btn" style="height:36px;padding:0 10px;border-radius:18px;background:${deep}">${I("back")}${I("home")}</span>
+        <span class="disp" style="font-weight:700;letter-spacing:.14em;font-size:13px;margin-inline-start:4px">${g.name.toUpperCase()}</span><span style="flex:1"></span>
+        ${coins("")}<span class="btn" style="width:34px">${I("globe")}</span><span class="btn" style="width:34px">${I("sound")}</span><span class="btn" style="width:34px">${I("more")}</span></div>
+      <div class="ab" ${P(16, 66, sw, scrH, "border-radius:20px;background:#2a2d4f;box-shadow:inset 0 0 0 4px #1b1d35")}></div>${status}${bd.html}
+      <div class="ab fx" ${P(16, py, sw, 50, "justify-content:center;gap:34px")}>${btns.map((b) => pill(b[1])).join("")}</div>${inp}`;
+  }
+  const bh = 530, bw = Math.round(bh / g.ratio), sx = 768 - bw / 2 - 12;
+  const bd = board(g, bw, sx + 12, 52);
+  const lcd = `<div class="ab" ${P(180, 96, 270, null, "border-radius:14px;background:#2b3a2f;color:#b8f5c8;padding:14px 18px;display:grid;gap:10px;font:800 16px Heebo;box-shadow:inset 0 3px 0 rgba(0,0,0,.4)")}>
+      <div class="fx" style="justify-content:space-between">LEVEL <span class="fx" style="gap:8px">${g.level} ${dots(g)}</span></div>${g.stats.map(([k, v]) => `<div class="fx" style="justify-content:space-between">${k.toUpperCase()} <span>${v}</span></div>`).join("")}</div>`;
+  let inp = g.input === "keys" ? `<div class="ab" ${P(1110, 96, 240, null, "display:grid;grid-template-columns:repeat(3,68px);gap:14px 18px")}>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<b class="key" style="height:68px;${roundKey}">${n}</b>`).join("")}<b></b><b class="key er" style="height:68px;${roundKey}">${I("erase")}</b></div>`
+    : `${arrows(1112, 120, 76, 6)}${modes(1100, 400)}`;
+  return `<div class="ab" ${P(110, 14, 1316, 611, `border-radius:80px;background:${body};box-shadow:inset 0 -10px 0 rgba(0,0,0,.08)`)}></div>
+    <div class="ab" ${P(sx, 36, bw + 24, bh + 32, "border-radius:22px;background:#2a2d4f;box-shadow:inset 0 0 0 5px #1b1d35")}></div>${bd.html}
+    <div class="ab disp" ${P(180, 44, 270, 40, "font-weight:700;letter-spacing:.16em;color:#6b5c50;font-size:20px")}>${g.name.toUpperCase()}</div>${lcd}
+    <div class="ab fx" ${P(170, g.stats.length ? 300 : 230, 290, null, "gap:22px;justify-content:center")}>${btns.map((b) => round(...b)).join("")}</div>
+    <div class="ab fx" ${P(1110, 40, 250, 40, "gap:8px;color:#6b5c50")}>${coins()}<span style="flex:1"></span><span class="btn" style="width:36px">${I("globe")}</span><span class="btn" style="width:36px">${I("sound")}</span><span class="btn" style="width:36px">${I("more")}</span></div>
+    ${inp}
+    <div class="ab" ${P(1296, 520, null, null, "display:grid;justify-items:center;gap:4px")}><span class="btn" style="width:54px;height:54px;border-radius:50%;background:${deep};color:#4b3f38;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)">${I("home")}</span><span class="lbl" style="color:#6b5c50">HOME</span></div>`;
+}
+
+function onebtn(g, pc, open) {
+  const menuBtn = (x, y, s) => `<span class="ab btn" ${P(x, y, s, s, `border-radius:50%;background:${g.bar};color:#fff;box-shadow:0 3px 0 rgba(36,28,23,.2)`)}>${I("menu")}</span>`;
+  const line = `${g.level} ${g.stats.map(([k, v]) => ` · ${v}${k === "Filled" ? " filled" : ""}`).join("")}`;
+  const coinPill = (x, y) => `<span class="ab fx" ${P(x, y, null, 44, "padding:0 14px;border-radius:22px;background:#fffdf8;box-shadow:0 3px 0 rgba(36,28,23,.14)")}>${coins()}</span>`;
+  let html;
+  if (!pc) {
+    const bw = 374, bd = board(g, bw, 8, 82);
+    const iy = 82 + bd.h + (g.input === "keys" ? 60 : 30);
+    html = `${menuBtn(12, 14, 52)}
+      <div class="ab" ${P(76, 14, 190, 52)}><div class="disp" style="font:700 20px Fredoka">${g.name}</div><div style="font-size:13px;color:#6b5c50;font-weight:600">${line}</div></div>
+      ${coinPill(276, 18)}${bd.html}
+      ${thumb(g, 82 + bd.h, 824)}`;
+  } else {
+    const bh = 600, bw = Math.round(bh / g.ratio), bx = 768 - bw / 2;
+    const bd = board(g, bw, bx, 20);
+    html = `${menuBtn(24, 20, 58)}
+      <div class="ab" ${P(96, 22, 300, 60)}><div class="disp" style="font:700 26px Fredoka">${g.name}</div><div style="font-size:15px;color:#6b5c50;font-weight:600">${line}</div></div>
+      ${coinPill(1400, 26)}${bd.html}
+      ${g.input === "keys" ? `<div class="ab" ${P(bx + bw + 50, 130, 260, null, "color:#6b5c50")}>${g.hint}</div>${keys(bx + bw + 50, 164, 3, 76, 70, 10)}` : arrows(bx + bw + 60, 170, 84, 8)}`;
+  }
+  if (!open) return html;
+  const row = (ic, t, right = "") => `<div class="fx" style="gap:14px;height:52px;border-bottom:1px solid #f0e4d4;font-weight:700;font-size:16px">${I(ic)}<span style="flex:1">${t}</span><span style="color:#6b5c50;font-weight:600">${right}</span></div>`;
+  return html + `<div class="ab" ${P(0, 0, 390, 844, "background:rgba(36,28,23,.5)")}></div>
+    <div class="ab" ${P(0, 196, 390, 648, "background:#fffdf8;border-radius:26px 26px 0 0;padding:14px 22px")}>
+      <i style="display:block;width:44px;height:5px;border-radius:3px;background:#e0d2bf;margin:0 auto 14px"></i>
+      <div class="disp" style="font:700 22px Fredoka;margin-bottom:12px">Paused</div>
+      <span class="btn" style="width:100%;height:56px;border-radius:16px;background:#c2185b;color:#fff;font-size:17px;margin-bottom:14px">${I("play")} Back to the game</span>
+      <div class="lbl" style="color:#6b5c50;margin:4px 0">THIS GAME</div>
+      ${row("restart", "Restart")}${row("level", "Level", `${g.level} ${dots(g)}`)}${g.input === "arrows" ? row("gear", "Controls", "Arrows") : ""}
+      <div class="lbl" style="color:#6b5c50;margin:14px 0 4px">ELLAZ</div>
+      ${row("home", "All games")}${row("globe", "Language", "English")}${row("sound", "Sound", "On")}
+      <div class="fx" style="gap:10px;margin-top:10px">${["share", "full", "flag"].map((i) => `<span class="btn" style="flex:1;height:48px;border-radius:14px;background:#fff3e0">${I(i)}</span>`).join("")}</div></div>`;
+}
+
+function puzzle(g, pc) {
+  const rule = "1px solid #eadfce";
+  if (!pc) {
+    const tools = [[`${g.level} ${I("down")}`], ...g.stats.map(([k, v]) => [k === "Time" ? `${I("clock")} ${v}` : `${v}`]), ...(g.pause ? [[`${I("pause")} Pause`]] : []), [`${I("restart")} Restart`], ...(g.input === "arrows" ? [[`Arrows ${I("down")}`]] : [])];
+    const bd = board(g, 382, 4, 104);
+    const iy = 104 + bd.h + (g.input === "keys" ? 52 : 22);
+    return `<div class="ab fx" ${P(0, 0, 390, 50, `background:#fffdf8;border-bottom:${rule};padding:0 8px;gap:4px`)}>
+        <span class="btn" style="width:44px">${I("back")}</span><span style="flex:1;text-align:center" class="disp"><b style="font:700 19px Fredoka">${g.name}</b></span>
+        ${coins()}<span class="btn" style="width:40px">${I("sound")}</span><span class="btn" style="width:40px">${I("more")}</span></div>
+      <div class="ab fx" ${P(0, 50, 390, 46, `background:#fffdf8;border-bottom:${rule}`)}>${tools.map((t, i) => `<span class="btn" style="flex:1;height:46px;font-size:14px;${i ? `border-left:${rule}` : ""}">${t[0]}</span>`).join("")}</div>
+      ${bd.html}${thumb(g, 104 + bd.h, 824, "box-shadow:none;border:1.5px solid #e0d2bf;border-radius:8px")}`;
+  }
+  const bh = 560, bw = Math.round(bh / g.ratio), pw = 350, gx = Math.round((1536 - bw - 32 - pw) / 2);
+  const bd = board(g, bw, gx, 66);
+  const px = gx + bw + 32;
+  const stat = ([k, v]) => `<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:${rule};padding:10px 0"><span style="color:#6b5c50;font-weight:600">${k}</span><b style="font:800 22px Heebo">${v}</b></div>`;
+  return `<div class="ab fx" ${P(0, 0, 1536, 52, `background:#fffdf8;border-bottom:${rule};padding:0 24px;gap:10px;font-weight:600`)}>
+      ${I("back")}<span>Ellaz</span><span style="color:#6b5c50">› Classics › ${g.name}</span><span style="flex:1"></span>
+      <span class="btn" style="width:44px">${I("globe")}</span><span class="btn" style="width:44px">${I("sound")}</span>${coins()}<span class="btn" style="width:44px">${I("more")}</span></div>
+    ${bd.html}
+    <div class="ab" ${P(px, 66, pw, bh, `background:#fffdf8;border:${rule};border-radius:14px;padding:18px 20px`)}>
+      <div class="disp" style="font:700 26px Fredoka;margin-bottom:10px">${g.name}</div>
+      <div class="fx" style="gap:8px;margin-bottom:12px"><span class="chip on" style="box-shadow:none">${g.level}</span>${dots(g)}<span style="flex:1"></span><span class="btn" style="height:38px;padding:0 12px;border:1.5px solid #e0d2bf;border-radius:10px">${I("restart")} Restart</span></div>
+      ${g.stats.map(stat).join("")}${g.pause ? `<div style="border-top:${rule};padding:10px 0"><span class="btn" style="height:40px;padding:0 14px;border:1.5px solid #e0d2bf;border-radius:10px">${I("pause")} Pause</span></div>` : ""}
+      <div style="border-top:${rule};margin-top:4px"></div></div>
+    ${g.input === "keys" ? `<div class="ab" ${P(px + 20, 66 + 250, 300, null, "color:#6b5c50;font-size:14px")}>${g.hint}</div>${keys(px + 20, 66 + 282, 5, 56, 56, 6, "box-shadow:none;border:1.5px solid #e0d2bf;border-radius:8px", "key tint")}`
+      : `${modes(px + 20, 66 + 180)}${arrows(px + 90, 66 + 240, 64, 6, "arrow tint")}`}`;
+}
+
+function casual(g, pc) {
+  const badge = (x, y, s, ic) => `<span class="ab btn" ${P(x, y, s, s, "border-radius:50%;background:#fffdf8;box-shadow:0 4px 0 rgba(36,28,23,.18);color:#241c17")}>${I(ic)}</span>`;
+  const boost = (ic, t, bg, s) => `<div style="display:grid;justify-items:center;gap:6px"><span class="btn" style="width:${s}px;height:${s}px;border-radius:50%;background:${bg};color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.22),inset 0 -4px 0 rgba(0,0,0,.15)">${I(ic)}</span><b style="font:800 13px Heebo">${t}</b></div>`;
+  const bl = [["restart", "Restart", "#e17055"], ["level", g.level, "#0984e3"]].concat(g.pause ? [["pause", "Pause", "#00a878"]] : []);
+  const chunky = "border-radius:14px;box-shadow:0 5px 0 rgba(36,28,23,.2);font:800 24px Heebo";
+  if (!pc) {
+    const bw = g.input === "keys" ? 366 : 336, bd = board(g, bw, (390 - bw) / 2, g.stats.length ? 160 : 142);
+    const ribbon = `<div class="ab fx" ${P(24, 78, 342, g.stats.length ? 70 : 54, `border-radius:22px;background:${g.bar};color:#fff;justify-content:space-around;box-shadow:0 5px 0 rgba(0,0,0,.22)`)}>
+        <div style="display:grid;justify-items:center;gap:3px"><b style="font:800 16px Heebo;letter-spacing:.06em">${g.level.toUpperCase()}</b>${dots(g)}</div>
+        ${g.stats.map(([k, v]) => `<div style="display:grid;justify-items:center"><small style="font:700 11px Heebo;opacity:.8">${k.toUpperCase()}</small><b style="font:800 26px Heebo">${v}</b></div>`).join("")}</div>`;
+    const by = bd.h + (g.stats.length ? 160 : 142) + 12;
+    return `${badge(12, 12, 56, "home")}<span class="ab fx" ${P(146, 18, 108, 44, "justify-content:center;border-radius:22px;background:#fffdf8;box-shadow:0 4px 0 rgba(36,28,23,.18)")}>${coins()}</span>
+      ${badge(264, 14, 52, "sound")}${badge(324, 14, 52, "gear")}${ribbon}${bd.html}
+      <div class="ab fx" ${P(0, by, 390, null, "justify-content:center;gap:34px")}>${bl.map((b) => boost(b[0], b[1], b[2], 62)).join("")}</div>
+      ${g.input === "keys" ? keys(14, by + 102, 5, 66, 58, 8, chunky) : arrows(113, by + 96, 52, 6)}`;
+  }
+  const bh = 560, bw = Math.round(bh / g.ratio), bx = 768 - bw / 2;
+  const bd = board(g, bw, bx, 50);
+  const card = (k, v, extra = "") => `<div style="border-radius:20px;background:${g.bar};color:#fff;padding:12px 18px;box-shadow:0 5px 0 rgba(0,0,0,.22);display:grid;justify-items:center">${extra}<small style="font:700 12px Heebo;opacity:.85">${k}</small><b style="font:800 30px Heebo">${v}</b></div>`;
+  return `${badge(20, 16, 60, "home")}<span class="ab fx" ${P(1270, 22, 118, 48, "justify-content:center;border-radius:24px;background:#fffdf8;box-shadow:0 4px 0 rgba(36,28,23,.18)")}>${coins()}</span>
+    ${badge(1398, 18, 56, "sound")}${badge(1462, 18, 56, "gear")}
+    <div class="ab" ${P(bx - 290, 130, 230, null, "display:grid;gap:14px")}>${card("LEVEL", g.level, "")}${g.stats.map(([k, v]) => card(k.toUpperCase(), v)).join("")}</div>
+    ${bd.html}
+    <div class="ab fx" ${P(bx + bw + 50, 96, 300, null, "gap:24px")}>${bl.map((b) => boost(b[0], b[1], b[2], 70)).join("")}</div>
+    ${g.input === "keys" ? keys(bx + bw + 50, 230, 3, 72, 64, 12, chunky) : arrows(bx + bw + 60, 230, 78, 8)}`;
+}
+
+function rails(g, pc) {
+  const tabs = [["home", "Games"], ["globe", "English"], ["sound", "Sound"], ["coin", "0 coins"], ["more", "More"]];
+  const tabIc = (ic) => ic === "coin" ? `<i class="coin" style="width:22px;height:22px"></i>` : I(ic);
+  if (!pc) {
+    const bd = board(g, 374, 8, 94);
+    const iy = 94 + bd.h + (g.input === "keys" ? 64 : 20);
+    return `<div class="ab fx" ${P(0, 0, 390, 58, `background:${g.bar};color:#fff;padding:0 10px 0 16px;gap:8px`)}>
+        <b class="disp" style="font:700 20px Fredoka;flex:1">${g.name}</b>
+        <span class="fx" style="gap:8px;height:38px;padding:0 12px;border-radius:19px;background:rgba(255,255,255,.16);font-weight:700">${g.level} ${dots(g)}</span>
+        ${g.pause ? `<span class="btn" style="width:44px;height:44px">${I("pause")}</span>` : ""}<span class="btn" style="width:44px;height:44px">${I("restart")}</span></div>
+      <div class="ab" ${P(0, 64, 390, 26, "text-align:center;color:#6b5c50;font-weight:700;font-size:14px")}>${g.stats.map(([k, v]) => `${k} ${v}`).join("  ·  ")}</div>
+      ${bd.html}${thumb(g, 94 + bd.h, 760)}
+      <div class="ab fx" ${P(0, 772, 390, 72, "background:#fffdf8;border-top:1px solid #eadfce;box-shadow:0 -3px 10px rgba(36,28,23,.06)")}>${tabs.map(([ic, t], i) => `<span class="btn" style="flex:1;flex-direction:column;gap:3px;height:72px;font-size:11px;${i === 0 ? "color:#c2185b" : "color:#6b5c50"}">${tabIc(ic)}${t}</span>`).join("")}</div>`;
+  }
+  const railTabs = [["home", "Games"], ["globe", "English"], ["sound", "Sound"], ["star", "Favourite"], ["share", "Share"], ["full", "Full"], ["flag", "Tell us"]];
+  const pw = 360, bh = 600, bw = Math.round(bh / g.ratio), bx = 88 + Math.round((1536 - 88 - pw - bw) / 2);
+  const bd = board(g, bw, bx, 20), px = 1536 - pw;
+  return `<div class="ab" ${P(0, 0, 88, 639, `background:${g.bar};color:#fff;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:2px`)}>
+      ${railTabs.map(([ic, t]) => `<span class="btn" style="flex-direction:column;gap:3px;width:80px;height:66px;font-size:11px">${I(ic)}${t}</span>`).join("")}
+      <span style="flex:1"></span><span class="fx" style="flex-direction:column;gap:4px;padding-bottom:16px;font-weight:800">${coins().replace("gap:6px", "gap:4px;flex-direction:column")}</span></div>
+    ${bd.html}
+    <div class="ab" ${P(px, 0, pw, 639, "background:#fffdf8;border-left:1px solid #eadfce;padding:22px 24px")}>
+      <div class="disp" style="font:700 28px Fredoka;margin-bottom:12px">${g.name}</div>
+      <div class="fx" style="gap:8px;margin-bottom:14px"><span class="chip on" style="box-shadow:none">${g.level}</span>${dots(g)}</div>
+      <div class="fx" style="gap:10px;margin-bottom:14px">${g.pause ? `<span class="btn" style="flex:1;height:48px;border-radius:12px;background:${g.bar};color:#fff">${I("pause")} Pause</span>` : ""}<span class="btn" style="flex:1;height:48px;border-radius:12px;background:#fff3e0">${I("restart")} Restart</span></div>
+      ${g.stats.map(([k, v]) => `<div class="fx" style="justify-content:space-between;padding:8px 0;border-top:1px solid #eadfce"><span style="color:#6b5c50;font-weight:600">${k}</span><b style="font:800 22px Heebo">${v}</b></div>`).join("")}</div>
+    ${g.input === "keys" ? `<div class="ab" ${P(px + 24, 350, 300, null, "color:#6b5c50;font-size:14px")}>${g.hint}</div>${keys(px + 24, 380, 5, 56, 54, 6, "", "key tint")}` : `${modes(px + 24, 230)}${arrows(px + 92, 290, 64, 6, "arrow tint")}`}`;
+}
+
+function table(g, pc) {
+  const mat = g.tint, tray = "#e7d2b8";
+  const lid = (x, y, w, inner) => `<div class="ab fx" ${P(x, y, w, 42, "gap:4px;padding:0 8px;border-radius:12px;background:rgba(36,28,23,.06);color:#6b5c50")}>${inner}</div>`;
+  const disc = (s, rot) => `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${g.bar};color:#fff;display:grid;place-items:center;align-content:center;gap:3px;transform:rotate(${rot}deg);box-shadow:0 5px 0 rgba(0,0,0,.25),inset 0 0 0 4px rgba(255,255,255,.2)"><b style="font:800 ${Math.round(s / 5.4)}px Heebo">${g.level.toUpperCase()}</b>${dots(g)}</div>`;
+  const card = ([k, v], rot, w) => `<div style="width:${w}px;padding:8px 6px;border-radius:10px;background:#fffdf8;text-align:center;transform:rotate(${rot}deg);box-shadow:0 5px 0 rgba(36,28,23,.16)"><small style="display:block;font:700 11px Heebo;color:#6b5c50">${k.toUpperCase()}</small><b style="font:800 22px Heebo">${v}</b></div>`;
+  const token = (ic, s, rot) => `<span class="btn" style="width:${s}px;height:${s}px;border-radius:50%;background:#fffdf8;transform:rotate(${rot}deg);box-shadow:0 5px 0 rgba(36,28,23,.2),inset 0 0 0 4px ${g.bar};color:${g.bar}">${I(ic)}</span>`;
+  const tile = `background:#fffdf8;border-radius:8px;box-shadow:0 4px 0 #c9ad8c`;
+  if (!pc) {
+    const bw = g.input === "keys" ? 350 : 330, bd = board(g, bw, (390 - bw) / 2, 176, "box-shadow:0 8px 0 rgba(36,28,23,.18)");
+    const ty = 176 + bd.h + 26;
+    const toks = `<div class="ab fx" ${P(22, 74, 346, 92, "gap:14px;justify-content:center")}>${disc(78, -5)}${g.stats.map((s, i) => card(s, i ? -2 : 3, 84)).join("")}${g.pause ? token("pause", 58, -4) : ""}${token("restart", 58, 6)}</div>`;
+    const trayH = g.input === "keys" ? 190 : 248;
+    const tr = g.input === "keys" ? `<div class="ab" ${P(24, ty, 342, trayH, `border-radius:18px;background:${tray};box-shadow:inset 0 4px 0 rgba(0,0,0,.08)`)}></div>${keys(40, ty + 20, 5, 56, 70, 10, tile)}`
+      : `<div class="ab" ${P(24, ty, 342, trayH, `border-radius:18px;background:${tray};box-shadow:inset 0 4px 0 rgba(0,0,0,.08)`)}></div>${arrows(106, ty + 12, 56, 6, "arrow")}${modes(48, ty + 198)}`;
+    return `${lid(10, 12, 128, `${I("back")}${I("home")}<b class="disp" style="font:700 15px Fredoka;color:#241c17">${g.name}</b>`)}
+      ${lid(212, 12, 168, `${coins()}<span style="flex:1"></span>${I("globe")}${I("sound")}${I("more")}`)}
+      <div class="ab" ${P(10, 62, 370, 772, `border-radius:30px;background:${mat};box-shadow:inset 0 0 0 3px rgba(36,28,23,.06)`)}></div>
+      ${toks}${bd.html}${tr}`;
+  }
+  const bh = 520, bw = Math.round(bh / g.ratio), bx = 768 - bw / 2;
+  const bd = board(g, bw, bx, 76, "box-shadow:0 10px 0 rgba(36,28,23,.18)");
+  return `${lid(20, 10, 190, `${I("back")}${I("home")}<b class="disp" style="font:700 17px Fredoka;color:#241c17">${g.name}</b>`)}
+    ${lid(1300, 10, 216, `${coins()}<span style="flex:1"></span>${I("globe")}${I("sound")}${I("more")}`)}
+    <div class="ab" ${P(150, 60, 1236, 570, `border-radius:40px;background:${mat};box-shadow:inset 0 0 0 3px rgba(36,28,23,.06)`)}></div>
+    <div class="ab" ${P(bx - 330, 110, 280, 440, "display:flex;flex-wrap:wrap;gap:22px;justify-content:center;align-content:center")}>${disc(120, -6)}${g.stats.map((s, i) => card(s, i ? -3 : 4, 110)).join("")}${g.pause ? token("pause", 76, -5) : ""}${token("restart", 76, 7)}</div>
+    ${bd.html}
+    <div class="ab" ${P(bx + bw + 50, 110, 268, 440, `border-radius:22px;background:${tray};box-shadow:inset 0 4px 0 rgba(0,0,0,.08)`)}></div>
+    ${g.input === "keys" ? keys(bx + bw + 76, 138, 3, 66, 72, 12, tile) : `${arrows(bx + bw + 64, 160, 68, 6)}${modes(bx + bw + 60, 400, true)}`}`;
+}
+
+function player(g, pc) {
+  const bar = (w, h) => `<div class="fx" style="height:${h}px;background:#151836;color:#fff;border-radius:0 0 14px 14px;padding:0 10px;gap:6px">
+      ${g.pause ? `<span class="btn" style="width:44px;height:44px">${I("pause")}</span>` : ""}<span class="btn" style="width:44px;height:44px">${I("restart")}</span>
+      ${g.stats.length ? `<b style="font:800 15px Heebo;min-width:40px">${g.stats[0][1]}</b>` : `<b style="font:800 14px Heebo">Stage 1</b>`}
+      <span style="flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.18);position:relative"><i style="position:absolute;inset:0 48% 0 0;border-radius:3px;background:#55efc4"></i></span>
+      ${g.stats[1] ? `<b style="font:700 13px Heebo;opacity:.85">${g.stats[1][1]}</b>` : ""}
+      <span class="fx" style="gap:6px;height:36px;padding:0 12px;border-radius:18px;background:rgba(255,255,255,.12);font:700 13px Heebo">${g.level} ${I("down")}</span></div>`;
+  const appBar = (w, h, pad) => `<div class="ab fx" ${P(0, 0, w, h, `background:${g.bar};color:#fff;padding:0 ${pad}px;gap:6px`)}>
+      <span class="btn" style="height:40px;padding:0 10px;border-radius:20px;background:rgba(255,255,255,.14)">${I("back")}${I("home")}</span>
+      <b class="disp" style="font:700 17px Fredoka;margin-inline-start:6px">${g.name}</b><span style="flex:1"></span>
+      <span class="btn" style="width:40px">${I("globe")}</span><span class="btn" style="width:40px">${I("sound")}</span>
+      <span class="fx" style="height:40px;padding:0 10px;border-radius:20px;background:rgba(255,255,255,.14)">${coins()}</span><span class="btn" style="width:40px">${I("more")}</span></div>`;
+  if (!pc) {
+    const bd = board(g, 374, 8, 66, "border-radius:8px 8px 0 0");
+    const iy = 66 + bd.h + 56 + (g.input === "keys" ? 70 : 30);
+    return `${appBar(390, 54, 8)}${bd.html}<div class="ab" ${P(8, 66 + bd.h, 374, null)}>${bar(374, 56)}</div>
+      ${thumb(g, 66 + bd.h + 56, 824)}`;
+  }
+  const bh = 500, bw = Math.round(bh / g.ratio), bx = 768 - bw / 2;
+  const bd = board(g, bw, bx, 68, "border-radius:8px 8px 0 0");
+  return `${appBar(1536, 56, 20)}${bd.html}<div class="ab" ${P(bx, 68 + bh, bw, null)}>${bar(bw, 54)}</div>
+    ${g.input === "keys" ? `<div class="ab" ${P(bx + bw + 60, 150, 260, null, "color:#6b5c50")}>${g.hint}</div>${keys(bx + bw + 60, 184, 3, 74, 68, 10)}` : `${modes(bx + bw + 50, 150)}${arrows(bx + bw + 70, 210, 76, 6)}`}`;
+}
+
+function frameTabs(g, pc) {
+  const fc = "#6c5ce7";
+  const topBar = (w, h) => `<div class="ab fx" ${P(0, 0, w, h, `background:${g.bar};color:#fff;padding:0 10px;gap:6px`)}>
+      <span class="btn" style="width:${pc ? 60 : 44}px;height:40px">${I("back")}${pc ? I("home") : ""}</span><b class="disp" style="font:700 17px Fredoka">${g.name}</b><span style="flex:1"></span>
+      <span class="btn" style="width:40px">${I("globe")}</span><span class="btn" style="width:40px">${I("sound")}</span>${coins()}<span class="btn" style="width:40px">${I("more")}</span></div>`;
+  const tab = (inner, w, extra = "") => `<span class="fx" style="justify-content:center;gap:8px;width:${w}px;height:44px;border-radius:14px 14px 0 0;background:${fc};color:#fff;font:800 14px Heebo;${extra}">${inner}</span>`;
+  if (!pc) {
+    const bw = 352, fx = 9, fy = 118;
+    const bd = board(g, bw, fx + 10, fy + 10, "border:0;border-radius:4px");
+    const lip = g.stats.length ? 34 : 10;
+    const fh = bd.h + 20 + lip;
+    const iy = fy + fh + (g.input === "keys" ? 56 : 22);
+    return `${topBar(390, 50)}
+      <div class="ab fx" ${P(fx + 14, fy - 44, 344, 44, "gap:8px")}>${tab(`${g.level} ${dots(g)}`, 132)}<span style="flex:1"></span>${g.pause ? tab(I("pause"), 56) : ""}${tab(I("restart"), 56)}</div>
+      <div class="ab" ${P(fx, fy, bw + 20, fh, `background:${fc};border-radius:18px;box-shadow:0 5px 0 rgba(36,28,23,.2)`)}></div>${bd.html}
+      ${g.stats.length ? `<div class="ab fx" ${P(fx, fy + bd.h + 20, bw + 20, lip - 4, "justify-content:center;gap:18px;color:#fff;font:800 15px Heebo")}>${g.stats.map(([k, v]) => `<span>${k} ${v}</span>`).join("")}</div>` : ""}
+      ${thumb(g, fy + fh, 824)}`;
+  }
+  const bh = 520, bw = Math.round(bh / g.ratio), fx = 768 - (bw + 20) / 2 - 130, fy = 66;
+  const bd = board(g, bw, fx + 10, fy + 10, "border:0;border-radius:4px");
+  const lip = g.stats.length ? 30 : 10;
+  const side = (inner) => `<span class="fx" style="flex-direction:column;justify-content:center;gap:4px;width:78px;min-height:74px;border-radius:14px 0 0 14px;background:${fc};color:#fff;font:800 13px Heebo;text-align:center">${inner}</span>`;
+  const dx = fx + bw + 20;
+  return `${topBar(1536, 52)}
+    <div class="ab" ${P(fx - 78, fy + 30, 78, null, "display:grid;gap:10px")}>${side(`${I("level")}${g.level}`)}${g.pause ? side(`${I("pause")}Pause`) : ""}${side(`${I("restart")}Restart`)}</div>
+    <div class="ab" ${P(fx, fy, bw + 20, bh + 20 + lip, `background:${fc};border-radius:18px 0 18px 18px`)}></div>${bd.html}
+    ${g.stats.length ? `<div class="ab fx" ${P(fx, fy + bh + 20, bw + 20, lip - 6, "justify-content:center;gap:24px;color:#fff;font:800 15px Heebo")}>${g.stats.map(([k, v]) => `<span>${k} ${v}</span>`).join("")}</div>` : ""}
+    <div class="ab" ${P(dx, fy + 20, 300, 440, `background:${fc};border-radius:0 18px 18px 0`)}></div>
+    ${g.input === "keys" ? `<div class="ab" ${P(dx + 26, fy + 44, 260, null, "color:#fff;font-weight:600")}>${g.hint}</div>${keys(dx + 30, fy + 80, 3, 72, 70, 10)}` : `${modes(dx + 18, fy + 44, true).replace("gap:6px;", "gap:6px;width:150px;")}${arrows(dx + 60, fy + 200, 58, 6)}`}`;
+}
+
+/* ============ the page ============ */
+const KEY = "ellaz:layout-lab:layouts:v1";
+let verdicts = {};
+try { verdicts = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
+fetch("/__lab/v/layouts-v1-2026-09-28").then((r) => r.json()).then((v) => { if (v && v.verdicts) { verdicts = { ...v.verdicts, ...verdicts }; draw(); } }).catch(() => {});
+const qs = new URLSearchParams(location.search);
+let cur = qs.get("d") || "today", game = qs.get("g") || "sudoku";
+try { if (!qs.get("d")) cur = localStorage.getItem(KEY + ":tab") || cur; } catch {}
+
+const TODAY = { sudoku: ["/__lab/shots/sudoku-phone-today.jpg", "/__lab/shots/sudoku-laptop-today.jpg"], snake: ["/__lab/t/today-snake-phone.jpg", "/__lab/t/today-snake-pc.jpg"] };
+function frames(d) {
+  const g = GAMES[game];
+  if (d.id === "today") {
+    const [ph, pc] = TODAY[game];
+    return [["Phone 390x844", `<img class="shot" src="${ph}" width="390" height="844" alt="today phone">`, "phone"], ["Laptop 1536x639", `<img class="shot" src="${pc}" width="1536" height="639" alt="today laptop">`, "pc"]];
+  }
+  const out = [["Phone 390x844", `<div class="app" data-mock-source="author">${d.draw(g, false)}</div>`, "phone"], ["Laptop 1536x639", `<div class="app pc" data-mock-source="author">${d.draw(g, true)}</div>`, "pc"]];
+  if (d.id === "onebtn") out.push(["Phone, menu open", `<div class="app" data-mock-source="author">${d.draw(g, false, true)}</div>`, "phone"]);
+  return out;
+}
+const BASE = { sudoku: { phone: 367, pc: 384 }, snake: { phone: 315, pc: 340 } }; // live board widths, measured 2026-09-28
+
+function draw() {
+  const d = DIRS.find((x) => x.id === cur) || DIRS[0];
+  document.getElementById("tabs").innerHTML = DIRS.map((x) => {
+    const v = verdicts[x.id];
+    const mark = v && v.verdict ? { yes: "✓", maybe: "?", no: "✗" }[v.verdict] : "";
+    return `<button class="tab" role="tab" aria-selected="${x.id === d.id}" data-id="${x.id}">${x.name}${mark ? `<span class="v">${mark}</span>` : ""}</button>`;
+  }).join("") + `<button class="tab" role="tab" aria-selected="${cur === "set"}" data-id="set">All of them</button>`;
+  document.querySelectorAll("#games button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.g === game)));
+  if (cur === "set") return drawSet();
+  document.getElementById("idea").innerHTML = `<b>${d.name}</b><br>${d.idea}<div class="rule"><span>Game buttons: <i>${d.game}</i></span><span>App buttons: <i>${d.app}</i></span></div>`;
+  document.getElementById("stage").innerHTML = frames(d).map(([t, html, k]) => `<div class="fr"><p>${t}<em data-gain="${k}"></em></p><div class="clip ${k}">${html}</div></div>`).join("");
+  measure();
+  const v = verdicts[d.id] || {};
+  if (d.id === "today") {
+    document.getElementById("verdict").innerHTML = `<div class="row"><b>This is the control: today's live page.</b> Flip between studios and come back to compare.</div>`;
+    return;
+  }
+  const pick = (k, val, cls, label) => `<button class="pick ${cls}" aria-pressed="${v[k] === val}" data-k="${k}" data-val="${val}">${label}</button>`;
+  const done = DIRS.filter((x) => x.draw && verdicts[x.id]?.verdict && verdicts[x.id]?.why).length;
+  document.getElementById("verdict").innerHTML = `
+    <div class="row"><b>Your verdict on ${d.name}:</b>
+      ${pick("verdict", "yes", "yes", "Yes, this direction")}${pick("verdict", "maybe", "maybe", "Maybe")}${pick("verdict", "no", "no", "No")}</div>
+    <div class="row"><b>Mostly because of:</b>
+      ${pick("why", "game", "why", "Where the game buttons sit")}${pick("why", "app", "why", "Where the app buttons sit")}${pick("why", "space", "why", "How it uses the space")}${pick("why", "busy", "why", "Too busy / too empty")}${pick("why", "all", "why", "All of it")}</div>
+    <textarea id="note" placeholder="Anything to keep or change (optional)">${v.note || ""}</textarea>
+    <div class="row"><span class="dim" id="saved"></span><span class="dim">${done} of ${DIRS.length - 1} studios judged (verdict + reason)</span></div>`;
+}
+
+function drawSet() {
+  const v = verdicts.set || {};
+  document.getElementById("idea").innerHTML = `<b>All eight, one question</b><br>Do these read as eight different layouts, or do some feel like the same thing?`;
+  document.getElementById("stage").innerHTML = "";
+  const pick = (val, cls, label) => `<button class="pick ${cls}" aria-pressed="${v.verdict === val}" data-k="verdict" data-val="${val}">${label}</button>`;
+  document.getElementById("verdict").innerHTML = `<div class="row">${pick("distinct", "yes", "Eight different layouts")}${pick("some", "maybe", "Some feel the same")}${pick("same", "no", "They all feel the same")}</div>
+    <textarea id="note" placeholder="Which ones feel the same? (optional)">${v.note || ""}</textarea><div class="row"><span class="dim" id="saved"></span></div>`;
+}
+
+/** Board size in each frame, read off the render, beside the live page's. */
+function measure() {
+  requestAnimationFrame(() => document.querySelectorAll("[data-gain]").forEach((em) => {
+    const app = em.closest(".fr").querySelector(".app");
+    if (!app) { em.textContent = `board ${BASE[game][em.dataset.gain]} px wide`; return; }
+    const bd = app.querySelector(".bd");
+    const w = bd ? Math.round(parseFloat(bd.style.width)) : 0;
+    const base = BASE[game][em.dataset.gain];
+    em.textContent = w ? `board ${w} px wide (today ${base}, ${w >= base ? "+" : ""}${Math.round((w / base - 1) * 100)}%)` : "";
+  }));
+}
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(verdicts)); } catch {}
+  const payload = { at: new Date().toISOString(), round: "layout-studios-2026-09-28", constants: "Day theme, sudoku + snake, 390x844 + 1536x639, the live button set", verdicts };
+  fetch("/__lab/v/layouts-v1-2026-09-28", { method: "POST", body: JSON.stringify(payload) })
+    .then((r) => { document.getElementById("saved").textContent = r.ok ? "Saved." : "Not saved."; })
+    .catch(() => { document.getElementById("saved").textContent = "Kept in this browser only (open it from the dev server to save)."; });
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.classList.contains("tab")) {
+    cur = t.dataset.id;
+    try { localStorage.setItem(KEY + ":tab", cur); } catch {}
+    draw();
+  } else if (t.dataset.g) {
+    game = t.dataset.g; draw();
+  } else if (t.classList.contains("pick")) {
+    verdicts[cur] = { ...(verdicts[cur] || {}), [t.dataset.k]: t.dataset.val };
+    draw(); save();
+  }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.id !== "note") return;
+  verdicts[cur] = { ...(verdicts[cur] || {}), note: e.target.value };
+  save();
+});
+draw();
+</script>
+<script src="http://localhost:8772/_assets/beetle.js" data-surface="ellaz-layout-studios"></script>
+</body>
+</html>

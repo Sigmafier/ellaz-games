@@ -12,6 +12,7 @@ import { DEFAULT_THEME, needsThemeBoot, themeBootScript, themeById } from "./src
 // leaf that imports nothing. Never reach for a game module at config time -
 // a stray `import("./src/games/snake")` would load Phaser inside this file.
 import { CANONICAL_LOCALE, PAGE_LOCALES } from "./src/i18n/locales";
+import { labRoundsPlugin } from "./src/lab/rounds/serve";
 
 /**
  * Which games' `meta.ts` the SHELL carries - parsed out of `shellRoster.ts`,
@@ -203,6 +204,8 @@ export default defineConfig({
   plugins: [
     // First, so its head-prepend lands above everything else in <head>.
     themeBootPlugin(),
+    // Dev server only: the lab rounds (run-a-lab-round skill) - pages, ledger, verdicts.
+    labRoundsPlugin(),
     react(),
     // The four picked-only theme sheets and their fonts, emitted beside the
     // bundle and served in dev. Nothing imports them, so no chunk carries them.

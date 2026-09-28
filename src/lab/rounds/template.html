@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Round Template</title>
+<!--
+  THE ROUND TEMPLATE - copy this file to <name>.html beside it, fill in ROUND
+  below, and nothing else. The judging page around the cells is the part the
+  operator asked for across three rounds (2026-09-27/28) and it stays as is:
+  pinned tabs, zoom -/+/Fit/100%, a verdict bar that folds, tap to enlarge,
+  today's real page as a tab, an honest board cost on every picture, and a
+  last tab asking whether the set reads as different ideas at all.
+  How to run a round: .claude/skills/run-a-lab-round/SKILL.md.
+
+  THE CONTRACT scripts/lab/check-round.mjs reads, so every cell must keep it:
+    .app / .app.pc    one frame, 390x844 / 1536x639, drawn at real size
+    .bd               the board inside it (its inline width is the board size)
+    .btn .key .chip .arrow   anything a player presses
+-->
+<style>
+@font-face{font-family:Fredoka;src:url("/src/ui/fonts/fredoka-latin.woff2") format("woff2");font-weight:300 700;font-display:block}
+@font-face{font-family:Heebo;src:url("/src/ui/fonts/heebo-latin.woff2") format("woff2");font-weight:100 900;font-display:block}
+:root{--bg:#0b1020;--card:#141b2e;--line:#243049;--ink:#e8ecf6;--dim:#93a0bb;--on:#2563eb;--good:#16a34a;--bad:#dc2626;--mid:#b45309}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Heebo,system-ui,sans-serif}
+.page{margin:0 auto;padding:0 16px 190px}
+body.folded .page{padding-bottom:70px}
+h1{font:700 22px Fredoka,sans-serif;margin:14px 0 2px}
+h2{font:700 18px Fredoka,sans-serif;margin:18px 0 8px;display:flex;gap:12px;align-items:baseline}
+h2 small{font:400 13px Heebo,sans-serif;color:var(--dim)}
+.sub{color:var(--dim);margin:0 0 12px;max-width:1100px}
+.top{position:sticky;top:0;z-index:45;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 0 8px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.tab{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 14px;font:600 14px Heebo,sans-serif;cursor:pointer;min-height:44px}
+.tab[aria-selected="true"]{background:var(--on);border-color:var(--on);color:#fff}
+.tab .v{margin-inline-start:6px}
+.zoom{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:12px;padding:3px;background:var(--card)}
+.zoom button{min-width:44px;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--ink);font:700 15px Heebo,sans-serif;cursor:pointer;padding:0 10px}
+.zoom button:hover,.zoom button[aria-pressed="true"]{background:var(--line)}
+.zoom output{min-width:52px;text-align:center;color:var(--dim);font:600 13px Heebo,sans-serif}
+.idea{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 4px}
+.idea b{font-size:17px}
+.row6,.grid2{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.fr{max-width:100%}
+.fr p{margin:0 0 5px;color:var(--dim);font-weight:600;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+.fr p b{color:var(--ink)}
+.fr p em{font-style:normal;color:#ffd166}
+.clip{position:relative;overflow:hidden;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);background:#fff;cursor:zoom-in}
+.clip.phone{width:calc(390px * var(--sp));height:calc(844px * var(--sp))}
+.clip.pc{width:calc(1536px * var(--sc));height:calc(639px * var(--sc))}
+.clip>*{position:absolute;left:0;top:0;transform-origin:0 0}
+.clip.phone>*{transform:scale(var(--sp))}
+.clip.pc>*{transform:scale(var(--sc))}
+.clip>img{display:block}
+.box{position:fixed;inset:0;background:rgba(5,8,16,.88);display:none;place-items:center;z-index:50;cursor:zoom-out}
+.box.on{display:grid}
+.verdict{position:fixed;left:0;right:0;bottom:0;background:#0f1628;border-top:1px solid var(--line);padding:10px 16px;z-index:40}
+.verdict .in{max-width:1560px;margin:0 auto;display:grid;gap:8px}
+.fold{position:absolute;left:16px;top:-40px;min-height:40px;padding:0 14px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:#0f1628;color:var(--ink);font:700 14px Heebo,sans-serif;cursor:pointer}
+body.folded .verdict .in{display:none}
+body.folded .verdict{padding:0;height:0;border-top-width:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pick{background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:7px 13px;min-height:44px;font:600 14px Heebo,sans-serif;cursor:pointer}
+.pick[aria-pressed="true"].yes{background:var(--good);border-color:var(--good);color:#fff}
+.pick[aria-pressed="true"].maybe{background:var(--mid);border-color:var(--mid);color:#fff}
+.pick[aria-pressed="true"].no{background:var(--bad);border-color:var(--bad);color:#fff}
+.pick[aria-pressed="true"].why{background:var(--on);border-color:var(--on);color:#fff}
+input.note{flex:1;min-width:260px;min-height:44px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:14px Heebo,sans-serif}
+.dim{color:var(--dim);font-size:13px}
+.rounds{font:600 14px Heebo,sans-serif;color:#9cc2ff;margin-inline-start:12px}
+/* ---------- the mock app: held constant across every cell (Day) ---------- */
+.app{width:390px;height:844px;overflow:hidden;background:#fff6e9;color:#241c17;font-family:Heebo,sans-serif;position:relative}
+.app.pc{width:1536px;height:639px}
+.app *{box-sizing:border-box}
+.ab{position:absolute}
+.bd{background:#20244a;border:3px solid #6c5ce7;border-radius:8px}
+.btn,.key{display:grid;place-items:center;border:0;background:#fffdf8;border-radius:10px;box-shadow:0 3px 0 rgba(36,28,23,.16);font:800 18px Heebo,sans-serif;color:#241c17;cursor:pointer}
+/* ---------- your round's own styles go here ---------- */
+</style>
+</head>
+<body>
+<div class="page">
+  <h1><span id="title"></span> <a class="rounds" href="/__lab/t/rounds.html">All rounds</a></h1>
+  <p class="sub" id="question"></p>
+  <div class="top">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="zoom" aria-label="Zoom">
+      <button data-z="out" aria-label="Zoom out">&minus;</button>
+      <output id="zlabel"></output>
+      <button data-z="in" aria-label="Zoom in">+</button>
+      <button data-z="fit" title="Every picture whole on screen (0)">Fit</button>
+      <button data-z="real" title="Real size (1)">100%</button>
+    </div>
+  </div>
+  <div class="idea" id="idea"></div>
+  <div id="stage"></div>
+</div>
+<div class="box" id="box"></div>
+<div class="verdict"><button class="fold" id="fold" aria-expanded="true">Hide verdict</button><div class="in" id="verdict"></div></div>
+
+<script>
+/* ======================= FILL THIS IN, NOTHING BELOW IT ======================= */
+window.ROUND = {
+  // The verdict file is .lab-shots/t/v-<id>.json. Name the frozen copy <id>.html.
+  id: "template-example",
+  title: "Round Template",
+  // ONE plain question. A LOOK question gets whole styles; a WHERE question whole metaphors.
+  question: "EXAMPLE ONLY - replace every cell. Where should the game's numbers sit?",
+  // What is held still in every cell, so a verdict is about the idea and nothing else.
+  constants: "Day theme; one game; 390x844 and 1536x639",
+  // One required reason per verdict. Keep "all of it" - without it the operator is pushed to a lie.
+  why: [["idea", "The idea itself"], ["craft", "How it is drawn"], ["space", "How it uses the screen"], ["all", "All of it"]],
+  // Real games with DIFFERENT controls. base = the live board's width [phone, PC], measured
+  // off the live page - it is what the cost on every picture is measured against.
+  games: [{ id: "sudoku", name: "Sudoku", base: [367, 451] }],
+  // Today's page, captured off the live site at real size (run-a-lab-round, step 1).
+  today: (g, pc) => `/__lab/shots/${g.id}-${pc ? "laptop" : "phone"}-today.jpg`,
+  // The cells. "today" is the control and draws the capture; every other cell draws both screens.
+  cells: [
+    { id: "today", name: "Today", full: "Today, the live page", idea: "The control. Flip to a cell and back to compare." },
+    {
+      id: "above", name: "A. Above", full: "A. Numbers above the board", idea: "Example cell: the numbers in a row over the board.",
+      phone: (g) => `<div class="ab" style="left:12px;top:70px;right:12px;height:44px;display:flex;gap:8px"><span class="btn" style="flex:1">Level</span><span class="btn" style="flex:1">Time</span></div><div class="ab bd" style="left:12px;top:130px;width:366px;height:366px"></div>`,
+      pc: (g) => `<div class="ab" style="left:543px;top:80px;width:450px;height:44px;display:flex;gap:8px"><span class="btn" style="flex:1">Level</span><span class="btn" style="flex:1">Time</span></div><div class="ab bd" style="left:543px;top:136px;width:451px;height:451px"></div>`,
+    },
+    {
+      id: "beside", name: "B. Beside", full: "B. Numbers beside the board", idea: "Example cell: on a PC the numbers move into the empty left column.",
+      phone: (g) => `<div class="ab" style="left:12px;top:70px;right:12px;height:44px;display:flex;gap:8px"><span class="btn" style="flex:1">Level</span><span class="btn" style="flex:1">Time</span></div><div class="ab bd" style="left:12px;top:130px;width:366px;height:366px"></div>`,
+      pc: (g) => `<div class="ab" style="left:120px;top:250px;width:260px;display:grid;gap:10px"><span class="btn" style="height:56px">Level</span><span class="btn" style="height:56px">Time</span></div><div class="ab bd" style="left:518px;top:60px;width:500px;height:500px"></div>`,
+    },
+  ],
+};
+/* ================================ THE PAGE ================================ */
+const R = window.ROUND, CELLS = R.cells, KEY = `ellaz:lab-round:${R.id}`;
+document.getElementById("title").textContent = R.title;
+document.title = R.title;
+document.getElementById("question").textContent = `${R.question} Held the same in every picture: ${R.constants}.`;
+let zoom = "fit", folded = false, verdicts = {};
+try { zoom = JSON.parse(localStorage.getItem("ellaz:lab-round:zoom") || '"fit"'); folded = localStorage.getItem("ellaz:lab-round:folded") === "1"; verdicts = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
+fetch(`/__lab/v/${R.id}`).then((r) => r.json()).then((v) => { if (v && v.verdicts) { verdicts = { ...v.verdicts, ...verdicts }; draw(); } }).catch(() => {});
+const qs = new URLSearchParams(location.search);
+let cur = qs.get("d") || CELLS[0].id;
+try { if (!qs.get("d")) cur = localStorage.getItem(KEY + ":tab") || cur; } catch {}
+const STEPS = [0.25, 0.33, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5];
+
+function fitScales() {
+  const w = document.querySelector(".page").clientWidth - 32;
+  const h = innerHeight - document.querySelector(".top").offsetHeight - (folded ? 0 : document.querySelector(".verdict").offsetHeight) - 70;
+  const n = Math.max(1, R.games.length);
+  return [Math.min((w - (n - 1) * 14) / n / 390, h / 844), Math.min((w - 14) / Math.min(2, n) / 1536, h / 639)];
+}
+function applyZoom() {
+  const [fp, fc] = fitScales(), sp = zoom === "fit" ? fp : zoom, sc = zoom === "fit" ? fc : zoom;
+  document.documentElement.style.setProperty("--sp", sp.toFixed(4));
+  document.documentElement.style.setProperty("--sc", sc.toFixed(4));
+  document.getElementById("zlabel").textContent = `${Math.round(sp * 100)}%`;
+  document.querySelectorAll(".zoom [data-z]").forEach((b) => b.setAttribute("aria-pressed", String((b.dataset.z === "fit" && zoom === "fit") || (b.dataset.z === "real" && zoom === 1))));
+  try { localStorage.setItem("ellaz:lab-round:zoom", JSON.stringify(zoom)); } catch {}
+}
+function stepZoom(dir) {
+  const now = zoom === "fit" ? fitScales()[0] : zoom;
+  zoom = (dir > 0 ? STEPS.find((s) => s > now + 0.001) : [...STEPS].reverse().find((s) => s < now - 0.001)) ?? now;
+  applyZoom();
+}
+function applyFold() {
+  document.body.classList.toggle("folded", folded);
+  const b = document.getElementById("fold");
+  b.textContent = folded ? "Show verdict" : "Hide verdict";
+  b.setAttribute("aria-expanded", String(!folded));
+  try { localStorage.setItem("ellaz:lab-round:folded", folded ? "1" : "0"); } catch {}
+  applyZoom();
+}
+addEventListener("resize", () => zoom === "fit" && applyZoom());
+
+function frame(c, g, pc) {
+  const inner = c.id === "today"
+    ? `<img src="${R.today(g, pc)}" width="${pc ? 1536 : 390}" height="${pc ? 639 : 844}" alt="${g.name} today">`
+    : `<div class="app ${pc ? "pc" : ""}">${pc ? c.pc(g) : c.phone(g)}</div>`;
+  return `<div class="fr"><p><b>${g.name}</b><em data-cost="${g.id}|${pc ? 1 : 0}"></em></p><div class="clip ${pc ? "pc" : "phone"}">${inner}</div></div>`;
+}
+function draw() {
+  const c = CELLS.find((x) => x.id === cur);
+  document.getElementById("tabs").innerHTML = CELLS.map((x) => {
+    const v = verdicts[x.id], mark = v && v.verdict ? { yes: "✓", maybe: "?", no: "✗" }[v.verdict] : "";
+    return `<button class="tab" role="tab" aria-selected="${x.id === cur}" data-id="${x.id}" title="${x.full}">${x.name}${mark ? `<span class="v">${mark}</span>` : ""}</button>`;
+  }).join("") + `<button class="tab" role="tab" aria-selected="${cur === "set"}" data-id="set">All</button>`;
+  if (!c) return drawSet();
+  document.getElementById("idea").innerHTML = `<b>${c.full}</b><br>${c.idea}`;
+  document.getElementById("stage").innerHTML =
+    `<h2>Phone <small>390 x 844</small></h2><div class="row6">${R.games.map((g) => frame(c, g, false)).join("")}</div>` +
+    `<h2>PC <small>1536 x 639</small></h2><div class="grid2">${R.games.map((g) => frame(c, g, true)).join("")}</div>`;
+  cost();
+  drawVerdict(c);
+  applyZoom();
+}
+/** The board each picture draws, against the live board: the honest cost of the idea. */
+function cost() {
+  requestAnimationFrame(() => document.querySelectorAll("[data-cost]").forEach((em) => {
+    const [id, pc] = em.dataset.cost.split("|"), base = R.games.find((g) => g.id === id).base[+pc];
+    const bd = em.closest(".fr").querySelector(".app .bd");
+    if (!bd) { em.textContent = `board ${base} px`; return; }
+    const w = Math.round(parseFloat(bd.style.width)), pct = Math.round(((w / base) ** 2 - 1) * 100);
+    em.textContent = `board ${w} px (${pct >= 0 ? "+" : ""}${pct}% area)`;
+  }));
+}
+function drawVerdict(c) {
+  const el = document.getElementById("verdict");
+  if (c.id === "today") { el.innerHTML = `<div class="row"><b>Today is the control.</b> <span class="dim">Flip to a cell and come back to compare.</span></div>`; return; }
+  const v = verdicts[c.id] || {}, judged = CELLS.filter((x) => x.id !== "today" && verdicts[x.id]?.verdict && verdicts[x.id]?.why).length;
+  const pick = (k, val, cls, label) => `<button class="pick ${cls}" aria-pressed="${v[k] === val}" data-k="${k}" data-val="${val}">${label}</button>`;
+  el.innerHTML = `<div class="row"><b>${c.full}:</b>${pick("verdict", "yes", "yes", "Yes")}${pick("verdict", "maybe", "maybe", "Maybe")}${pick("verdict", "no", "no", "No")}
+      <span class="dim" style="margin-inline-start:auto">${judged} of ${CELLS.length - 1} judged</span><span class="dim" id="saved"></span></div>
+    <div class="row"><b>Mostly because of:</b>${R.why.map(([k, label]) => pick("why", k, "why", label)).join("")}
+      <input class="note" id="note" placeholder="Anything to keep or change (optional)" value="${(v.note || "").replace(/"/g, "&quot;")}"></div>`;
+}
+function drawSet() {
+  const v = verdicts.set || {}, n = CELLS.length - 1;
+  document.getElementById("idea").innerHTML = `<b>All ${n} together, one question</b><br>Do these read as ${n} different ideas, or do some feel like the same thing?`;
+  document.getElementById("stage").innerHTML = "";
+  const pick = (val, cls, label) => `<button class="pick ${cls}" aria-pressed="${v.verdict === val}" data-k="verdict" data-val="${val}">${label}</button>`;
+  document.getElementById("verdict").innerHTML = `<div class="row">${pick("distinct", "yes", `${n} different ideas`)}${pick("some", "maybe", "Some feel the same")}${pick("same", "no", "They all feel the same")}<span class="dim" id="saved"></span></div>
+    <div class="row"><input class="note" id="note" placeholder="Which ones feel the same? (optional)" value="${(v.note || "").replace(/"/g, "&quot;")}"></div>`;
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(verdicts)); } catch {}
+  const s = (t) => { const el = document.getElementById("saved"); if (el) el.textContent = t; };
+  fetch(`/__lab/v/${R.id}`, { method: "POST", body: JSON.stringify({ at: new Date().toISOString(), round: R.id, constants: R.constants, verdicts }) })
+    .then((r) => s(r.ok ? "Saved." : "Not saved.")).catch(() => s("Kept in this browser only."));
+}
+document.addEventListener("click", (e) => {
+  const z = e.target.closest(".zoom [data-z]");
+  if (z) { const k = z.dataset.z; k === "in" ? stepZoom(1) : k === "out" ? stepZoom(-1) : ((zoom = k === "fit" ? "fit" : 1), applyZoom()); return; }
+  if (e.target.closest("#fold")) { folded = !folded; applyFold(); return; }
+  const clip = e.target.closest(".page .clip");
+  if (clip) {
+    const pc = clip.classList.contains("pc"), sc = Math.min((innerWidth - 40) / (pc ? 1536 : 390), (innerHeight - 40) / (pc ? 639 : 844));
+    const box = document.getElementById("box");
+    box.innerHTML = `<div class="clip" style="width:${(pc ? 1536 : 390) * sc}px;height:${(pc ? 639 : 844) * sc}px">${clip.innerHTML.replace(/^\s*<(div|img)/, `<$1 style="transform:scale(${sc})"`)}</div>`;
+    box.classList.add("on");
+    return;
+  }
+  if (e.target.closest("#box")) { document.getElementById("box").classList.remove("on"); return; }
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.classList.contains("tab")) {
+    cur = t.dataset.id;
+    try { localStorage.setItem(KEY + ":tab", cur); } catch {}
+    draw(); scrollTo(0, 0);
+  } else if (t.classList.contains("pick")) {
+    verdicts[cur] = { ...(verdicts[cur] || {}), [t.dataset.k]: t.dataset.val };
+    draw(); save();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("box").classList.remove("on");
+  if (e.target.closest("input, textarea")) return;
+  if (e.key === "+" || e.key === "=") stepZoom(1);
+  else if (e.key === "-") stepZoom(-1);
+  else if (e.key === "0") { zoom = "fit"; applyZoom(); }
+  else if (e.key === "1") { zoom = 1; applyZoom(); }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.id !== "note") return;
+  verdicts[cur] = { ...(verdicts[cur] || {}), note: e.target.value };
+  save();
+});
+draw();
+applyFold();
+</script>
+<script src="http://localhost:8772/_assets/beetle.js" data-surface="ellaz-lab-round"></script>
+</body>
+</html>

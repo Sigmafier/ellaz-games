@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lab Rounds</title>
+<style>
+@font-face{font-family:Fredoka;src:url("/src/ui/fonts/fredoka-latin.woff2") format("woff2");font-weight:300 700;font-display:block}
+@font-face{font-family:Heebo;src:url("/src/ui/fonts/heebo-latin.woff2") format("woff2");font-weight:100 900;font-display:block}
+:root{--bg:#0b1020;--card:#141b2e;--line:#243049;--ink:#e8ecf6;--dim:#93a0bb;--on:#2563eb;--pick:#ffd166}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Heebo,system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:18px 16px 60px}
+h1{font:700 24px Fredoka,sans-serif;margin:0 0 4px}
+.sub{color:var(--dim);margin:0 0 18px}
+ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+li{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px;display:grid;gap:4px}
+li.now{border-color:var(--pick)}
+.hd{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline}
+.hd b{font:700 17px Fredoka,sans-serif}
+.date{color:var(--dim);font-size:13px}
+.tag{font:700 12px Heebo,sans-serif;border-radius:999px;padding:2px 9px;background:var(--line)}
+.q{color:var(--ink);font-style:italic}.q::before{content:'You: '}.page-v{font-size:13px;color:var(--dim)}
+.tag.won{background:#14532d;color:#bbf7d0}.tag.open{background:#78350f;color:#fde68a}.tag.no{background:#450a0a;color:#fecaca}
+p{margin:0;color:var(--dim)}
+a.go{justify-self:start;display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:10px;background:var(--on);color:#fff;font-weight:700;text-decoration:none;margin-top:4px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Lab rounds</h1>
+  <p class="sub">Every art-studio round we have run, oldest first. A new round starts from <a href="/__lab/t/template.html" style="color:#9cc2ff">the template</a> (run-a-lab-round skill). Each version is frozen as it was shown to you. Each card says what was asked, what you said, and what the page's own verdict buttons recorded.</p>
+  <ol id="list"><li>Loading the rounds...</li></ol>
+</main>
+<script>
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const TAG = { won: "decided", no: "rejected" };
+async function pageVerdicts(name) {
+  if (!name) return "No verdict buttons on this page.";
+  try {
+    const v = (await (await fetch(`/__lab/v/${name}`)).json()).verdicts || {};
+    const rows = Object.entries(v).filter(([, x]) => x && x.verdict);
+    if (!rows.length) return "On the page: 0 verdicts recorded (you ruled in chat).";
+    return "On the page: " + rows.map(([k, x]) => `${esc(k)} ${esc(x.verdict)}${x.why ? " (" + esc(x.why) + ")" : ""}${x.note ? ": " + esc(x.note) : ""}`).join(" · ");
+  } catch { return "On the page: could not read the verdict file."; }
+}
+(async () => {
+  const list = document.getElementById("list");
+  try {
+    const { rounds } = await (await fetch("/__lab/t/rounds.json")).json();
+    const cards = await Promise.all(rounds.map(async (r, n) => `<li class="${n === rounds.length - 1 ? "now" : ""}"><div class="hd"><b>${esc(r.title)}</b><span class="date">${esc(r.date)}</span>${r.tag ? `<span class="tag ${r.tag}">${TAG[r.tag]}</span>` : ""}</div>
+      <p>${esc(r.asked)}</p><p class="q">${esc(r.ruling)}</p><p>${esc(r.outcome)}</p><p class="page-v">${await pageVerdicts(r.verdicts)}</p>
+      ${r.href ? `<a class="go" href="${esc(r.href)}">Open</a>` : `<p>This round's page was not kept.</p>`}</li>`));
+    list.innerHTML = cards.join("");
+  } catch { list.innerHTML = "<li>Could not read rounds.json.</li>"; }
+})();
+</script>
+<script src="http://localhost:8772/_assets/beetle.js" data-surface="ellaz-lab-rounds"></script>
+</body>
+</html>

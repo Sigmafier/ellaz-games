@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Game Table Studios</title>
+<style>
+@font-face{font-family:Fredoka;src:url("/src/ui/fonts/fredoka-latin.woff2") format("woff2");font-weight:300 700;font-display:block}
+@font-face{font-family:Heebo;src:url("/src/ui/fonts/heebo-latin.woff2") format("woff2");font-weight:100 900;font-display:block}
+
+/* ---------- the lab page around the mocks ---------- */
+:root{--bg:#0b1020;--card:#141b2e;--line:#243049;--ink:#e8ecf6;--dim:#93a0bb;--on:#2563eb;--good:#16a34a;--bad:#dc2626;--mid:#b45309}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Heebo,system-ui,sans-serif}
+.page{max-width:none;margin:0 auto;padding:0 16px 190px}
+body.folded .page{padding-bottom:70px}
+h1{font:700 22px Fredoka,sans-serif;margin:0 0 2px}
+h2{font:700 18px Fredoka,sans-serif;margin:18px 0 8px;display:flex;gap:12px;align-items:baseline}
+h2 small{font:400 13px Heebo,sans-serif;color:var(--dim)}
+.sub{color:var(--dim);margin:0 0 12px;max-width:1100px}
+.top{position:sticky;top:0;z-index:45;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 0 8px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.zoom{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:12px;padding:3px;background:var(--card)}
+.zoom button{min-width:44px;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--ink);font:700 15px Heebo,sans-serif;cursor:pointer;padding:0 10px}
+.zoom button:hover,.zoom button[aria-pressed="true"]{background:var(--line)}
+.zoom output{min-width:52px;text-align:center;color:var(--dim);font:600 13px Heebo,sans-serif}
+.tab{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 14px;font:600 14px Heebo,sans-serif;cursor:pointer;min-height:44px}
+.tab[aria-selected="true"]{background:var(--on);border-color:var(--on);color:#fff}
+.tab .v{margin-inline-start:6px}
+.idea{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 4px}
+.idea b{font-size:17px}
+.idea .rule{display:flex;gap:18px;flex-wrap:wrap;margin-top:6px;color:var(--dim)}
+.idea .rule i{font-style:normal;color:var(--ink)}
+.row6,.grid2{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.fr p{margin:0 0 5px;color:var(--dim);font-weight:600;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+.fr p b{color:var(--ink)}
+.fr p em{font-style:normal;color:#ffd166}
+.clip{position:relative;overflow:hidden;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);background:#fff;cursor:zoom-in}
+.clip.phone{width:calc(390px * var(--sp));height:calc(844px * var(--sp))}
+.clip.pc{width:calc(1536px * var(--sc));height:calc(639px * var(--sc))}
+.clip>*{position:absolute;left:0;top:0;transform-origin:0 0}
+.clip.phone>*{transform:scale(var(--sp))}
+.clip.pc>*{transform:scale(var(--sc))}
+.fr{max-width:100%}
+.clip>img{display:block}
+.box{position:fixed;inset:0;background:rgba(5,8,16,.88);display:none;place-items:center;z-index:50;cursor:zoom-out}
+.box.on{display:grid}
+.box .clip{cursor:zoom-out}
+.verdict{position:fixed;left:0;right:0;bottom:0;background:#0f1628;border-top:1px solid var(--line);padding:10px 16px;display:grid;gap:8px;z-index:40}
+.verdict .in{max-width:1560px;margin:0 auto;width:100%;display:grid;gap:8px}
+.fold{position:absolute;left:16px;top:-40px;min-height:40px;padding:0 14px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:#0f1628;color:var(--ink);font:700 14px Heebo,sans-serif;cursor:pointer}
+body.folded .verdict .in{display:none}
+body.folded .verdict{padding:0;height:0;border-top-width:0}
+body.folded .fold{top:-40px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pick{background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:7px 13px;min-height:44px;font:600 14px Heebo,sans-serif;cursor:pointer}
+.pick[aria-pressed="true"].yes{background:var(--good);border-color:var(--good);color:#fff}
+.pick[aria-pressed="true"].maybe{background:var(--mid);border-color:var(--mid);color:#fff}
+.pick[aria-pressed="true"].no{background:var(--bad);border-color:var(--bad);color:#fff}
+.pick[aria-pressed="true"].why{background:var(--on);border-color:var(--on);color:#fff}
+input.note{flex:1;min-width:260px;min-height:44px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:14px Heebo,sans-serif}
+.dim{color:var(--dim);font-size:13px}
+.rounds{font:600 14px Heebo,sans-serif;color:#9cc2ff;margin-inline-start:12px;vertical-align:middle}
+/* the tables' key skins: every one stays a light key, so dark labels read on all of them */
+.key.k-ivory,.arrow.k-ivory{background:#fffaf0;box-shadow:0 4px 0 #c9b28f;border-radius:10px}
+.key.k-tile,.arrow.k-tile{background:#f3dcb0;color:#3a220d;box-shadow:0 4px 0 #b88a4d,inset 0 0 0 1px rgba(90,52,22,.25);border-radius:6px}
+.key.k-plate,.arrow.k-plate{background:#fff;box-shadow:inset 0 0 0 3px #f1e3cf,0 3px 0 rgba(36,28,23,.15);border-radius:16px}
+.key.k-paper,.arrow.k-paper{background:#fff;border:1.5px solid #d6cbb8;box-shadow:2px 3px 0 rgba(36,28,23,.14);border-radius:4px}
+.key.k-chalk,.arrow.k-chalk{background:#f6f3ea;box-shadow:0 4px 0 #8a5a30;border-radius:8px}
+.key.k-brick,.arrow.k-brick{background:#fff;box-shadow:0 5px 0 #b9b9b9,inset 0 -3px 0 rgba(0,0,0,.06);border-radius:4px}
+.key.k-card,.arrow.k-card{background:#f7efe0;border:2px solid #b89e72;box-shadow:0 3px 0 #b89e72;border-radius:8px}
+.key.k-parch,.arrow.k-parch{background:#fbf3df;border:1.5px solid #d9c497;box-shadow:0 4px 0 #2e1c45;border-radius:10px}
+
+/* ---------- the mock app: Day, held constant ---------- */
+.app{width:390px;height:844px;overflow:hidden;background:#fff6e9;color:#241c17;font-family:Heebo,sans-serif;position:relative}
+.app.pc{width:1536px;height:639px}
+.app *{box-sizing:border-box}
+.ab{position:absolute}
+.fx{display:flex;align-items:center}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.f{fill:currentColor;stroke:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:none;color:inherit;font:700 14px Heebo,sans-serif;padding:0;cursor:pointer;flex:none}
+.disp{font-family:Fredoka,sans-serif}
+.coin{display:inline-block;width:14px;height:14px;border-radius:50%;background:#ffc93c;box-shadow:inset 0 -2px 0 #e0a400}
+
+/* the boards, drawn as the live games draw them */
+.sdk{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));grid-template-rows:repeat(9,minmax(0,1fr));background:#20244a;border:3px solid #6c5ce7;border-radius:8px;overflow:hidden}
+.sdk i{display:grid;place-items:center;font-style:normal;font-weight:800;color:#fff;border-right:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1)}
+.sdk i.r{border-right:2px solid #6c5ce7}.sdk i.b{border-bottom:2px solid #6c5ce7}
+.sdk i.s{background:#3a3f7a}
+.snk{display:flex;flex-direction:column;background:#0b0c24;border:3px solid #6c5ce7;border-radius:12px;overflow:hidden}
+.snk .band{display:grid;grid-template-columns:repeat(3,1fr);background:linear-gradient(#1a1c44,#10122e);border-bottom:2px solid #6c5ce7;text-align:center;font-weight:800;color:#fff}
+.snk .band small{display:block;letter-spacing:.14em;color:#c8cbe8;font-weight:700}
+.snk .arena{flex:1;position:relative;background:#0b0c24 radial-gradient(circle,rgba(255,255,255,.14) 1px,transparent 1.6px) 0 0/22px 22px}
+.snk .seg{position:absolute;border-radius:6px}
+.mem{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr))}
+.mem i{border-radius:12%;background:linear-gradient(#ff9ec2,#ff4d8d);box-shadow:0 3px 0 rgba(36,28,23,.16);display:grid;place-items:center}
+.mem i{min-height:0;overflow:hidden}.mem i svg{width:50%;height:50%;max-height:60px;fill:rgba(255,255,255,.55)}
+.wg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(6,minmax(0,1fr))}
+.wg i{border-radius:10px;background:#fffdf8;border:2px solid #eadfce}
+.t48{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));background:#bbad9f;border-radius:12px}
+.t48 i{border-radius:7px;background:#cdc1b4;display:grid;place-items:center;font-style:normal;font-weight:800;color:#776e65}
+.t48 i.two{background:#eee4da}
+.col{background:#f4f3fa;border:3px solid #2b2b2b;border-radius:10px;display:grid;place-items:center}
+
+/* keys and controls, as the live games draw them, with the studios' skins */
+.key{display:grid;place-items:center;background:#fffdf8;border-radius:10px;box-shadow:0 3px 0 rgba(36,28,23,.16);font:800 22px Heebo,sans-serif;color:#241c17}
+.key.er{background:#fff3e0;box-shadow:none}
+.key.hot{background:#c2185b!important;color:#fff!important}
+.arrow{display:grid;place-items:center;background:#fffdf8;border-radius:12px;box-shadow:0 4px 0 rgba(36,28,23,.16);color:#241c17}
+.arrow svg{width:40%;height:40%;fill:currentColor;stroke:none}
+.chip{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:999px;background:#fffdf8;box-shadow:0 3px 0 rgba(36,28,23,.12);font:700 13px Heebo,sans-serif;color:#241c17}
+.chip.on{background:#c2185b;color:#fff}
+.flat{box-shadow:none!important;border:1.5px solid #e0d2bf;border-radius:8px!important}
+.chunky{border-radius:16px!important;box-shadow:0 5px 0 rgba(36,28,23,.22)!important}
+.round{border-radius:50%!important;background:#dcc3a4;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 2px 0 rgba(255,255,255,.6)!important}
+.tile{box-shadow:0 4px 0 #c9ad8c!important;border-radius:8px!important}
+.tint{background:#fff3e0!important}
+.dots{display:inline-flex;gap:4px}.dots u{width:7px;height:7px;border-radius:9px;background:currentColor;opacity:.28}.dots u.on{opacity:1}
+.lbl{font:700 11px Heebo,sans-serif;letter-spacing:.04em}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-erase" viewBox="0 0 24 24"><path d="M9 5h11v14H9l-6-7z"/><path d="M12 9l5 6M17 9l-5 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-level" viewBox="0 0 24 24"><path d="M5 20v-5M12 20V9M19 20V4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-fill" viewBox="0 0 24 24"><path d="M5 11l7-7 8 8-7 7z"/><path d="M20 15c0 2-2 3-2 5a2 2 0 0 0 4 0c0-2-2-3-2-5z"/></symbol>
+  <symbol id="i-brush" viewBox="0 0 24 24"><path d="M18 3l3 3-9 9-3-3z"/><path d="M9 12c-3 0-5 2-5 5 0 1-1 2-2 2 2 2 7 2 9-1 1-1.5 1-3 1-3"/></symbol>
+  <symbol id="i-two" viewBox="0 0 24 24"><circle cx="8" cy="7" r="3"/><circle cx="16.5" cy="7.5" r="2.5"/><path d="M2.5 20c0-3.5 2.5-6 5.5-6s5.5 2.5 5.5 6M13 14.5c.9-.4 2.1-.5 3.5-.5 2.8 0 5 2 5 5.5"/></symbol>
+  <symbol id="i-paw" viewBox="0 0 24 24"><ellipse cx="12" cy="16" rx="5.5" ry="4.5"/><circle cx="6" cy="9.5" r="2.2"/><circle cx="10" cy="6" r="2.2"/><circle cx="14" cy="6" r="2.2"/><circle cx="18" cy="9.5" r="2.2"/></symbol>
+  <symbol id="t-up" viewBox="0 0 24 24"><path d="M12 4l9 15H3z"/></symbol>
+  <symbol id="t-down" viewBox="0 0 24 24"><path d="M12 20L3 5h18z"/></symbol>
+  <symbol id="t-left" viewBox="0 0 24 24"><path d="M4 12l15-9v18z"/></symbol>
+  <symbol id="t-right" viewBox="0 0 24 24"><path d="M20 12L5 21V3z"/></symbol>
+</svg>
+
+<div class="page">
+  <h1 style="margin-top:14px">Game Table Studios <a class="rounds" href="/__lab/t/rounds.html">All rounds</a></h1>
+  <p class="sub">You picked the <b>Game table</b>. Here are eight more tables. Every one keeps its idea: <b>game buttons</b> (level, numbers, restart, pause, the game's own controls) are pieces laid on a mat and a tray; <b>app buttons</b> (home, language, sound, coins) stay small in the corners, off the mat. What changes is the table itself and where the pieces lie. <b>A</b> is your original, unchanged. Tap any picture to see it big.</p>
+  <div class="top">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="zoom" aria-label="Zoom">
+      <button data-z="out" title="Zoom out (-)" aria-label="Zoom out">&minus;</button>
+      <output id="zlabel"></output>
+      <button data-z="in" title="Zoom in (+)" aria-label="Zoom in">+</button>
+      <button data-z="fit" title="Fit: every picture whole on screen (0)">Fit</button>
+      <button data-z="real" title="Real size (1)">100%</button>
+    </div>
+  </div>
+  <div class="idea" id="idea"></div>
+  <div id="stage"></div>
+</div>
+<div class="box" id="box"></div>
+<div class="verdict"><button class="fold" id="fold" aria-expanded="true">Hide verdict</button><div class="in" id="verdict"></div></div>
+
+<script>
+/* ============ REAL CONTENT, read off the live pages 2026-09-28 ============ */
+const GRID = ["513296.8.", "2...74.63", ".4.3..91.", "..7.....4", "3.1.5....", "82.917..5", "4.2531..6", "17528.3..", "....4.2.1"].join("");
+const PALETTE = ["#ff5b5b", "#ff8a5b", "#ffab3d", "#ffd23d", "#ffe95b", "#c6e64f", "#6ecb57", "#2fb59a", "#37c6d0", "#4aa3ff", "#5c6ce0", "#a061e0", "#e857a6", "#ff9ec4", "#a9744f", "#e0b585", "#ffd9bf", "#9aa7b0", "#3a4a54", "#ffffff"];
+// ratio = board height / width; base = the live board's width in px (phone, PC), measured 2026-09-28
+const GAMES = {
+  sudoku: { name: "Sudoku", bar: "oklch(0.3 0.194 315.3)", tint: "oklab(0.931 0.021 -0.015)", level: ["Easy", 6, 3],
+    stats: [["Time", "0:42"], ["Filled", "42/81"]], acts: [["restart", "Restart"]], ratio: 1, input: "keys", base: [367, 384] },
+  snake: { name: "Snake", bar: "oklch(0.3 0.148 166.2)", tint: "oklab(0.947 -0.022 0.011)", level: ["Normal", 3, 2],
+    stats: [], acts: [["pause", "Pause"], ["restart", "Restart"]], ratio: 1.13, input: "arrows", base: [315, 340] },
+  coloring: { name: "Coloring", bar: "oklch(0.3 0.175 50.5)", tint: "#fff3e0", level: null,
+    stats: [], acts: [["restart", "Restart"]], ratio: 1, input: "palette", base: [353, 440] },
+  memory: { name: "Memory", bar: "oklch(0.3 0.229 3.1)", tint: "oklab(0.945 0.035 0.008)", level: ["Easy", 3, 1],
+    stats: [["Pairs", "0/6"], ["Moves", "0"]], acts: [["restart", "Restart"]], ratio: 0.744, input: "sets", base: [359, 516] },
+  wordguess: { name: "Word Guess", bar: "oklch(0.3 0.194 315.3)", tint: "oklab(0.931 0.021 -0.015)", level: ["4 letters", 3, 1],
+    stats: [["Streak", "0"], ["Tries", "0/6"]], acts: [["restart", "Restart"]], ratio: 1.51, input: "keyboard", base: [288, 254] },
+  g2048: { name: "2048", bar: "oklch(0.3 0.172 86.3)", tint: "oklab(0.972 0.002 0.032)", level: ["Classic", 3, 2],
+    stats: [["Score", "0"], ["Highest", "2"]], acts: [["restart", "Restart"]], ratio: 1, input: "swipe", base: [343, 384] },
+};
+const ORDER = ["sudoku", "snake", "coloring", "memory", "wordguess", "g2048"];
+const TODAY = { sudoku: "sudoku", snake: null, coloring: "coloring", memory: "memory", wordguess: "wordguess", g2048: "2048" };
+
+/* ============ building blocks ============ */
+const I = (id, cls = "") => `<svg class="i ${cls}"><use href="#i-${id}"/></svg>`;
+const T = (id) => `<svg><use href="#t-${id}"/></svg>`;
+const P = (x, y, w, h, more = "") => `style="left:${x}px;top:${y}px;${w != null ? `width:${w}px;` : ""}${h != null ? `height:${h}px;` : ""}${more}"`;
+const dots = (g) => `<span class="dots">${Array.from({ length: g.level[1] }, (_, i) => `<u class="${i < g.level[2] ? "on" : ""}"></u>`).join("")}</span>`;
+const coins = () => `<span class="fx" style="gap:6px;font-weight:800"><i class="coin"></i>0 ${I("star", "f")}<span style="margin-inline-start:-3px">0</span></span>`;
+const frac = (g) => g.stats.map((s) => /^(\d+)\/(\d+)$/.exec(s[1])).find(Boolean);
+
+/** The board at a width. Returns {html, h}. */
+function board(g, w, x, y, extra = "") {
+  const h = Math.round(w * g.ratio);
+  const box = (cls, inner, more = "") => `<div class="ab ${cls} bd" ${P(x, y, w, h, more + extra)}>${inner}</div>`;
+  if (g === GAMES.sudoku) {
+    const f = Math.round(w / 9 * 0.5);
+    return { h, html: box("sdk", [...GRID].map((d, i) => `<i class="${i % 9 === 2 || i % 9 === 5 ? "r" : ""} ${Math.floor(i / 9) === 2 || Math.floor(i / 9) === 5 ? "b" : ""} ${i === 30 ? "s" : ""}" style="font-size:${f}px">${d === "." ? "" : d}</i>`).join("")) };
+  }
+  if (g === GAMES.snake) {
+    const bh = Math.round(w * 0.13), u = w / 100;
+    const seg = (sx, sy, c) => `<i class="seg" style="left:${sx * u}px;top:${sy * u}px;width:${5 * u}px;height:${5.4 * u}px;background:${c}"></i>`;
+    return { h, html: box("snk", `<div class="band" style="height:${bh}px;font-size:${Math.round(w * 0.055)}px;align-items:center">
+      <div><small style="font-size:${Math.round(w * 0.028)}px">SCORE</small><span style="color:#55efc4">0</span></div><div><small style="font-size:${Math.round(w * 0.028)}px">STAGE</small>1</div><div><small style="font-size:${Math.round(w * 0.028)}px">BEST</small><span style="color:#ffd166">0</span></div></div>
+      <div class="arena">${seg(61, 52, "#6c5ce7")}${seg(61, 58, "#7aa7ff")}${seg(61, 64, "#74b9ff")}<i class="seg" style="left:${60 * u}px;top:${70 * u}px;width:${7 * u}px;height:${7 * u}px;border-radius:50%;background:#55efc4;box-shadow:0 0 ${3 * u}px #55efc4"></i><i class="seg" style="left:${38 * u}px;top:${14 * u}px;width:${5 * u}px;height:${5 * u}px;border-radius:50%;background:#e74c3c"></i></div>`) };
+  }
+  if (g === GAMES.memory) {
+    const gap = Math.round(w * 0.03);
+    return { h, html: box("mem", Array.from({ length: 12 }, () => `<i><svg><use href="#i-paw"/></svg></i>`).join(""), `gap:${gap}px;`) };
+  }
+  if (g === GAMES.wordguess) {
+    const gap = Math.round(w * 0.035);
+    return { h, html: box("wg", Array.from({ length: 24 }, () => "<i></i>").join(""), `gap:${gap}px;`) };
+  }
+  if (g === GAMES.g2048) {
+    const gap = Math.round(w * 0.028), f = Math.round(w * 0.09);
+    return { h, html: box("t48", Array.from({ length: 16 }, (_, i) => i === 10 || i === 12 ? `<i class="two" style="font-size:${f}px">2</i>` : "<i></i>").join(""), `gap:${gap}px;padding:${gap}px;`) };
+  }
+  // coloring: the sun, as the live picture draws it
+  const rays = Array.from({ length: 12 }, (_, i) => { const a = i * Math.PI / 6, c = Math.cos(a), s = Math.sin(a); return `<path d="M${50 + 30 * c - 6 * s} ${50 + 30 * s + 6 * c}L${50 + 46 * c} ${50 + 46 * s}L${50 + 30 * c + 6 * s} ${50 + 30 * s - 6 * c}"/>`; }).join("");
+  return { h, html: box("col", `<svg viewBox="0 0 100 100" style="width:88%;height:88%;fill:none;stroke:#2b2b2b;stroke-width:1.6;stroke-linejoin:round">${rays}<circle cx="50" cy="50" r="26" stroke-width="2.2"/><circle cx="42" cy="44" r="3"/><circle cx="58" cy="44" r="3"/><circle cx="38" cy="55" r="4.5"/><circle cx="62" cy="55" r="4.5"/><path d="M40 58q10 8 20 0"/></svg>`) };
+}
+
+/* ---- the game's own controls, laid into a width. Every panel returns {html, h}. ---- */
+function panel(g, x, y, w, sk = "", ink = "#6b5c50") {
+  const hint = (t) => `<div class="ab" ${P(x, y, w, 20, `text-align:center;color:${ink};font-size:14px;font-weight:600`)}>${t}</div>`;
+  if (g.input === "keys") {
+    const cols = w >= 300 ? 5 : 3, gap = 8, kw = (w - gap * (cols - 1)) / cols, kh = Math.round(cols === 5 ? Math.min(70, kw) : Math.min(62, kw * 0.85)), rows = cols === 5 ? 2 : 4;
+    const k = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<b class="key ${sk}" style="height:${kh}px">${n}</b>`).join("") + (cols === 3 ? "<b></b>" : "") + `<b class="key er ${sk}" style="height:${kh}px">${I("erase")}</b>`;
+    return { h: 28 + rows * kh + (rows - 1) * gap, html: hint("Pick a cell, tap a number") + `<div class="ab" ${P(x, y + 28, w, null, `display:grid;grid-template-columns:repeat(${cols},1fr);gap:${gap}px`)}>${k}</div>` };
+  }
+  if (g.input === "arrows") {
+    const two = w < 290, mh = two ? 78 : 36, k = Math.min(70, Math.floor((w - 12) / 3)), cross = 3 * k + 12, cx = x + (w - cross) / 2, cy = y + mh + 14;
+    const a = (d, i, j) => `<b class="ab arrow ${sk}" ${P(cx + i * (k + 6), cy + j * (k + 6), k, k)}>${T(d)}</b>`;
+    return { h: mh + 14 + cross, html: `<div class="ab fx" ${P(x, y, w, mh, "gap:6px;flex-wrap:wrap;justify-content:center;align-content:flex-start")}><span class="chip on">Arrows</span><span class="chip">Joystick</span><span class="chip">On the board</span></div>${a("up", 1, 0)}${a("left", 0, 1)}${a("right", 2, 1)}${a("down", 1, 2)}` };
+  }
+  if (g.input === "keyboard") {
+    const cols = w < 300 ? 7 : 10, gap = 5, kw = (w - (cols - 1) * gap) / cols, kh = Math.round(Math.min(50, kw * 1.3)), rows = cols === 7 ? 4 : 3, L = "abcdefghijklmnopqrstuvwxyz";
+    const key = (t, span = 1, cls = "", fs = Math.round(kh * 0.4)) => `<b class="key ${sk} ${cls}" style="height:${kh}px;grid-column:span ${span};font-size:${fs}px">${t}</b>`;
+    const k = [...L].map((c) => key(c)).join("") + key(I("erase"), cols === 7 ? 1 : 2, "er") + key(cols === 7 ? `<svg class="i" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>` : "Check", cols === 7 ? 1 : 2, "hot");
+    return { h: rows * kh + (rows - 1) * 6, html: `<div class="ab" ${P(x, y, w, null, `display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:6px ${gap}px`)}>${k}</div>` };
+  }
+  if (g.input === "sets") {
+    const s = Math.min(72, Math.floor((w - 24) / 4)), pics = [["#bfe3ff", "#8d5a3b"], ["#e2f5c8", "#e74c3c"], ["#fff1b8", "#e84a5f"], ["#cfeaff", "#ffb830"]];
+    const tile = ([bg, c], i) => `<b class="key ${sk}" style="height:${s}px;background:${bg};${i === 0 ? "box-shadow:0 0 0 3px #ff4d8d;" : ""}"><i style="width:44%;height:44%;border-radius:${i === 2 ? "22%" : "50%"};background:${c}"></i></b>`;
+    return { h: s + 12 + 56, html: `<div class="ab" ${P(x, y, w, null, "display:grid;grid-template-columns:repeat(4,1fr);gap:8px")}>${pics.map(tile).join("")}</div>
+      <b class="ab key ${sk}" ${P(x, y + s + 12, w, 56, "display:flex;gap:10px;justify-content:center;font-size:16px")}>Two players ${I("two")}</b>` };
+  }
+  if (g.input === "swipe") return { h: 56, html: `<b class="ab key ${sk}" ${P(x, y, w, 56, "font-size:16px")}>Swipe or arrow keys</b>` };
+  // coloring: pictures, tools, colours
+  const t = 52, n = Math.floor((w + 8) / (t + 8)), sw = Math.min(46, (w - 6 * 8) / 7);
+  const pics = Array.from({ length: n }, (_, i) => `<b class="key ${sk}" style="width:${t}px;height:${t}px;flex:none;${i === 1 ? "box-shadow:0 0 0 3px #ff4d8d;" : ""}">${i === 0 ? I("brush") : `<i style="width:60%;height:60%;border-radius:50%;border:2px solid #2b2b2b"></i>`}</b>`).join("");
+  const tools = `<div class="ab" ${P(x, y + 20 + t + 10, w, 44, "display:grid;grid-template-columns:1fr 1fr;gap:8px")}><b class="key hot ${sk}" style="height:44px;font-size:15px;gap:6px;display:flex;justify-content:center">${I("fill")} Fill</b><b class="key ${sk}" style="height:44px;font-size:15px;gap:6px;display:flex;justify-content:center">${I("brush")} Brush</b></div>
+    <div class="ab fx" ${P(x, y + 20 + t + 62, w, 44, "gap:8px")}>${[6, 10, 14, 18].map((d, i) => `<b class="key ${sk}" style="width:44px;height:44px;${i === 1 ? "box-shadow:0 0 0 3px #ff4d8d;" : ""}"><i style="width:${d}px;height:${d}px;border-radius:50%;background:#ff5b5b"></i></b>`).join("")}<span style="flex:1"></span><b class="key ${sk}" style="height:44px;padding:0 14px;font-size:15px;display:flex;gap:6px;color:#6b5c50">${I("undo")} Undo</b></div>`;
+  const py = y + 20 + t + 116;
+  const pal = `<div class="ab" ${P(x, py, w, null, `display:grid;grid-template-columns:repeat(7,${sw}px);justify-content:space-between;row-gap:8px`)}>${PALETTE.map((c, i) => `<i style="width:${sw}px;height:${sw}px;border-radius:50%;background:${c};box-shadow:0 3px 0 rgba(36,28,23,.16)${i === 0 ? ",0 0 0 3px #241c17" : ""}"></i>`).join("")}</div>`;
+  return { h: 20 + t + 116 + 3 * sw + 16, html: `<div class="ab lbl" ${P(x, y, w, 16, `color:${ink}`)}>Pick a picture</div><div class="ab fx" ${P(x, y + 20, w, t, "gap:8px;overflow:hidden")}>${pics}</div>${tools}${pal}` };
+}
+/** The panel's height at a width, without drawing it anywhere that matters. */
+const panelH = (g, w) => panel(g, 0, 0, w).h;
+
+/** Phone: board on top, the game's controls anchored in the thumb zone. */
+function phoneStack(g, top, bottom, o = {}) {
+  const pw = o.pw ?? 362, px = o.px ?? (390 - pw) / 2, ph = panelH(g, pw), gap = o.gap ?? 18, below = o.below ?? 0;
+  const room = bottom - top - ph - gap - below;
+  const w = Math.min(o.maxW ?? 374, Math.floor(room / g.ratio)), bx = o.bx ?? Math.round((390 - w) / 2);
+  const bd = board(g, w, bx, top, o.bextra ?? "");
+  const p = panel(g, px, bottom - ph, pw, o.sk ?? "", o.ink);
+  return { html: bd.html + p.html, w, h: bd.h, x: bx, y: top, py: bottom - ph };
+}
+/** PC: the biggest board that fits a box, centred in it. */
+function pcBoard(g, x0, y0, x1, y1, extra = "") {
+  let h = y1 - y0, w = Math.floor(h / g.ratio);
+  if (w > x1 - x0) { w = x1 - x0; h = Math.round(w * g.ratio); }
+  const x = Math.round(x0 + (x1 - x0 - w) / 2), y = Math.round(y0 + (y1 - y0 - h) / 2);
+  const bd = board(g, w, x, y, extra);
+  return { html: bd.html, w, h: bd.h, x, y };
+}
+const statLine = (g, sep = " · ") => [g.level ? g.level[0] : "", ...g.stats.map(([k, v]) => `${k} ${v}`)].filter(Boolean).join(sep);
+
+/* ============ the tables ============ */
+/* A: the Game table from the layout round, carried VERBATIM as the anchor */
+function tokens(g, s, disc) {
+  const d = g.level ? `<div style="width:${disc}px;height:${disc}px;border-radius:50%;background:${g.bar};color:#fff;display:grid;place-items:center;align-content:center;gap:3px;transform:rotate(-5deg);box-shadow:0 5px 0 rgba(0,0,0,.25),inset 0 0 0 4px rgba(255,255,255,.2)"><b style="font:800 ${g.level[0].length > 6 ? 11 : 14}px Heebo;text-align:center;line-height:1.1">${g.level[0].toUpperCase()}</b>${dots(g)}</div>` : "";
+  const c = g.stats.map(([k, v], i) => `<div style="min-width:78px;padding:8px 8px;border-radius:10px;background:#fffdf8;text-align:center;transform:rotate(${i ? -2 : 3}deg);box-shadow:0 5px 0 rgba(36,28,23,.16)"><small style="display:block;font:700 11px Heebo;color:#6b5c50">${k.toUpperCase()}</small><b style="font:800 20px Heebo">${v}</b></div>`).join("");
+  const t = g.acts.map(([ic], i) => `<span class="btn" style="width:${s}px;height:${s}px;border-radius:50%;background:#fffdf8;transform:rotate(${i ? 6 : -4}deg);box-shadow:0 5px 0 rgba(36,28,23,.2),inset 0 0 0 4px ${g.bar};color:${g.bar}">${I(ic)}</span>`).join("");
+  return d + c + t;
+}
+function tablePhone(g) {
+  const lid = (x, w, inner) => `<div class="ab fx" ${P(x, 12, w, 42, "gap:4px;padding:0 8px;border-radius:12px;background:rgba(36,28,23,.06);color:#6b5c50")}>${inner}</div>`;
+  const st = phoneStack(g, 170, 806, { maxW: 346, sk: "tile", pw: 318, gap: 44, ink: "#4b3f38", bextra: "box-shadow:0 8px 0 rgba(36,28,23,.18);" });
+  return `${lid(10, 148, `${I("back")}${I("home")}<b class="disp" style="font:700 15px Fredoka;color:#241c17;white-space:nowrap">${g.name}</b>`)}${lid(212, 168, `${coins()}<span style="flex:1"></span>${I("globe")}${I("sound")}${I("more")}`)}
+    <div class="ab" ${P(10, 62, 370, 774, `border-radius:30px;background:${g.tint};box-shadow:inset 0 0 0 3px rgba(36,28,23,.06)`)}></div>
+    <div class="ab fx" ${P(16, 74, 358, 90, "gap:12px;justify-content:center")}>${tokens(g, 64, 78)}</div>
+    <div class="ab" ${P(24, st.py - 16, 342, 806 - st.py + 24, "border-radius:18px;background:#e7d2b8;box-shadow:inset 0 4px 0 rgba(0,0,0,.08)")}></div>${st.html}`;
+}
+function tablePc(g) {
+  const lid = (x, w, inner) => `<div class="ab fx" ${P(x, 10, w, 42, "gap:4px;padding:0 8px;border-radius:12px;background:rgba(36,28,23,.06);color:#6b5c50")}>${inner}</div>`;
+  const bd = pcBoard(g, 490, 80, 1046, 606, "box-shadow:0 10px 0 rgba(36,28,23,.18);");
+  const ph = panelH(g, 250), py = Math.max(96, Math.round(342 - ph / 2));
+  const p = panel(g, 1106, py, 250, "tile", "#4b3f38");
+  return `${lid(20, 210, `${I("back")}${I("home")}<b class="disp" style="font:700 17px Fredoka;color:#241c17">${g.name}</b>`)}${lid(1300, 216, `${coins()}<span style="flex:1"></span>${I("globe")}${I("sound")}${I("more")}`)}
+    <div class="ab" ${P(150, 60, 1236, 570, `border-radius:40px;background:${g.tint};box-shadow:inset 0 0 0 3px rgba(36,28,23,.06)`)}></div>
+    <div class="ab" ${P(180, 110, 280, 460, "display:flex;flex-wrap:wrap;gap:22px;justify-content:center;align-content:center")}>${tokens(g, 76, 120)}</div>${bd.html}
+    <div class="ab" ${P(1086, py - 20, 290, ph + 40, "border-radius:22px;background:#e7d2b8;box-shadow:inset 0 4px 0 rgba(0,0,0,.08)")}></div>${p.html}`;
+}
+
+
+/* ---- the table kit: every studio = one MATERIAL + one ARRANGEMENT ---- */
+const kk = (n, k) => Math.round(n * k);
+const lvlTxt = (g, fs, k) => `<b style="font:800 ${kk(g.level[0].length > 6 ? fs - 3 : fs, k)}px Heebo;line-height:1.05;text-align:center;max-width:70%">${g.level[0].toUpperCase()}</b>`;
+const statTxt = (key, v, k, lc, vc) => `<small style="display:block;font:700 ${kk(10, k)}px Heebo;letter-spacing:.04em;color:${lc}">${key.toUpperCase()}</small><b style="font:800 ${kk(19, k)}px Heebo;color:${vc}">${v}</b>`;
+const centre = "display:grid;place-items:center;align-content:center;gap:3px;flex:none;text-align:center";
+
+function gameTokens(g, M, k) {
+  return [...(g.level ? [M.level(g, k)] : []), ...g.stats.map((s, i) => M.stat(s, i, k)), ...g.acts.map((a, i) => M.act(a, i, k, g))];
+}
+function corners(g, M, pc) {
+  const lid = (x, w, inner) => `<div class="ab fx" ${P(x, pc ? 10 : 12, w, 42, `gap:4px;padding:0 8px;border-radius:12px;color:#6b5c50;${M.lid}`)}>${inner}</div>`;
+  return lid(pc ? 20 : 10, pc ? 210 : 148, `${I("back")}${I("home")}<b class="disp" style="font:700 ${pc ? 17 : 15}px Fredoka;color:#241c17;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.name}</b>`)
+    + lid(pc ? 1300 : 212, pc ? 216 : 168, `${coins()}<span style="flex:1"></span>${I("globe")}${I("sound")}${I("more")}`);
+}
+const mat = (M, pc) => pc ? `<div class="ab" ${P(150, 60, 1236, 570, `border-radius:40px;${M.mat}`)}></div>` : `<div class="ab" ${P(10, 62, 370, 774, `border-radius:30px;${M.mat}`)}></div>`;
+const trayBox = (M, x, y, w, h) => `<div class="ab" ${P(x, y, w, h, `border-radius:18px;${M.tray}`)}></div>`;
+const well = (M, b, pad = 10) => M.well ? `<div class="ab" ${P(b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad, `border-radius:16px;${M.well}`)}></div>` : "";
+const cell = (M, t) => M.well ? `<div style="padding:7px;border-radius:14px;${M.well}">${t}</div>` : t;
+
+/* phone: tokens laid in a row above the board, the tray in the thumb zone; the board centred in what is left */
+function phoneTop(g, M) {
+  const o = { maxW: 346, sk: M.sk, pw: 318, gap: 44, ink: M.ink, bextra: M.bshadow };
+  const st0 = phoneStack(g, 176, 806, o), st = phoneStack(g, 176 + Math.floor((st0.py - 44 - 176 - st0.h) / 2), 806, o);
+  return corners(g, M, false) + mat(M, false)
+    + `<div class="ab fx" ${P(16, 74, 358, 96, `gap:${M.well ? 6 : 10}px;justify-content:center`)}>${gameTokens(g, M, 1).map((t) => cell(M, t)).join("")}</div>`
+    + trayBox(M, 24, st.py - 16, 342, 806 - st.py + 24) + well(M, st) + st.html;
+}
+/* phone: the board takes the top, the tokens ride in the tray with the controls */
+function phoneTray(g, M) {
+  const TH = 90;
+  const o = { maxW: 346, sk: M.sk, pw: 318, gap: 32, below: TH + 8, ink: M.ink, bextra: M.bshadow };
+  const st0 = phoneStack(g, 78, 806, o), st = phoneStack(g, 78 + Math.floor((st0.py - 32 - TH - 8 - 78 - st0.h) / 2), 806, o);
+  const ty = st.py - TH - 12;
+  return corners(g, M, false) + mat(M, false) + trayBox(M, 24, ty - 12, 342, 830 - (ty - 12)) + well(M, st)
+    + `<div class="ab fx" ${P(30, ty, 330, TH, "gap:10px;justify-content:center")}>${gameTokens(g, M, 0.92).join("")}</div>` + st.html;
+}
+/* PC: tokens on one side of the board, the tray on the other (mirror swaps them) */
+function pcSplit(g, M, mirror = false) {
+  const bd = pcBoard(g, 490, 80, 1046, 606, M.bshadow);
+  const ph = panelH(g, 250), py = Math.max(96, Math.round(342 - ph / 2)), px = mirror ? 196 : 1106;
+  const p = panel(g, px, py, 250, M.sk, M.ink);
+  return corners(g, M, true) + mat(M, true)
+    + `<div class="ab" ${P(mirror ? 1080 : 180, 100, 280, 480, `display:flex;flex-wrap:wrap;gap:${M.well ? 12 : 22}px;justify-content:center;align-content:center`)}>${gameTokens(g, M, 1.25).map((t) => cell(M, t)).join("")}</div>`
+    + well(M, bd, 14) + bd.html + trayBox(M, px - 20, py - 20, 290, ph + 40) + p.html;
+}
+/* PC: the board on the left, everything of the game's on the right: tokens on top, tray under */
+function pcOneside(g, M) {
+  const bd = pcBoard(g, 190, 80, 900, 606, M.bshadow);
+  const pw = 360, ph = panelH(g, pw), py = Math.max(236, Math.round(418 - ph / 2));
+  const p = panel(g, 960, py, pw, M.sk, M.ink);
+  return corners(g, M, true) + mat(M, true) + well(M, bd, 14) + bd.html
+    + `<div class="ab fx" ${P(940, 84, 400, 130, "gap:16px;justify-content:center")}>${gameTokens(g, M, 1.15).join("")}</div>`
+    + trayBox(M, 940, py - 20, 400, ph + 40) + p.html;
+}
+/* PC: the tokens stacked in a narrow tower, a bigger middle, the tray on the right */
+function pcTower(g, M) {
+  const bd = pcBoard(g, 350, 80, 1000, 606, M.bshadow);
+  const pw = 300, ph = panelH(g, pw), py = Math.max(96, Math.round(342 - ph / 2));
+  const p = panel(g, 1060, py, pw, M.sk, M.ink);
+  return corners(g, M, true) + mat(M, true)
+    + `<div class="ab" ${P(186, 76, 140, 540, "display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:center")}>${gameTokens(g, M, 1.1).join("")}</div>`
+    + well(M, bd, 14) + bd.html + trayBox(M, 1040, py - 20, 340, ph + 40) + p.html;
+}
+
+/* ---- the materials ---- */
+const M = {};
+M.felt = {
+  mat: "background:#2e6b4b radial-gradient(rgba(255,255,255,.06) 1px,transparent 1.5px) 0 0/6px 6px;box-shadow:inset 0 0 0 12px #7a4e2d,inset 0 0 0 15px #5c3a20,inset 0 0 44px rgba(0,0,0,.4)",
+  tray: "background:#7a4e2d;box-shadow:inset 0 6px 0 rgba(0,0,0,.3),0 4px 0 #5c3a20", ink: "#fff4e0", sk: "k-ivory",
+  lid: "background:#fffdf8;box-shadow:0 2px 0 rgba(36,28,23,.14)", bshadow: "box-shadow:0 12px 22px rgba(0,0,0,.4);",
+  level: (g, k) => { const d = kk(84, k); return `<div style="width:${d}px;height:${d}px;border-radius:50%;background:radial-gradient(circle,${g.bar} 0 57%,#fffdf8 58% 61%,transparent 62%),repeating-conic-gradient(#fffdf8 0 15deg,${g.bar} 15deg 30deg);box-shadow:0 6px 0 rgba(0,0,0,.35);color:#fff;${centre}">${lvlTxt(g, 13, k)}${dots(g)}</div>`; },
+  stat: ([key, v], i, k) => `<div style="position:relative;width:${kk(68, k)}px;height:${kk(90, k)}px;border-radius:8px;background:#fffdf8;box-shadow:0 6px 0 rgba(0,0,0,.3);transform:rotate(${i ? -5 : 4}deg);${centre}"><i style="position:absolute;left:6px;top:3px;font:800 ${kk(13, k)}px Heebo;font-style:normal;color:${i ? "#241c17" : "#b3261e"}">${i ? "♣" : "♦"}</i>${statTxt(key, v, k, "#6b5c50", "#241c17")}</div>`,
+  act: ([ic], i, k, g) => { const d = kk(60, k); return `<span class="btn" style="width:${d}px;height:${d}px;border-radius:50%;background:radial-gradient(circle,#fffdf8 0 56%,transparent 57%),repeating-conic-gradient(${g.bar} 0 20deg,#fffdf8 20deg 40deg);color:${g.bar};box-shadow:0 6px 0 rgba(0,0,0,.35);transform:rotate(${i ? 8 : -6}deg)">${I(ic)}</span>`; },
+};
+M.wood = {
+  mat: "background:repeating-linear-gradient(91deg,#c58e57 0 22px,#bd8650 22px 24px,#cc9862 24px 47px,#c28b54 47px 49px);box-shadow:inset 0 0 0 3px rgba(80,44,14,.25),inset 0 -12px 34px rgba(80,44,14,.28)",
+  tray: "background:#6d4526;box-shadow:inset 0 6px 0 rgba(0,0,0,.3),0 4px 0 #4e2f18", ink: "#fff4e0", sk: "k-tile",
+  lid: "background:#fffdf8;box-shadow:inset 0 0 0 2px #c58e57", bshadow: "box-shadow:0 10px 0 #7a4e2d,0 16px 20px rgba(60,30,10,.35);",
+  level: (g, k) => { const d = kk(84, k); return `<div style="width:${d}px;height:${d}px;border-radius:50%;background:#ecc995;box-shadow:inset 0 -6px 0 rgba(90,52,22,.3),0 5px 0 #8a5a30;color:#4a2a10;${centre}">${lvlTxt(g, 13, k)}${dots(g)}</div>`; },
+  stat: ([key, v], i, k) => `<div style="width:${kk(80, k)}px;height:${kk(62, k)}px;border-radius:10px;background:#e3b97f;box-shadow:inset 0 -5px 0 rgba(90,52,22,.28),0 5px 0 #8a5a30;${centre}">${statTxt(key, v, k, "#5a3416", "#3a220d")}</div>`,
+  act: ([ic], i, k, g) => { const d = kk(58, k); return `<span class="btn" style="width:${d}px;height:${d}px;border-radius:10px;background:${g.bar};color:#fff;box-shadow:inset 0 -7px 0 rgba(0,0,0,.3),0 5px 0 rgba(60,30,10,.4)">${I(ic)}</span>`; },
+};
+M.picnic = {
+  mat: "background-color:#fffdf8;background-image:linear-gradient(90deg,rgba(214,69,65,.34) 50%,transparent 50%),linear-gradient(rgba(214,69,65,.34) 50%,transparent 50%);background-size:44px 44px;box-shadow:inset 0 0 0 3px rgba(214,69,65,.45)",
+  tray: "background:#fff3e0;border:9px solid #c28f52;box-shadow:inset 0 0 0 3px #a8763c,0 5px 0 rgba(36,28,23,.2)", ink: "#4b3f38", sk: "k-plate",
+  lid: "background:#fffdf8;box-shadow:0 2px 0 rgba(214,69,65,.4)", bshadow: "box-shadow:0 10px 0 rgba(36,28,23,.2);",
+  level: (g, k) => { const d = kk(86, k); return `<div style="width:${d}px;height:${d}px;border-radius:50%;background:#fffdf8;box-shadow:inset 0 0 0 7px #f3ebe0,inset 0 0 0 9px #e4d5c1,0 5px 0 rgba(36,28,23,.2);color:${g.bar};${centre}">${lvlTxt(g, 13, k)}${dots(g)}</div>`; },
+  stat: ([key, v], i, k) => { const d = kk(76, k); return `<div style="width:${d}px;height:${d}px;border-radius:50%;background:radial-gradient(circle at 18% 30%,#5b3413 0 4px,transparent 5px),radial-gradient(circle at 84% 64%,#5b3413 0 4px,transparent 5px),radial-gradient(circle at 76% 18%,#5b3413 0 3px,transparent 4px),#e2b273;box-shadow:inset 0 -4px 0 rgba(120,70,20,.3),0 4px 0 rgba(36,28,23,.2);${centre}">${statTxt(key, v, k, "#4a2a10", "#2b1606")}</div>`; },
+  act: ([ic], i, k) => { const d = kk(58, k); return `<span class="btn" style="width:${d}px;height:${d}px;border-radius:50%;background:#fffdf8;color:#2f6fb3;box-shadow:inset 0 0 0 5px #4a90d9,0 5px 0 rgba(36,28,23,.2)">${I(ic)}</span>`; },
+};
+M.craft = {
+  mat: "background-color:#2d7a57;background-image:linear-gradient(rgba(255,255,255,.14) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.14) 1px,transparent 1px),linear-gradient(rgba(255,255,255,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.3) 1px,transparent 1px);background-size:22px 22px,22px 22px,110px 110px,110px 110px",
+  tray: "background:#ece6da;box-shadow:inset 0 6px 0 rgba(0,0,0,.12),0 4px 0 #bfb5a3", ink: "#4b3f38", sk: "k-paper",
+  lid: "background:#fffdf8;border:1.5px solid #d6cbb8", bshadow: "box-shadow:5px 9px 0 rgba(0,0,0,.25);",
+  level: (g, k) => { const d = kk(84, k); return `<div style="position:relative;width:${d}px;height:${d}px;background:#ffe45c;box-shadow:3px 6px 0 rgba(0,0,0,.25);transform:rotate(-3deg);color:#241c17;${centre}"><i style="position:absolute;top:-8px;left:28%;width:44%;height:15px;background:rgba(255,255,255,.6);transform:rotate(3deg)"></i>${lvlTxt(g, 13, k)}${dots(g)}</div>`; },
+  stat: ([key, v], i, k) => { const d = kk(74, k); return `<div style="position:relative;width:${d}px;height:${d}px;background:${i ? "#a9dcff" : "#ffb8cc"};box-shadow:3px 6px 0 rgba(0,0,0,.25);transform:rotate(${i ? 4 : -2}deg);${centre}"><i style="position:absolute;top:-7px;left:30%;width:40%;height:13px;background:rgba(255,255,255,.6);transform:rotate(-4deg)"></i>${statTxt(key, v, k, "#3b2f28", "#241c17")}</div>`; },
+  act: ([ic], i, k) => { const d = kk(58, k); return `<span class="btn" style="width:${d}px;height:${d}px;border-radius:50%;background:#fffdf8;color:#241c17;border:2px dashed #6b5c50;box-shadow:3px 5px 0 rgba(0,0,0,.25)">${I(ic)}</span>`; },
+};
+const CH = "#f3f1e8";
+M.chalk = {
+  mat: "background:#2f3d38 radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.07),transparent 60%);box-shadow:inset 0 0 0 12px #b07a45,inset 0 0 0 15px #8a5a30,inset 0 0 34px rgba(0,0,0,.45)",
+  tray: "background:#b07a45;box-shadow:inset 0 6px 0 rgba(0,0,0,.25),0 4px 0 #8a5a30", ink: "#1f140c", sk: "k-chalk",
+  lid: "background:#fffdf8;box-shadow:0 2px 0 #b07a45", bshadow: "box-shadow:0 0 0 3px rgba(243,241,232,.55);",
+  level: (g, k) => { const d = kk(86, k); return `<div style="width:${d}px;height:${d}px;border-radius:50%;border:3px dashed ${CH};color:${CH};font-family:Fredoka;${centre}">${lvlTxt(g, 13, k)}${dots(g)}</div>`; },
+  stat: ([key, v], i, k) => `<div style="width:${kk(82, k)}px;height:${kk(64, k)}px;border:2px solid rgba(243,241,232,.75);border-radius:6px;transform:rotate(${i ? 2 : -2}deg);${centre}">${statTxt(key, v, k, CH, CH)}</div>`,
+  act: ([ic], i, k) => { const d = kk(58, k); return `<span class="btn" style="width:${d}px;height:${d}px;border-radius:50%;border:3px solid ${CH};color:${CH}">${I(ic)}</span>`; },
+};
+const brick = (w, h, bg, fg, inner) => `<div style="position:relative;width:${w}px;height:${h}px;margin-top:9px;border-radius:5px;background:${bg};color:${fg};box-shadow:inset 0 -6px 0 rgba(0,0,0,.2),0 4px 0 rgba(0,0,0,.2);${centre}"><i style="position:absolute;top:-9px;left:16%;width:26%;height:10px;border-radius:5px 5px 0 0;background:${bg}"></i><i style="position:absolute;top:-9px;left:58%;width:26%;height:10px;border-radius:5px 5px 0 0;background:${bg}"></i>${inner}</div>`;
+M.bricks = {
+  mat: "background-color:#3fa34d;background-image:radial-gradient(circle,rgba(255,255,255,.28) 0 6px,rgba(0,0,0,.14) 6.5px 7.5px,transparent 8px);background-size:26px 26px;box-shadow:inset 0 0 0 4px #2e8a3c",
+  tray: "background:#1f5fbf;box-shadow:inset 0 6px 0 rgba(0,0,0,.25),0 4px 0 #17488f", ink: "#ffffff", sk: "k-brick",
+  lid: "background:#fffdf8;box-shadow:0 3px 0 #cfcfcf", bshadow: "box-shadow:0 9px 0 rgba(0,0,0,.25);",
+  level: (g, k) => brick(kk(92, k), kk(70, k), g.bar, "#fff", lvlTxt(g, 13, k) + dots(g)),
+  stat: ([key, v], i, k) => brick(kk(82, k), kk(62, k), i ? "#fffdf8" : "#ffcd29", "#241c17", statTxt(key, v, k, "#3b2f28", "#241c17")),
+  act: ([ic], i, k) => { const d = kk(58, k); return `<span class="btn" style="width:${d}px;height:${d}px;border-radius:50%;background:#fffdf8;color:#1f5fbf;box-shadow:inset 0 0 0 7px #e8e8e8,inset 0 -5px 0 rgba(0,0,0,.12),0 5px 0 rgba(0,0,0,.25)">${I(ic)}</span>`; },
+};
+M.box = {
+  mat: "background:#dcc9a6;box-shadow:inset 0 0 0 6px #c8b288",
+  well: "background:#ccb58c;box-shadow:inset 0 6px 10px rgba(80,55,20,.35)",
+  tray: "background:#ccb58c;box-shadow:inset 0 6px 10px rgba(80,55,20,.35)", ink: "#3b2f22", sk: "k-card",
+  lid: "background:#fffdf8;box-shadow:0 2px 0 #c8b288", bshadow: "box-shadow:0 3px 0 rgba(80,55,20,.3);",
+  level: (g, k) => { const d = kk(76, k); return `<div style="width:${d}px;height:${d}px;border-radius:50%;background:${g.bar};border:4px solid #fffdf8;box-shadow:0 3px 0 rgba(80,55,20,.35);color:#fff;${centre}">${lvlTxt(g, 12, k)}${dots(g)}</div>`; },
+  stat: ([key, v], i, k) => { const d = kk(70, k); return `<div style="width:${d}px;height:${d}px;border-radius:10px;background:#fffdf8;border:4px solid #efe4cf;box-shadow:0 3px 0 rgba(80,55,20,.35);${centre}">${statTxt(key, v, k, "#6b5c50", "#241c17")}</div>`; },
+  act: ([ic], i, k, g) => { const d = kk(56, k); return `<span class="btn" style="width:${d}px;height:${d}px;border-radius:50%;background:#fffdf8;color:${g.bar};border:4px solid #efe4cf;box-shadow:0 3px 0 rgba(80,55,20,.35)">${I(ic)}</span>`; },
+};
+M.dice = {
+  mat: "background:radial-gradient(ellipse at center,#f7ebcc 55%,#e2c992);box-shadow:inset 0 0 0 3px #c9a86a",
+  tray: "background:#4a2f6b;border:10px solid #7a4e2d;box-shadow:inset 0 6px 14px rgba(0,0,0,.5),0 5px 0 #5c3a20", ink: "#f3e9ff", sk: "k-parch",
+  lid: "background:#fffdf8;box-shadow:0 2px 0 #c9a86a", bshadow: "box-shadow:0 10px 0 rgba(90,60,20,.25);",
+  level: (g, k) => { const d = kk(80, k), pip = `width:9px;height:9px;border-radius:50%;background:#241c17;position:absolute`; return `<div style="position:relative;width:${d}px;height:${d}px;border-radius:18px;background:#fffdf8;box-shadow:inset 0 -6px 0 rgba(0,0,0,.1),0 6px 0 rgba(90,60,20,.3);transform:rotate(-6deg);color:#241c17;${centre}"><i style="${pip};left:9px;top:9px"></i><i style="${pip};right:9px;bottom:9px"></i>${lvlTxt(g, 13, k)}${dots(g)}</div>`; },
+  stat: ([key, v], i, k) => `<div style="width:${kk(84, k)}px;height:${kk(60, k)}px;border-radius:4px;background:#ecd7a4;border-left:8px solid #c9a24f;border-right:8px solid #c9a24f;box-shadow:0 4px 0 rgba(90,60,20,.25);${centre}">${statTxt(key, v, k, "#5a4318", "#2e2008")}</div>`,
+  act: ([ic], i, k) => { const d = kk(58, k); return `<span class="btn" style="width:${d}px;height:${d}px;border-radius:50%;background:#8e2430;color:#fff;box-shadow:0 0 0 4px #a8323f,0 5px 0 4px rgba(90,20,30,.35);transform:rotate(${i ? 10 : -8}deg)">${I(ic)}</span>`; },
+};
+
+const studio = (id, name, full, idea, game, app, ph, pc) => ({ id, name, full, idea, game, app, phone: (g) => ph(g, M[id]), pc: (g) => pc(g, M[id]) });
+const DIRS = [
+  { id: "today", name: "0 Today", full: "Today (live)", idea: "What ships now, captured from the live dev page, not redrawn. The control.",
+    game: "Top bar row, numbers above the board, controls under it (phone) or far right (PC)", app: "Top bar; on a PC also a tools row" },
+  { id: "anchor", name: "A Original", full: "A The Game table you liked (layout round, unchanged)", idea: "The Game table from the layout round, carried over byte for byte so you can hold every new table against it.",
+    game: "Tokens on the mat, controls in a tray", app: "Small, in the two top corners", phone: tablePhone, pc: tablePc },
+  studio("felt", "1 Card table", "1 Card table", "A green felt card table with a wooden rim. The level is a poker chip, the numbers are playing cards, restart and pause are chips. The controls sit in a wooden rack.",
+    "Chip + cards on the felt, controls in the rack", "Small ivory plaques in the corners", phoneTop, (g, m) => pcSplit(g, m)),
+  studio("wood", "2 Game night", "2 Board game night", "A wooden kitchen table on game night. Everything the game owns sits on ONE side: wooden pieces on top, a tile rack under them. On a phone the pieces ride in the rack, so the board gets the top of the screen.",
+    "All on one side: pieces, then the tile rack", "Small, in the corners", phoneTray, pcOneside),
+  studio("picnic", "3 Picnic", "3 Picnic blanket", "A picnic blanket. The level is a plate, the numbers are cookies, restart is a cup. The controls sit in a basket. On a PC the basket is on the LEFT and the plate and cookies on the right.",
+    "Plate + cookies on the blanket, controls in a basket", "Small, in the corners", phoneTop, (g, m) => pcSplit(g, m, true)),
+  studio("craft", "4 Craft mat", "4 Craft cutting mat", "A cutting mat on a craft desk. The level and numbers are sticky notes, restart is a paper stamp, the controls sit in a pencil tray. On a phone the notes sit in the tray, the board gets the top.",
+    "Sticky notes + a pencil tray", "Small paper tags in the corners", phoneTray, (g, m) => pcSplit(g, m)),
+  studio("chalk", "5 Chalkboard", "5 Chalkboard", "A school slate in a wooden frame. The level and numbers are written in chalk, the controls sit on the chalk ledge. On a PC the chalk marks stand in a narrow column so the middle is roomy.",
+    "Chalk marks on the slate, controls on the ledge", "Small, in the corners", phoneTop, pcTower),
+  studio("bricks", "6 Toy bricks", "6 Toy bricks", "A studded toy-brick baseplate. The level and numbers are bricks, restart is a round brick, the controls are white bricks in a blue bin. On a PC the bricks stack into a tower.",
+    "Brick tower + a bin of controls", "Small, in the corners", phoneTray, pcTower),
+  studio("box", "7 Game box", "7 Game box insert", "The inside of a board game box. Every piece has its own cut-out slot: the board in the big one, each token in a small one, the controls in a long one.",
+    "One slot per piece, controls in the long slot", "Small, in the corners, outside the box", phoneTop, (g, m) => pcSplit(g, m)),
+  studio("dice", "8 Adventure", "8 Adventure map + dice tray", "An adventure map with a dice tray. The level is a big die, the numbers are scrolls, restart and pause are wax seals. The controls sit in a purple dice tray, on the LEFT of a PC.",
+    "Die + scrolls on the map, controls in the dice tray", "Small, in the corners", phoneTray, (g, m) => pcSplit(g, m, true)),
+];
+
+/* ============ zoom and fold ============ */
+// zoom is "fit" or a number: the scale of a phone frame; a PC frame follows at the same pixel density.
+let zoom = "fit", folded = false;
+try { zoom = JSON.parse(localStorage.getItem("ellaz:layout-lab:zoom") || '"fit"'); folded = localStorage.getItem("ellaz:layout-lab:folded") === "1"; } catch {}
+const STEPS = [0.25, 0.33, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5];
+/** Fit: a whole phone and a whole PC on screen, six phones to a row and two PCs where they fit. */
+function fitScales() {
+  const w = document.querySelector(".page").clientWidth - 32;
+  const top = document.querySelector(".top").offsetHeight, bar = folded ? 0 : document.querySelector(".verdict").offsetHeight;
+  const h = innerHeight - top - bar - 70;
+  const n = cur === "onebtn" ? 7 : 6;
+  const sp = Math.min((w - (n - 1) * 14) / n / 390, h / 844);
+  const sc = Math.min((w - 14) / 2 / 1536, h / 639);
+  return [sp, sc];
+}
+function applyZoom() {
+  const [fp, fc] = fitScales();
+  const sp = zoom === "fit" ? fp : zoom, sc = zoom === "fit" ? fc : zoom;
+  document.documentElement.style.setProperty("--sp", sp.toFixed(4));
+  document.documentElement.style.setProperty("--sc", sc.toFixed(4));
+  document.getElementById("zlabel").textContent = `${Math.round(sp * 100)}%`;
+  document.querySelectorAll(".zoom [data-z]").forEach((b) => b.setAttribute("aria-pressed", String((b.dataset.z === "fit" && zoom === "fit") || (b.dataset.z === "real" && zoom === 1))));
+  try { localStorage.setItem("ellaz:layout-lab:zoom", JSON.stringify(zoom)); } catch {}
+}
+function stepZoom(dir) {
+  const now = zoom === "fit" ? fitScales()[0] : zoom;
+  const next = dir > 0 ? STEPS.find((s) => s > now + 0.001) : [...STEPS].reverse().find((s) => s < now - 0.001);
+  zoom = next ?? now; applyZoom();
+}
+function applyFold() {
+  document.body.classList.toggle("folded", folded);
+  const b = document.getElementById("fold");
+  b.textContent = folded ? "Show verdict" : "Hide verdict";
+  b.setAttribute("aria-expanded", String(!folded));
+  try { localStorage.setItem("ellaz:layout-lab:folded", folded ? "1" : "0"); } catch {}
+  applyZoom();
+}
+addEventListener("resize", () => zoom === "fit" && applyZoom());
+
+/* ============ the page ============ */
+const KEY = "ellaz:layout-lab:table:v1";
+let verdicts = {};
+try { verdicts = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
+fetch("/__lab/v/table-v1-2026-09-28").then((r) => r.json()).then((v) => { if (v && v.verdicts) { verdicts = { ...v.verdicts, ...verdicts }; draw(); } }).catch(() => {});
+const qs = new URLSearchParams(location.search);
+let cur = qs.get("d") || "anchor";
+try { if (!qs.get("d")) cur = localStorage.getItem(KEY + ":tab") || cur; } catch {}
+
+const todayImg = (id, screen) => id === "snake" ? `/__lab/t/today-snake-${screen === "phone" ? "phone" : "pc"}.jpg` : `/__lab/shots/${TODAY[id]}-${screen === "phone" ? "phone" : "laptop"}-today.jpg`;
+function frame(d, id, screen, open = false) {
+  const g = GAMES[id], pc = screen === "pc";
+  const inner = d.id === "today"
+    ? `<img src="${todayImg(id, screen)}" width="${pc ? 1536 : 390}" height="${pc ? 639 : 844}" alt="${g.name} today">`
+    : `<div class="app ${pc ? "pc" : ""}" data-mock-source="author">${pc ? d.pc(g) : d.phone(g, open)}</div>`;
+  return `<div class="fr"><p><b>${g.name}${open ? ", menu open" : ""}</b><em data-gain="${id}|${pc ? 1 : 0}"></em></p><div class="clip ${pc ? "pc" : "phone"}">${inner}</div></div>`;
+}
+
+function draw() {
+  const d = DIRS.find((x) => x.id === cur);
+  document.getElementById("tabs").innerHTML = DIRS.map((x) => {
+    const v = verdicts[x.id];
+    const mark = v && v.verdict ? { yes: "✓", maybe: "?", no: "✗" }[v.verdict] : "";
+    return `<button class="tab" role="tab" aria-selected="${x.id === cur}" data-id="${x.id}" title="${x.full}">${x.name}${mark ? `<span class="v">${mark}</span>` : ""}</button>`;
+  }).join("") + `<button class="tab" role="tab" aria-selected="${cur === "set"}" data-id="set">All</button>`;
+  if (!d) return drawSet();
+  document.getElementById("idea").innerHTML = `<b>${d.full}</b><br>${d.idea}<div class="rule"><span>Game buttons: <i>${d.game}</i></span><span>App buttons: <i>${d.app}</i></span></div>`;
+  document.getElementById("stage").innerHTML =
+    `<h2>Phone <small>390 x 844, six games${d.id === "onebtn" ? ", plus the menu open" : ""}</small></h2><div class="row6">${ORDER.map((id) => frame(d, id, "phone")).join("")}${d.id === "onebtn" ? frame(d, "sudoku", "phone", true) : ""}</div>` +
+    `<h2>PC <small>1536 x 639, the same six games</small></h2><div class="grid2">${ORDER.map((id) => frame(d, id, "pc")).join("")}</div>`;
+  measure();
+  drawVerdict(d);
+  applyZoom();
+}
+
+function drawVerdict(d) {
+  const el = document.getElementById("verdict");
+  if (d.id === "today") { el.innerHTML = `<div class="row"><b>Today is the control.</b> <span class="dim">Flip to a studio and come back to compare.</span></div>`; return; }
+  const v = verdicts[d.id] || {};
+  const pick = (k, val, cls, label) => `<button class="pick ${cls}" aria-pressed="${v[k] === val}" data-k="${k}" data-val="${val}">${label}</button>`;
+  const done = DIRS.filter((x) => x.pc && verdicts[x.id]?.verdict && verdicts[x.id]?.why).length;
+  el.innerHTML = `<div class="row"><b>${d.full}:</b>${pick("verdict", "yes", "yes", "Yes, this direction")}${pick("verdict", "maybe", "maybe", "Maybe")}${pick("verdict", "no", "no", "No")}
+      <span class="dim" style="margin-inline-start:auto">${done} of ${DIRS.length - 1} judged</span><span class="dim" id="saved"></span></div>
+    <div class="row"><b>Mostly because of:</b>${pick("why", "material", "why", "The table itself")}${pick("why", "pieces", "why", "The pieces (level, numbers)")}${pick("why", "tray", "why", "Where the tray sits")}${pick("why", "space", "why", "How it uses the space")}${pick("why", "all", "why", "All of it")}
+      <input class="note" id="note" placeholder="Anything to keep or change (optional)" value="${(v.note || "").replace(/"/g, "&quot;")}"></div>`;
+}
+
+function drawSet() {
+  const v = verdicts.set || {};
+  document.getElementById("idea").innerHTML = `<b>All nine tables, one question</b><br>Do these read as nine different tables, or do some feel like the same thing?`;
+  document.getElementById("stage").innerHTML = "";
+  const pick = (val, cls, label) => `<button class="pick ${cls}" aria-pressed="${v.verdict === val}" data-k="verdict" data-val="${val}">${label}</button>`;
+  document.getElementById("verdict").innerHTML = `<div class="row">${pick("distinct", "yes", "Nine different tables")}${pick("some", "maybe", "Some feel the same")}${pick("same", "no", "They all feel the same")}<span class="dim" id="saved"></span></div>
+    <div class="row"><input class="note" id="note" placeholder="Which ones feel the same? (optional)" value="${(v.note || "").replace(/"/g, "&quot;")}"></div>`;
+}
+
+/** Board size per frame, read off the render, against the live page's board. */
+function measure() {
+  requestAnimationFrame(() => document.querySelectorAll("[data-gain]").forEach((em) => {
+    const [id, pc] = em.dataset.gain.split("|");
+    const base = GAMES[id].base[+pc];
+    const bd = em.closest(".fr").querySelector(".app .bd");
+    if (!bd) { em.textContent = `board ${base} px`; return; }
+    const w = Math.round(parseFloat(bd.style.width));
+    const pct = Math.round(((w / base) ** 2 - 1) * 100);
+    em.textContent = `board ${w} px (${pct >= 0 ? "+" : ""}${pct}% area)`;
+  }));
+}
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(verdicts)); } catch {}
+  const payload = { at: new Date().toISOString(), round: "table-studios-2026-09-28", constants: "the table idea (game pieces on a mat + tray, app buttons small in the corners); Day around the mat; sudoku, snake, coloring, memory, wordguess, 2048; 390x844 + 1536x639; the live button set", verdicts };
+  fetch("/__lab/v/table-v1-2026-09-28", { method: "POST", body: JSON.stringify(payload) })
+    .then((r) => { const s = document.getElementById("saved"); if (s) s.textContent = r.ok ? "Saved." : "Not saved."; })
+    .catch(() => { const s = document.getElementById("saved"); if (s) s.textContent = "Kept in this browser only."; });
+}
+
+document.addEventListener("click", (e) => {
+  const z = e.target.closest(".zoom [data-z]");
+  if (z) { const k = z.dataset.z; k === "in" ? stepZoom(1) : k === "out" ? stepZoom(-1) : (zoom = k === "fit" ? "fit" : 1, applyZoom()); return; }
+  if (e.target.closest("#fold")) { folded = !folded; applyFold(); return; }
+  const clip = e.target.closest(".page .clip");
+  if (clip) {
+    const pc = clip.classList.contains("pc"), sc = Math.min((innerWidth - 40) / (pc ? 1536 : 390), (innerHeight - 40) / (pc ? 639 : 844));
+    const box = document.getElementById("box");
+    box.innerHTML = `<div class="clip" style="width:${(pc ? 1536 : 390) * sc}px;height:${(pc ? 639 : 844) * sc}px">${clip.innerHTML.replace(/^\s*<(div|img)/, `<$1 style="transform:scale(${sc})"`)}</div>`;
+    box.classList.add("on");
+    return;
+  }
+  if (e.target.closest("#box")) { document.getElementById("box").classList.remove("on"); return; }
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.classList.contains("tab")) {
+    cur = t.dataset.id;
+    try { localStorage.setItem(KEY + ":tab", cur); } catch {}
+    draw(); scrollTo(0, 0);
+  } else if (t.classList.contains("pick")) {
+    verdicts[cur] = { ...(verdicts[cur] || {}), [t.dataset.k]: t.dataset.val };
+    draw(); save();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("box").classList.remove("on");
+  if (e.target.closest("input, textarea")) return;
+  if (e.key === "+" || e.key === "=") stepZoom(1);
+  else if (e.key === "-") stepZoom(-1);
+  else if (e.key === "0") { zoom = "fit"; applyZoom(); }
+  else if (e.key === "1") { zoom = 1; applyZoom(); }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.id !== "note") return;
+  verdicts[cur] = { ...(verdicts[cur] || {}), note: e.target.value };
+  save();
+});
+draw();
+applyFold();
+</script>
+<script src="http://localhost:8772/_assets/beetle.js" data-surface="ellaz-table-studios"></script>
+</body>
+</html>

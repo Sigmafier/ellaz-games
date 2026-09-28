@@ -44,3 +44,7 @@ docs/outreach/backlinks.html
 # docs/outreach/backlinks.md, and a checked-in copy is a second source of truth
 # that goes stale the moment a link dies - the one thing the board exists to catch.
 dist-reach/
+
+# Lab rounds: pictures of live pages and the operator's verdict files (the
+# rulings themselves are committed in src/lab/rounds/rounds.json).
+.lab-shots/
