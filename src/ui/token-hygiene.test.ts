@@ -214,8 +214,13 @@ describe("every var() resolves", () => {
     const orphans: string[] = [];
     for (const rel of FILES) {
       const src = readFileSync(join(ROOT, rel), "utf8");
+      // A theme sheet may keep shorthand of its own - a line width, a corner
+      // shape - declared and read inside that one file. Its OWN declarations
+      // count for its own reads and for nobody else's, so a name misspelt in a
+      // sheet is still an orphan there.
+      const own = /^ui\/themes\/[a-z]+\.css$/.test(rel) ? declaredTokens(src) : new Set<string>();
       for (const name of readTokens(src)) {
-        if (declared.has(name)) continue;
+        if (declared.has(name) || own.has(name)) continue;
         // `--game` is set inline on a card and read by .ellaz-tint; `--doc-*`
         // belong to the emitted documents' own stylesheet in src/build.
         // `--game-ink` is its partner, set on the same element by the emitted

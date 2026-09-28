@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { THEMES, themeBootScript } from "./themes";
 import { contrastRatio } from "./ink";
@@ -22,6 +23,58 @@ const MARKET = keysIn(blockFor(TOKENS, '[data-theme="market"]'));
 const NEUTRAL = keysIn(blockFor(TOKENS, ":root {"));
 
 const strip = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
+
+/**
+ * THE KEYS A GAME READS. A sheet may give a board and its keys their colours;
+ * these are the names, and `a game reads every key` below holds each one to a
+ * line of game code that reads it - a key nothing reads is a lever with no
+ * caller, and a sheet setting it would look like it themed something.
+ */
+const GAME_KEYS = [
+  "--board-bg",
+  "--board-frame",
+  "--board-radius",
+  "--board-line",
+  "--board-rule",
+  "--board-ink",
+  "--board-you",
+  "--board-bad",
+  "--board-sel",
+  "--board-same",
+  "--key-radius",
+  "--key-bg",
+  "--key-ink",
+  "--key-shadow",
+];
+
+/** Every source file under src/games that is not a test. */
+function gameSources(dir = root("../games")): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory()
+      ? gameSources(join(dir, e.name))
+      : /\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)
+        ? [readFileSync(join(dir, e.name), "utf8")]
+        : [],
+  );
+}
+
+/** A colour as the eye gets it: `rgba()` laid over the page, a hex as it is. */
+function solid(value: string, under: string): string {
+  const m = /^rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\s*\)$/.exec(value);
+  if (!m) return value;
+  const a = Number(m[4]);
+  const u = [1, 3, 5].map((i) => parseInt(under.slice(i, i + 2), 16));
+  return "#" + [1, 2, 3].map((i, k) => Math.round(Number(m[i]) * a + u[k] * (1 - a)).toString(16).padStart(2, "0")).join("");
+}
+
+/** What a board's numbers are read against, at the floor for body text. */
+function boardFailures(t: Record<string, string>): string[] {
+  const bg = solid(t["--board-bg"], t["--bg"]);
+  return (["--board-ink", "--board-you", "--board-bad"] as const)
+    .map((k) => [k, contrastRatio(t[k], bg)] as const)
+    .filter(([, r]) => !(r >= 4.5))
+    .map(([k, r]) => `${k} on the board: ${r.toFixed(2)} < 4.5`);
+}
 
 /** The token block of a sheet, values resolved one `var()` deep. */
 function tokens(css: string, id: string): Record<string, string> {
@@ -56,6 +109,9 @@ function contrastFailures(t: Record<string, string>): string[] {
     ["--on-brand", "--brand-strong", 4.5],
     ["--on-brand", "--brand", 3],
     ["--text-dim", "--surface-2", 4.5],
+    // A label on a brand fill wears these, not --text: see the foot of a sheet.
+    ["--ink-on-brand", "--brand", 4.5],
+    ["--ink-on-fill", "--brand-fill", 4.5],
     ...["brand", "brand-2", "teal", "yellow", "red", "green", "pink", "orange"].map(
       (a) => [`--${a}-ink`, "--surface", 4.5] as [string, string, number],
     ),
@@ -89,9 +145,22 @@ describe.each(SHEET_THEMES)("the %s sheet", (id) => {
     expect(missing).toEqual([]);
   });
 
-  it("adds nothing but neutral keys it re-shapes (radius, font)", () => {
-    const extra = Object.keys(t).filter((k) => !MARKET.includes(k));
-    expect(extra.filter((k) => !NEUTRAL.includes(k))).toEqual([]);
+  it("adds only neutral keys, keys a game reads, and keys it uses itself", () => {
+    const extra = Object.keys(t).filter((k) => !MARKET.includes(k) && !NEUTRAL.includes(k) && !GAME_KEYS.includes(k));
+    // What is left is the sheet's own shorthand - a line width, a corner shape.
+    // It must be USED in this sheet, or it is a name with nothing behind it.
+    const body = strip(css);
+    expect(extra.filter((k) => !body.includes(`var(${k})`))).toEqual([]);
+  });
+
+  it("hands a label on a brand fill the ink that was measured for it", () => {
+    const body = strip(css);
+    expect(body).toContain('[style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }');
+    expect(body).toContain('[style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }');
+  });
+
+  it("gives the board numbers a reader can read", () => {
+    expect(boardFailures(t)).toEqual([]);
   });
 
   it("scopes every rule to its own theme, so two loaded sheets never mix", () => {
@@ -124,12 +193,17 @@ describe("the served files", () => {
     expect(hash).toMatch(/^[0-9a-f]{8}$/);
   });
 
+  it("has drawn every picture - no art() call reaches a browser", () => {
+    for (const f of files) if (f.fileName.endsWith(".css")) expect(String(f.source)).not.toMatch(/\bart\(/);
+  });
+
   it("carries no @import - a resource behind one is found late and blocks", () => {
     for (const f of files) if (f.fileName.endsWith(".css")) expect(String(f.source)).not.toMatch(/@import/);
   });
 
   it("serves every font a sheet names, under the name it uses", () => {
     for (const f of files.filter((x) => x.fileName.endsWith(".css"))) {
+      // `url(./name)` is a font; a picture is `url("data:...")` and names no file.
       for (const m of String(f.source).matchAll(/url\(\.\/([^)]+)\)/g)) {
         expect(names, `${f.fileName} names ${m[1]}`).toContain(`assets/${m[1]}`);
       }
@@ -139,6 +213,42 @@ describe("the served files", () => {
   it("builds the same URL the boot script and the picker build", () => {
     const h = themeSheetHref("/ellaz/");
     expect(`${h.prefix}paper${h.suffix}`).toBe(`/ellaz/assets/theme-paper-${hash}.css`);
+  });
+});
+
+describe("a game reads every key a sheet may set", () => {
+  const games = gameSources().join("\n");
+
+  it.each(GAME_KEYS)("%s is read by a game", (key) => {
+    expect(games).toContain(`var(${key},`);
+  });
+
+  it("is set by at least one sheet, each of them", () => {
+    const all = SHEET_THEMES.map((id) => strip(sheetOf(id))).join("\n");
+    expect(GAME_KEYS.filter((k) => !all.includes(`${k}:`))).toEqual([]);
+  });
+
+  it("leaves Day and Night the board they always had", () => {
+    // tokens.css declares none of them, so a game's own fallback is what
+    // paints - and the fallbacks are the literals that shipped before the keys.
+    for (const k of GAME_KEYS) expect(TOKENS).not.toContain(`${k}:`);
+    const sudoku = readFileSync(root("../games/sudoku/Sudoku.tsx"), "utf8");
+    for (const was of [
+      "var(--board-bg, #20244a)",
+      "var(--board-frame, 3px solid #6c5ce7)",
+      "var(--board-line, 1px solid rgba(255,255,255,0.08))",
+      "var(--board-line, 2px outset rgb(0, 0, 0))",
+      "var(--board-rule, 2px solid #6c5ce7)",
+      "var(--board-sel, #4a4f96)",
+      "var(--board-same, rgba(108,92,231,0.25))",
+      "var(--board-bad, #ff7675)",
+      "var(--board-ink, #ffffff)",
+      "var(--board-you, #a29bfe)",
+      "var(--key-bg, var(--surface))",
+      "var(--key-shadow, var(--shadow-1))",
+    ]) {
+      expect(sudoku, was).toContain(was);
+    }
   });
 });
 
@@ -184,6 +294,21 @@ describe("the checks above can fail", () => {
   it("finds a label below the floor", () => {
     const t = tokens(sheetOf("paper"), "paper");
     expect(contrastFailures({ ...t, "--text-dim": "#b0a090" })).not.toEqual([]);
+  });
+
+  it("finds a label a brand fill cannot carry - Day's own pairing, on Paper's red", () => {
+    const t = tokens(sheetOf("paper"), "paper");
+    expect(contrastFailures({ ...t, "--ink-on-brand": t["--text"] })).toEqual(["--ink-on-brand on --brand: 2.67 < 4.5"]);
+  });
+
+  it("finds a board number below the floor", () => {
+    const t = tokens(sheetOf("flat"), "flat");
+    expect(boardFailures({ ...t, "--board-you": "#f25f5c" })).toEqual(["--board-you on the board: 3.20 < 4.5"]);
+  });
+
+  it("reads a see-through board over the page under it", () => {
+    expect(solid("rgba(255, 255, 255, 0.5)", "#000000")).toBe("#808080");
+    expect(solid("#123456", "#000000")).toBe("#123456");
   });
 
   it("finds a missing colour key", () => {

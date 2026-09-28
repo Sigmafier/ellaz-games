@@ -1,7 +1,13 @@
 /* CRAYON NOTEBOOK - theme 2 of the style round (operator pick, 2026-09-27).
-   A ruled exercise book, everything outlined by hand in a wobbly black line,
-   headings written in a child's hand. Served only to a player who picks it.
-   Every rule is scoped to :root[data-theme="crayon"]; see paper.css. */
+   A ruled exercise book with its red margin. Everything is outlined by hand in
+   a wobbly black line and coloured in with crayon strokes that show the wax;
+   the numbers are yellow sticky notes; every word that can be is written in a
+   child's hand. Tuned against the approved mock (docs/themes/style-round-2026-09-27.html,
+   "2 Crayon notebook").
+
+   Served only to a player who picks it. Every rule is scoped to
+   :root[data-theme="crayon"]; see paper.css. Every `art(...)` is drawn at
+   build time by src/build/themeArt.ts. */
 @import "./fonts/gochi-hand.css";
 
 :root[data-theme="crayon"] {
@@ -11,7 +17,7 @@
   --surface-2: #f3f6fb;
   --text: #2b2b2b;
   --text-dim: #585c63;
-  --brand: #d6453f;
+  --brand: #d0423c;
   --brand-2: #f25f5c;
   --teal: #1f9e89;
   --yellow: #ffd166;
@@ -51,44 +57,202 @@
   --radius-3: 22px 8px 20px 10px / 10px 20px 8px 22px;
   --radius-2: 16px 6px 14px 8px / 8px 14px 6px 16px;
   --radius-1: 10px 4px 9px 5px / 5px 9px 4px 10px;
+
+  /* One line, drawn by hand, for everything that has an edge. */
+  --crayon-line: 3px solid #2b2b2b;
+  --crayon-box: 255px 15px 225px 15px / 15px 225px 15px 255px;
+
+  /* The board: drawn straight onto the page, its boxes in pencil dashes. */
+  --board-bg: rgba(255, 255, 255, 0.72);
+  --board-frame: 3px solid #2b2b2b;
+  --board-radius: 6px 14px 8px 12px / 12px 6px 14px 8px;
+  --board-line: 1px dashed #9aa5b1;
+  --board-rule: 2.5px solid #2b2b2b;
+  --board-ink: #2b2b2b;
+  --board-you: #1a6bc0;
+  --board-bad: #b3302b;
+  --board-sel: art(hatch, 24, 8, #f25f5c, 0.55, 21) 0 0 / 24px 24px, #ffffff;
+  --board-same: #fff6bd;
+
+  --key-radius: var(--crayon-box);
+  --key-shadow: none;
+  --key-ink: #2b2b2b;
+
+  /* What a label wears on a brand fill. The shared buttons ask for `--text`
+     there, which is Day's pairing (a bright pink under dark ink) and unreadable
+     on this theme's brand; the two rules at the foot of this sheet hand them
+     these instead. Measured, and held by theme-sheets.test.ts. */
+  --ink-on-brand: #ffffff;
+  --ink-on-fill: #ffffff;
 }
 
-:root[data-theme="crayon"] .gname,
-:root[data-theme="crayon"] .gc-value,
-:root[data-theme="crayon"] h1,
-:root[data-theme="crayon"] h2 {
-  font-family: var(--font-display) !important;
-  font-weight: 400 !important;
-}
-:root[data-theme="crayon"] .gc-cell { box-shadow: var(--shadow-1) !important; }
-
-/* The exercise book: ruled lines on every screen, and the red margin line. */
+/* ---- the page: ruled lines and the red margin ---------------------------- */
 :root[data-theme="crayon"] body { background: var(--page-bg); }
+:root[data-theme="crayon"] body.screen .urow { background: transparent; }
 :root[data-theme="crayon"] body::before {
   content: "";
   position: fixed;
   inset-block: 0;
-  inset-inline-start: 22px;
+  inset-inline-start: 26px;
   width: 2px;
   background: #ef8a8a;
   pointer-events: none;
   z-index: -1;
 }
-/* The bar is the top of the page, not a band: paper, a pencil line under it,
-   and every button a hand-drawn outline. */
+@media (min-width: 900px) {
+  :root[data-theme="crayon"] body::before { inset-inline-start: 11vw; }
+}
+
+/* ---- the words ----------------------------------------------------------- */
+:root[data-theme="crayon"] .gname,
+:root[data-theme="crayon"] .gc-value,
+:root[data-theme="crayon"] .gc-label,
+:root[data-theme="crayon"] .ellaz-wordmark,
+:root[data-theme="crayon"] h1,
+:root[data-theme="crayon"] h2 {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+}
+
+/* ---- the bar: the top of the page, not a band ---------------------------- */
 :root[data-theme="crayon"] body.screen .top {
   --hdr-ink: #2b2b2b;
-  background: #fdfdf6;
-  box-shadow: 0 3px 0 #2b2b2b;
+  background: transparent;
 }
-:root[data-theme="crayon"] body.screen .top .hbtn:not(.moresheet *) {
-  background: repeating-linear-gradient(45deg, rgba(255, 209, 102, 0.55) 0 4px, #fff 4px 8px);
+:root[data-theme="crayon"] body.screen .gname {
+  font-size: 26px;
+  text-decoration: underline wavy #f25f5c 2px;
+  text-underline-offset: 6px;
+  overflow: visible;
+  padding-block-end: 8px;
+}
+/* A phone's bar leaves the name 87px. Measured 2026-09-28 across all 47 games:
+   at this size the longest name that fits in Day still fits here. */
+@media (max-width: 719px) {
+  :root[data-theme="crayon"] body.screen .gname { font-size: 17px; text-underline-offset: 4px; }
+}
+:root[data-theme="crayon"] body.screen .top .hbtn:not(.moresheet *),
+:root[data-theme="crayon"] body.screen .top .wallet-wrap:not(.moresheet *) {
+  --hdr-ink: #2b2b2b;
+  background: art(hatch, 24, 8, #ffc23d, 0.7, 11) 0 0 / 24px 24px, #fffef6;
   color: #2b2b2b;
-  box-shadow: 0 0 0 2.5px #2b2b2b;
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  border: var(--crayon-line);
+  border-radius: var(--crayon-box);
+  box-shadow: none;
+  transition: scale 0.08s ease-out;
 }
-:root[data-theme="crayon"] .gc-cell:nth-child(odd) { transform: rotate(-1deg); }
-:root[data-theme="crayon"] .gname {
-  text-decoration: underline wavy #f25f5c;
-  text-underline-offset: 5px;
+:root[data-theme="crayon"] body.screen .top .hbtn:not(.moresheet *):hover {
+  background: art(hatch, 24, 8, #ffc23d, 0.95, 11) 0 0 / 24px 24px, #fffef6;
+}
+:root[data-theme="crayon"] body.screen .top .hbtn:not(.moresheet *):active { scale: 0.94; }
+:root[data-theme="crayon"] body.screen .top .wallet-wrap:not(.moresheet *) {
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+/* The game's own buttons: each coloured in with a different crayon. */
+:root[data-theme="crayon"] body.screen .top .in > .ubtn,
+:root[data-theme="crayon"] body.screen .top [data-sound]:not(.moresheet *),
+:root[data-theme="crayon"] body.screen .urow .tools .ubtn {
+  background: #ffffff;
+  color: #2b2b2b;
+  border: var(--crayon-line);
+  border-radius: var(--crayon-box);
+  box-shadow: none;
+  transition: scale 0.08s ease-out;
+}
+:root[data-theme="crayon"] body.screen .top .in > .ubtn:active,
+:root[data-theme="crayon"] body.screen .urow .tools .ubtn:active { scale: 0.94; }
+:root[data-theme="crayon"] body.screen .ubtn[data-pause]:not(.moresheet *) { background: art(hatch, 24, 8, #5cc896, 0.75, 31) 0 0 / 24px 24px, #ffffff; rotate: -4deg; }
+:root[data-theme="crayon"] body.screen .ubtn[data-restart]:not(.moresheet *) { background: art(hatch, 24, 8, #ff9f43, 0.75, 32, -1) 0 0 / 24px 24px, #ffffff; rotate: 3deg; }
+:root[data-theme="crayon"] body.screen .top [data-sound]:not(.moresheet *) { background: art(hatch, 24, 8, #748cff, 0.75, 33) 0 0 / 24px 24px, #ffffff; rotate: -2deg; }
+:root[data-theme="crayon"] body.screen .ubtn[data-fav]:not(.moresheet *) { background: art(hatch, 24, 8, #f25f5c, 0.6, 34, -1) 0 0 / 24px 24px, #ffffff; rotate: -2.5deg; }
+:root[data-theme="crayon"] body.screen .ubtn[data-share]:not(.moresheet *) { background: art(hatch, 24, 8, #748cff, 0.7, 35) 0 0 / 24px 24px, #ffffff; rotate: 2deg; }
+:root[data-theme="crayon"] body.screen .ubtn[data-fullscreen]:not(.moresheet *) { background: art(hatch, 24, 8, #5cc896, 0.7, 36, -1) 0 0 / 24px 24px, #ffffff; rotate: -3deg; }
+:root[data-theme="crayon"] body.screen .ubtn[data-report]:not(.moresheet *) { background: art(hatch, 24, 8, #ff9f43, 0.7, 37) 0 0 / 24px 24px, #ffffff; rotate: 2.5deg; }
+
+/* The menus: a page torn from the same book. */
+:root[data-theme="crayon"] body.screen .moresheet,
+:root[data-theme="crayon"] .langsheet {
+  background: #ffffff;
+  border: var(--crayon-line);
+  border-radius: 14px 6px 12px 8px / 8px 12px 6px 14px;
+  box-shadow: 4px 5px 0 rgba(43, 43, 43, 0.18);
+}
+
+/* ---- the numbers: yellow sticky notes ------------------------------------ */
+:root[data-theme="crayon"] .gc-cell {
+  --gc-cell-bg: art(grain, 120, #7a6a00, 0.08, 0.9, 4), #fff38a;
+  --gc-cell-radius: 3px 3px 12px 3px / 3px 3px 20px 3px;
+  --gc-cell-shadow: 2px 4px 0 rgba(43, 43, 43, 0.16);
+  --gc-label: 12px;
+  --gc-value: 22px;
+  --gc-level-value: 21px;
+  --text-dim: #4d5158;
+  border: 2px solid #2b2b2b !important;
+}
+:root[data-theme="crayon"] .gc-cell:nth-child(3n + 1) { rotate: -2deg; }
+:root[data-theme="crayon"] .gc-cell:nth-child(3n + 2) { rotate: 1.5deg; }
+:root[data-theme="crayon"] .gc-cell:nth-child(3n) { rotate: -1deg; }
+:root[data-theme="crayon"] .gc-label { letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* ---- the board ----------------------------------------------------------- */
+:root[data-theme="crayon"] .ellaz-board { box-shadow: none !important; }
+:root[data-theme="crayon"] .ellaz-cell {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  font-size: clamp(18px, 5.6vw, 32px) !important;
+}
+:root[data-theme="crayon"] .ellaz-cell[data-bad] {
+  text-decoration: underline wavy #b3302b 2px;
+  text-underline-offset: 3px;
+}
+
+/* ---- the keys: a box drawn by hand, coloured in -------------------------- */
+:root[data-theme="crayon"] .ellaz-key {
+  border: var(--crayon-line) !important;
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  font-size: 27px !important;
+  transition: scale 0.08s ease-out;
+}
+:root[data-theme="crayon"] .ellaz-key:nth-child(3n + 1) { --key-bg: art(hatch, 24, 8, #f25f5c, 0.5, 41) 0 0 / 24px 24px, #ffffff; }
+:root[data-theme="crayon"] .ellaz-key:nth-child(3n + 2) { --key-bg: art(hatch, 24, 8, #5cc896, 0.55, 42, -1) 0 0 / 24px 24px, #ffffff; }
+:root[data-theme="crayon"] .ellaz-key:nth-child(3n) { --key-bg: art(hatch, 24, 8, #748cff, 0.5, 43) 0 0 / 24px 24px, #ffffff; }
+:root[data-theme="crayon"] .ellaz-key:nth-child(odd) { rotate: -1deg; }
+:root[data-theme="crayon"] .ellaz-key:nth-child(even) { rotate: 1deg; }
+:root[data-theme="crayon"] .ellaz-key:active { scale: 0.94; }
+
+/* ---- home ---------------------------------------------------------------- */
+:root[data-theme="crayon"] body.app-shell .ellaz-wordmark {
+  font-size: 30px !important;
+  text-decoration: underline wavy #f25f5c 2px;
+  text-underline-offset: 6px;
+}
+:root[data-theme="crayon"] body.app-shell header a[aria-label],
+:root[data-theme="crayon"] body.app-shell header button[aria-label],
+:root[data-theme="crayon"] body.app-shell header div[aria-label] {
+  background: art(hatch, 24, 8, #ffc23d, 0.7, 11) 0 0 / 24px 24px, #fffef6 !important;
+  color: #2b2b2b !important;
+  border: var(--crayon-line) !important;
+  border-radius: var(--crayon-box) !important;
+  box-shadow: none !important;
+}
+:root[data-theme="crayon"] .ellaz-rail > button { border-radius: var(--crayon-box) !important; }
+:root[data-theme="crayon"] .ellaz-rail > button:nth-child(odd) { rotate: -1.5deg; }
+:root[data-theme="crayon"] .ellaz-rail > button:nth-child(even) { rotate: 1.5deg; }
+:root[data-theme="crayon"] div:has(> a + button[aria-pressed]):nth-child(3n + 1) { rotate: -1deg; }
+:root[data-theme="crayon"] div:has(> a + button[aria-pressed]):nth-child(3n + 2) { rotate: 0.8deg; }
+:root[data-theme="crayon"] a:has(+ button[aria-pressed]) > span:last-child { font-family: var(--font-display); font-size: 17px !important; font-weight: 400 !important; padding-block: 4px !important; }
+
+/* ---- a label on the brand fill ------------------------------------------- */
+/* Keyed on the fill an element ASKS for in its own style, because that is the
+   one thing every shared button, tab and chip here has in common. */
+:root[data-theme="crayon"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
+:root[data-theme="crayon"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="crayon"] .ellaz-key,
+  :root[data-theme="crayon"] .hbtn,
+  :root[data-theme="crayon"] .ubtn { transition: none; }
 }

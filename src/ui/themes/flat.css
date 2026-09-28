@@ -1,7 +1,19 @@
 /* FLAT + POP-OUT - theme 3 of the style round (operator pick, 2026-09-27).
-   Sunny flat colour, a deep indigo header, and long solid shadows that make
-   every card pop off the page. Served only to a player who picks it.
-   Every rule is scoped to :root[data-theme="flat"]; see paper.css. */
+   Sunny flat colour and a deep indigo bar. Nothing has a border, a gradient
+   or a rounded corner it does not need; what lifts a thing off the page is a
+   long solid shadow, and what you press sinks into its own. The numbers are
+   three blocks of colour, the game's own buttons are round and pop out.
+   Tuned against the approved mock (docs/themes/style-round-2026-09-27.html, "3 Flat +
+   pop-out button").
+
+   TWO COLOURS MOVED FROM THE MOCK, both for the contrast floor (measured
+   2026-09-28): the number blocks carry indigo ink, not white (white read 3.20
+   on the red and 2.11 on the teal; indigo reads 5.17 and 7.85), which lifts
+   the blue block to a sky blue that holds it (6.07); and a number you typed
+   is #d63a37, not #f25f5c (4.65 on white, was 3.20).
+
+   Served only to a player who picks it. Every rule is scoped to
+   :root[data-theme="flat"]; see paper.css. */
 @import "./fonts/baloo-2.css";
 
 :root[data-theme="flat"] {
@@ -37,36 +49,227 @@
   --line: #f0c248;
   --stage-bg: #ffd978;
   --stage-cover: rgba(29, 27, 58, 0.86);
-  --shadow-1: 3px 3px 0 rgba(29, 27, 58, 0.3);
-  --shadow-2: 1px 1px 0 #d9a93c, 2px 2px 0 #d9a93c, 3px 3px 0 #d9a93c, 4px 4px 0 #d9a93c,
-    5px 5px 0 #d9a93c, 6px 6px 0 #d9a93c, 7px 7px 0 #d9a93c, 8px 8px 0 #d9a93c;
+  --long: #d9a93c;
+  --shadow-1: 1px 1px 0 var(--long), 2px 2px 0 var(--long), 3px 3px 0 var(--long), 4px 4px 0 var(--long);
+  --shadow-2: 1px 1px 0 var(--long), 2px 2px 0 var(--long), 3px 3px 0 var(--long), 4px 4px 0 var(--long),
+    5px 5px 0 var(--long), 6px 6px 0 var(--long), 7px 7px 0 var(--long), 8px 8px 0 var(--long);
   --tint-strength: 0.12;
   --art-veil: transparent;
   --spark-colors: #f25f5c, #247ba0, #70c1b3, #3d348b, #ff9f1c;
   --confetti-colors: #f25f5c, #247ba0, #70c1b3, #3d348b, #5a4fcf, #ff9f1c, #ff8fab, #ffffff;
 
   --font-display: "Baloo 2", "Fredoka", "Heebo", system-ui, sans-serif;
-  --radius-3: 18px;
-  --radius-2: 12px;
+  --radius-pill: 6px;
+  --radius-3: 4px;
+  --radius-2: 2px;
+  --radius-1: 0;
+
+  /* The board: a white block, lifted twelve steps off the page. */
+  --board-bg: #ffffff;
+  --board-frame: 0 solid #ffffff;
+  --board-radius: 0;
+  --board-line: 1px solid #e6e3f0;
+  --board-rule: 3px solid #3d348b;
+  --board-ink: #3d348b;
+  --board-you: #d63a37;
+  --board-bad: #d63a37;
+  --board-sel: #ffe9a6;
+  --board-same: #fff5d6;
+
+  --key-radius: 0;
+  --key-ink: #1d1b3a;
+  --key-shadow: 1px 1px 0 var(--long), 2px 2px 0 var(--long), 3px 3px 0 var(--long), 4px 4px 0 var(--long),
+    5px 5px 0 var(--long), 6px 6px 0 var(--long);
+
+  /* What a label wears on a brand fill. The shared buttons ask for `--text`
+     there, which is Day's pairing (a bright pink under dark ink) and unreadable
+     on this theme's brand; the two rules at the foot of this sheet hand them
+     these instead. Measured, and held by theme-sheets.test.ts. */
+  --ink-on-brand: #ffffff;
+  --ink-on-fill: #ffffff;
 }
 
+/* ---- the page: one flat yellow, a halftone fading out of one corner ------ */
+:root[data-theme="flat"] body { background: #ffcf56; }
+:root[data-theme="flat"] body.screen .urow { background: transparent; }
+:root[data-theme="flat"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle, #f2b93b 2px, transparent 2.6px) 0 0 / 16px 16px;
+  -webkit-mask-image: radial-gradient(120% 90% at 100% 100%, #000 0, transparent 60%);
+  mask-image: radial-gradient(120% 90% at 100% 100%, #000 0, transparent 60%);
+}
+
+/* ---- the words ----------------------------------------------------------- */
 :root[data-theme="flat"] .gname,
 :root[data-theme="flat"] .gc-value,
+:root[data-theme="flat"] .ellaz-wordmark,
 :root[data-theme="flat"] h1,
 :root[data-theme="flat"] h2 {
   font-family: var(--font-display) !important;
   font-weight: 800 !important;
 }
-/* The long shadow is the pop-out: the board and the number cards lift off. */
-:root[data-theme="flat"] .ellaz-board,
-:root[data-theme="flat"] .gc-cell { box-shadow: var(--shadow-2) !important; }
-/* The deep header band. The emitted header paints from the --doc tokens, so
-   redefining them on the bar alone recolours everything inside it. */
+
+/* ---- the bar: a deep band, its controls square blocks -------------------- */
+/* The emitted header paints from the --doc tokens, so redefining them on the
+   bar alone recolours everything inside it. */
 :root[data-theme="flat"] body.screen .top {
   --doc-card: #3d348b;
   --doc-ink: #ffffff;
   --doc-line: #3d348b;
   --doc-brand: #ffe066;
+  --hdr-ink: #ffffff;
   background: #3d348b;
   color: #ffffff;
+}
+:root[data-theme="flat"] body.screen .gname { font-size: 22px; }
+/* A phone's bar leaves the name 87px. Measured 2026-09-28 across all 47 games:
+   at this size the longest name that fits in Day still fits here. */
+@media (max-width: 719px) {
+  :root[data-theme="flat"] body.screen .gname { font-size: 16px; }
+}
+:root[data-theme="flat"] body.screen .top .hbtn:not(.moresheet *),
+:root[data-theme="flat"] body.screen .top .wallet-wrap:not(.moresheet *) {
+  background: #5a4fcf;
+  color: #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+  transition: background 0.1s ease-out;
+}
+:root[data-theme="flat"] body.screen .top .hbtn:not(.moresheet *):hover { background: #6a60dc; }
+:root[data-theme="flat"] body.screen .top .hbtn:not(.moresheet *):active { background: #4a3fb8; }
+:root[data-theme="flat"] body.screen .top .wallet-wrap:not(.moresheet *) { --hdr-ink: #ffe066; }
+
+/* The game's own buttons pop out: round, and sitting on a hard shadow they
+   sink into when pressed. Restart and pause are the red ones. */
+:root[data-theme="flat"] body.screen .top .in > .ubtn,
+:root[data-theme="flat"] body.screen .top [data-sound]:not(.moresheet *),
+:root[data-theme="flat"] body.screen .urow .tools .ubtn {
+  --pop: #3d348b;
+  --pop-side: #231d5c;
+  background: var(--pop);
+  color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 1px 1px 0 var(--pop-side), 2px 2px 0 var(--pop-side), 3px 3px 0 var(--pop-side);
+  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+}
+:root[data-theme="flat"] body.screen .top .in > .ubtn:active,
+:root[data-theme="flat"] body.screen .top [data-sound]:not(.moresheet *):active,
+:root[data-theme="flat"] body.screen .urow .tools .ubtn:active {
+  translate: 3px 3px;
+  box-shadow: 0 0 0 var(--pop-side);
+}
+/* On the indigo bar an indigo button would vanish, so there they are violet. */
+:root[data-theme="flat"] body.screen .top .in > .ubtn,
+:root[data-theme="flat"] body.screen .top [data-sound]:not(.moresheet *) { --pop: #6a60dc; --pop-side: #231d5c; }
+:root[data-theme="flat"] body.screen .ubtn[data-restart]:not(.moresheet *),
+:root[data-theme="flat"] body.screen .ubtn[data-pause]:not(.moresheet *) { --pop: #f25f5c; --pop-side: #b8403d; }
+:root[data-theme="flat"] body.screen .urow .tools .ubtn[data-restart] {
+  box-shadow: 1px 1px 0 var(--pop-side), 2px 2px 0 var(--pop-side), 3px 3px 0 var(--pop-side),
+    0 0 0 5px rgba(242, 95, 92, 0.25);
+}
+
+:root[data-theme="flat"] body.screen .moresheet,
+:root[data-theme="flat"] .langsheet {
+  --doc-card: #ffffff;
+  --doc-ink: #1d1b3a;
+  --doc-line: #e6e3f0;
+  background: #ffffff;
+  color: #1d1b3a;
+  border: 0;
+  border-radius: 0;
+  box-shadow: 1px 1px 0 #231d5c, 2px 2px 0 #231d5c, 3px 3px 0 #231d5c, 4px 4px 0 #231d5c,
+    5px 5px 0 #231d5c, 6px 6px 0 #231d5c;
+}
+
+/* ---- the numbers: three blocks of colour, edge to edge ------------------- */
+:root[data-theme="flat"] .gc-row { --gc-gap: 0px; }
+:root[data-theme="flat"] .gc-cell {
+  --gc-gap: 8px;
+  --gc-cell-radius: 0;
+  --gc-cell-shadow: none;
+  --gc-value: 21px;
+  --gc-level-value: 20px;
+  --text-dim: #1d1b3a;
+  color: #1d1b3a !important;
+}
+:root[data-theme="flat"] .gc-cell:nth-child(3n + 1) { --gc-cell-bg: #f25f5c; }
+:root[data-theme="flat"] .gc-cell:nth-child(3n + 2) { --gc-cell-bg: #3fa7d6; }
+:root[data-theme="flat"] .gc-cell:nth-child(3n) { --gc-cell-bg: #70c1b3; }
+:root[data-theme="flat"] .gc-label { letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* ---- the board ----------------------------------------------------------- */
+:root[data-theme="flat"] .ellaz-board {
+  box-shadow: 1px 1px 0 var(--long), 2px 2px 0 var(--long), 3px 3px 0 var(--long), 4px 4px 0 var(--long),
+    5px 5px 0 var(--long), 6px 6px 0 var(--long), 7px 7px 0 var(--long), 8px 8px 0 var(--long),
+    9px 9px 0 var(--long), 10px 10px 0 var(--long), 11px 11px 0 var(--long), 12px 12px 0 var(--long) !important;
+}
+:root[data-theme="flat"] .ellaz-cell {
+  font-family: var(--font-display) !important;
+  font-weight: 800 !important;
+  font-style: italic;
+}
+:root[data-theme="flat"] .ellaz-cell[data-sel] { --board-you: #b8302d; }
+:root[data-theme="flat"] .ellaz-cell[data-bad] { box-shadow: inset 0 0 0 3px #d63a37; }
+
+/* ---- the keys: white blocks that sink when pressed ----------------------- */
+:root[data-theme="flat"] .ellaz-key {
+  --key-bg: #ffffff;
+  font-family: var(--font-display) !important;
+  font-weight: 800 !important;
+  font-size: 24px !important;
+  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+}
+:root[data-theme="flat"] .ellaz-key:active {
+  translate: 5px 5px;
+  box-shadow: 1px 1px 0 var(--long) !important;
+}
+
+/* ---- home: the same band behind the top row ------------------------------ */
+/* The band runs edge to edge whatever the column's width, so the scroller
+   must not offer the overhang as somewhere to scroll to. */
+:root[data-theme="flat"] body.app-shell .ellaz-scroll { overflow-x: hidden; }
+:root[data-theme="flat"] body.app-shell header {
+  position: relative;
+  isolation: isolate;
+  margin-block-end: 8px;
+}
+:root[data-theme="flat"] body.app-shell header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: -8px 0;
+  inset-inline: calc(50% - 50vw);
+  background: #3d348b;
+}
+:root[data-theme="flat"] body.app-shell .ellaz-wordmark,
+:root[data-theme="flat"] body.app-shell .ellaz-tagline { color: #ffffff !important; }
+:root[data-theme="flat"] body.app-shell header a[aria-label],
+:root[data-theme="flat"] body.app-shell header button[aria-label],
+:root[data-theme="flat"] body.app-shell header div[aria-label] {
+  background: #5a4fcf !important;
+  color: #ffffff !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* The coin count wears amber in Day, which is brown on this violet (measured
+   2026-09-28): here the whole chip is the header's yellow. */
+:root[data-theme="flat"] body.app-shell header div[aria-label],
+:root[data-theme="flat"] body.app-shell header div[aria-label] * { color: #ffe066 !important; }
+:root[data-theme="flat"] .ellaz-rail > button { border-radius: 0 !important; }
+:root[data-theme="flat"] a:has(+ button[aria-pressed]) > span:last-child { font-family: var(--font-display); font-size: 15px !important; }
+
+/* ---- a label on the brand fill ------------------------------------------- */
+/* Keyed on the fill an element ASKS for in its own style, because that is the
+   one thing every shared button, tab and chip here has in common. */
+:root[data-theme="flat"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
+:root[data-theme="flat"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="flat"] .ellaz-key,
+  :root[data-theme="flat"] .hbtn,
+  :root[data-theme="flat"] .ubtn { transition: none; }
 }

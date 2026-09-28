@@ -11,6 +11,8 @@
  *                                   (a resource behind one is invisible to the
  *                                   preload scanner and blocks late)
  *   `url(./<slug>-latin.woff2)`     renamed to a content-hashed font file
+ *   `art(tear, 360, 10, 7, #c8433a)` drawn: a torn edge, grain, a crayon line
+ *                                   (src/build/themeArt.ts), as a data URI
  *   the whole sheet                 minified, then named
  *                                   `assets/theme-<id>-<H>.css`
  *
@@ -29,6 +31,7 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import type { Plugin } from "vite";
 import { THEMES, type ThemeSheetHref } from "../ui/themes";
+import { expandArt } from "./themeArt";
 
 const DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "ui", "themes");
 
@@ -69,7 +72,8 @@ function buildOne(id: string, fonts: Map<string, ServedFile>): string {
     fonts.set(fileName, { fileName, source: bytes });
     return `url(./${fileName.slice("assets/".length)})`;
   });
-  return css;
+  // Last, so a picture's own `url("data:...")` is never read as a font.
+  return expandArt(css, `theme sheet ${id}`);
 }
 
 /** The sheets before minifying, the fonts they name, and the hash over both. */

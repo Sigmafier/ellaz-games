@@ -88,7 +88,7 @@ export const THEMES: readonly Theme[] = [
     id: "crayon",
     label: { he: "צבעים", en: "Crayon", es: "Crayón", sv: "Krita" },
     icon: "draw",
-    browserChrome: "#d6453f",
+    browserChrome: "#d0423c",
     background: "#fdfdf6",
     sheet: true,
   },

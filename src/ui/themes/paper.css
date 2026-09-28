@@ -1,6 +1,12 @@
 /* PAPER CUT-OUT - theme 1 of the style round (operator pick, 2026-09-27).
-   Kraft paper, cards cut out and stuck down slightly crooked, hard offset
-   shadows. Served only to a player who picks it: see src/build/themeSheets.ts.
+   Kraft paper with its fibres showing. The bar is a strip of red card torn
+   along the bottom, the numbers are luggage tags, the board is a sheet laid
+   down by hand, the keys are squares of coloured card, and nothing is quite
+   straight. Tuned against the approved mock (docs/themes/style-round-2026-09-27.html, "1
+   Paper cut-out"); scripts/themes/mock-shots.mjs draws that mock at full size.
+
+   Served only to a player who picks it: see src/build/themeSheets.ts. Every
+   `art(...)` is drawn at build time by src/build/themeArt.ts.
 
    EVERY RULE IS SCOPED TO :root[data-theme="paper"]. A player who switches
    theme twice has two sheets loaded at once, and an unscoped rule here would
@@ -30,7 +36,10 @@
   --orange-ink: #8f4410;
   --brand-fill: var(--brand);
   --surface-fill: var(--surface);
-  --page-bg: radial-gradient(circle at 20% 30%, rgba(0, 0, 0, 0.035) 0 1px, transparent 1.5px) 0 0 / 9px 9px, #f1e4c8;
+  --page-bg:
+    art(grain, 180, #5a4326, 0.1, 0.85, 3),
+    radial-gradient(circle at 20% 30%, rgba(0, 0, 0, 0.04) 0 1px, transparent 1.5px) 0 0 / 9px 9px,
+    #f1e4c8;
   --on-brand: #ffffff;
   --brand-strong: #a8342c;
   --badge-fill: rgba(59, 47, 36, 0.8);
@@ -47,40 +56,235 @@
 
   /* Shapes: cut with scissors, not a compass. */
   --radius-pill: 14px;
-  --radius-3: 12px;
-  --radius-2: 8px;
+  --radius-3: 6px;
+  --radius-2: 6px;
   --radius-1: 5px;
+
+  /* The board: a sheet of white paper, ruled in pencil, printed in navy. */
+  --board-bg: #fffdf7;
+  --board-frame: 8px solid #fffdf7;
+  --board-radius: 2px;
+  --board-line: 1px solid #cdbfa8;
+  --board-rule: 3px solid #6b5a45;
+  --board-ink: #23395d;
+  --board-you: #c93a30;
+  --board-bad: #c93a30;
+  --board-sel: #ffe7a8;
+  --board-same: #fff3cf;
+
+  /* The keys: squares of coloured card. Each takes its colour below. */
+  --key-radius: 4px;
+  --key-shadow: 2px 3px 0 rgba(59, 47, 36, 0.28);
+  --key-ink: #3b2f24;
+
+  /* What a label wears on a brand fill. The shared buttons ask for `--text`
+     there, which is Day's pairing (a bright pink under dark ink) and unreadable
+     on this theme's brand; the two rules at the foot of this sheet hand them
+     these instead. Measured, and held by theme-sheets.test.ts. */
+  --ink-on-brand: #ffffff;
+  --ink-on-fill: #ffffff;
 }
 
-/* Cards stuck down by hand: never quite straight, never the same way twice. */
-:root[data-theme="paper"] .gc-cell:nth-child(odd) { transform: rotate(-1.5deg); }
-:root[data-theme="paper"] .gc-cell:nth-child(even) { transform: rotate(1.2deg); }
-:root[data-theme="paper"] .gc-cell { box-shadow: var(--shadow-1) !important; }
-
-/* The textured page on every screen, not only the home shell. */
+/* ---- the page ---------------------------------------------------------- */
 :root[data-theme="paper"] body { background: var(--page-bg); }
+:root[data-theme="paper"] body.screen .urow { background: transparent; }
 
-/* The theme owns the bar: one red strip of card, torn along the bottom. */
-:root[data-theme="paper"] body.screen .top { background: #c8433a; }
-:root[data-theme="paper"] body.screen .top .hbtn:not(.moresheet *) {
-  background: #fff6e6;
-  color: #3b2f24;
-  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.25);
+/* ---- the bar: one strip of red card, torn along the bottom -------------- */
+:root[data-theme="paper"] body.screen .top {
+  background: art(grain, 140, #3b0f0a, 0.12, 0.9, 5), #c8433a;
 }
-
-/* The screen header gets a torn bottom edge, drawn in its own colour. */
+/* The tear. Red card has a pale core, and a tear shows it. */
 :root[data-theme="paper"] body.screen .top::after {
   content: "";
   position: absolute;
   inset-inline: 0;
-  bottom: -7px;
-  height: 7px;
+  top: 100%;
+  height: 10px;
   pointer-events: none;
-  background:
-    linear-gradient(135deg, #c8433a 50%, transparent 50%) 0 0 / 12px 7px repeat-x,
-    linear-gradient(-135deg, #c8433a 50%, transparent 50%) 0 0 / 12px 7px repeat-x;
+  background: art(tear, 360, 10, 7, #c8433a, #f3c9bd) 0 0 / 360px 10px repeat-x;
+  filter: drop-shadow(0 2px 0 rgba(59, 47, 36, 0.2));
 }
-:root[data-theme="paper"] .hbtn:nth-of-type(odd),
-:root[data-theme="paper"] header a:nth-of-type(odd) { transform: rotate(-2deg); }
-:root[data-theme="paper"] .hbtn:nth-of-type(even),
-:root[data-theme="paper"] header button:nth-of-type(even) { transform: rotate(2deg); }
+:root[data-theme="paper"] body.screen .gname {
+  font-size: 21px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
+}
+/* A phone's bar leaves the name 87px. Measured 2026-09-28 across all 47 games:
+   at this size the longest name that fits in Day still fits here. */
+@media (max-width: 719px) {
+  :root[data-theme="paper"] body.screen .gname { font-size: 16px; }
+}
+
+/* Every control on the bar is a cut-out of cream card, stuck on crooked. */
+:root[data-theme="paper"] body.screen .top .hbtn:not(.moresheet *),
+:root[data-theme="paper"] body.screen .top .wallet-wrap:not(.moresheet *) {
+  --hdr-ink: #3b2f24;
+  background: art(grain, 120, #5a4326, 0.09, 0.9, 2), #fff6e6;
+  color: #3b2f24;
+  border-radius: 12px;
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.25);
+  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+}
+:root[data-theme="paper"] body.screen .top .hbtn:not(.moresheet *):hover {
+  background: art(grain, 120, #5a4326, 0.09, 0.9, 2), #fffdf6;
+}
+:root[data-theme="paper"] body.screen .top .hbtn:not(.moresheet *):active {
+  translate: 1px 2px;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
+}
+:root[data-theme="paper"] body.screen .top .hbtn.home { rotate: -3deg; }
+:root[data-theme="paper"] body.screen .top .lang:not(.moresheet *) > summary { rotate: 2.5deg; }
+:root[data-theme="paper"] body.screen .top .more > summary { rotate: 2deg; }
+:root[data-theme="paper"] body.screen .top .wallet-wrap:not(.moresheet *) { rotate: -2deg; }
+
+/* The game's own buttons - pause, restart, sound and the rest - are round
+   paper badges with a red ring, the way the mock pins them to the board. */
+:root[data-theme="paper"] body.screen .top .in > .ubtn,
+:root[data-theme="paper"] body.screen .top [data-sound]:not(.moresheet *),
+:root[data-theme="paper"] body.screen .urow .tools .ubtn {
+  background: #ffffff;
+  color: #c8433a;
+  border-radius: 50%;
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 3px #e4574a;
+  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+}
+:root[data-theme="paper"] body.screen .top [data-sound]:not(.moresheet *):hover { background: #ffffff; }
+:root[data-theme="paper"] body.screen .top .in > .ubtn:active,
+:root[data-theme="paper"] body.screen .top [data-sound]:not(.moresheet *):active,
+:root[data-theme="paper"] body.screen .urow .tools .ubtn:active {
+  translate: 1px 2px;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 3px #e4574a;
+}
+:root[data-theme="paper"] body.screen .ubtn[data-pause]:not(.moresheet *),
+:root[data-theme="paper"] body.screen .ubtn[data-share]:not(.moresheet *),
+:root[data-theme="paper"] body.screen .ubtn[data-report]:not(.moresheet *) { rotate: -6deg; }
+:root[data-theme="paper"] body.screen .ubtn[data-restart]:not(.moresheet *),
+:root[data-theme="paper"] body.screen .ubtn[data-fullscreen]:not(.moresheet *) { rotate: 4deg; }
+:root[data-theme="paper"] body.screen .ubtn[data-fav]:not(.moresheet *) { rotate: -3deg; }
+:root[data-theme="paper"] body.screen .top [data-sound]:not(.moresheet *) { rotate: 5deg; }
+
+/* The menus are a card laid on the page. */
+:root[data-theme="paper"] body.screen .moresheet,
+:root[data-theme="paper"] .langsheet {
+  background: art(grain, 120, #5a4326, 0.08, 0.9, 2), #fffaf0;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 3px 5px 0 rgba(59, 47, 36, 0.3);
+}
+
+/* ---- the numbers: kraft luggage tags, a punched hole at the tied end ---- */
+:root[data-theme="paper"] .gc-cell {
+  --gc-cell-bg: art(grain, 120, #3b2608, 0.12, 0.9, 4), #d8b47a;
+  --gc-cell-radius: 6px 16px 16px 6px;
+  --gc-cell-shadow: 2px 3px 0 rgba(59, 47, 36, 0.24);
+  --text-dim: #4a3b2a;
+  position: relative;
+  padding-inline-start: 24px !important;
+}
+:root[data-theme="paper"] [dir="rtl"] .gc-cell { --gc-cell-radius: 16px 6px 6px 16px; }
+:root[data-theme="paper"] .gc-cell::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 8px;
+  top: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f1e4c8;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.45), 0 0 0 1.5px rgba(59, 47, 36, 0.12);
+}
+:root[data-theme="paper"] .gc-cell:nth-child(3n + 1) { rotate: -2.5deg; }
+:root[data-theme="paper"] .gc-cell:nth-child(3n + 2) { rotate: 2deg; }
+:root[data-theme="paper"] .gc-cell:nth-child(3n) { rotate: -1.5deg; }
+:root[data-theme="paper"] .gc-label { letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* ---- the board: a sheet laid down by hand ------------------------------- */
+:root[data-theme="paper"] .ellaz-board { box-shadow: 3px 5px 0 rgba(59, 47, 36, 0.2) !important; }
+/* Tilted only where the board is a grid of cells: a canvas or a drawing
+   surface maps a finger to a point and must stay square to the screen. */
+:root[data-theme="paper"] .ellaz-board:has(> .ellaz-cell) { rotate: -0.6deg; }
+:root[data-theme="paper"] .ellaz-cell { font-style: italic; }
+/* A wrong number is ringed in red pencil: the digit is already red here. */
+:root[data-theme="paper"] .ellaz-cell[data-bad] {
+  box-shadow: inset 0 0 0 2px #c93a30;
+  text-decoration: underline wavy #c93a30 1.5px;
+  text-underline-offset: 3px;
+}
+
+/* ---- the keys: coloured card, cut by hand ------------------------------- */
+:root[data-theme="paper"] .ellaz-key {
+  transition: translate 0.08s ease-out, box-shadow 0.08s ease-out;
+}
+:root[data-theme="paper"] .ellaz-key:nth-child(4n + 1) { --key-bg: art(grain, 120, #6b4a00, 0.1, 0.9, 6), #ffd166; rotate: -2deg; }
+:root[data-theme="paper"] .ellaz-key:nth-child(4n + 2) { --key-bg: art(grain, 120, #0f3d52, 0.1, 0.9, 7), #8ecae6; rotate: 1.5deg; }
+:root[data-theme="paper"] .ellaz-key:nth-child(4n + 3) { --key-bg: art(grain, 120, #5c1a1a, 0.1, 0.9, 8), #f4a6a6; rotate: -1deg; }
+:root[data-theme="paper"] .ellaz-key:nth-child(4n) { --key-bg: art(grain, 120, #1f4a14, 0.1, 0.9, 9), #b7e4a7; rotate: 2deg; }
+:root[data-theme="paper"] .ellaz-key:active {
+  translate: 1px 2px;
+  box-shadow: 1px 1px 0 rgba(59, 47, 36, 0.28) !important;
+}
+
+/* ---- home: the same red strip behind the top row ------------------------ */
+/* The band runs edge to edge whatever the column's width, so the scroller
+   must not offer the overhang as somewhere to scroll to. */
+:root[data-theme="paper"] body.app-shell .ellaz-scroll { overflow-x: hidden; }
+:root[data-theme="paper"] body.app-shell header {
+  position: relative;
+  isolation: isolate;
+  margin-block-end: 14px;
+}
+:root[data-theme="paper"] body.app-shell header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: -8px 0;
+  inset-inline: calc(50% - 50vw);
+  background: art(grain, 140, #3b0f0a, 0.12, 0.9, 5), #c8433a;
+}
+:root[data-theme="paper"] body.app-shell header::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-inline: calc(50% - 50vw);
+  top: 100%;
+  height: 10px;
+  pointer-events: none;
+  background: art(tear, 360, 10, 7, #c8433a, #f3c9bd) 0 0 / 360px 10px repeat-x;
+  filter: drop-shadow(0 2px 0 rgba(59, 47, 36, 0.2));
+}
+:root[data-theme="paper"] body.app-shell .ellaz-wordmark,
+:root[data-theme="paper"] body.app-shell .ellaz-tagline {
+  color: #ffffff !important;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
+}
+:root[data-theme="paper"] body.app-shell header a[aria-label],
+:root[data-theme="paper"] body.app-shell header button[aria-label],
+:root[data-theme="paper"] body.app-shell header div[aria-label] {
+  background: art(grain, 120, #5a4326, 0.09, 0.9, 2), #fff6e6 !important;
+  color: #3b2f24 !important;
+  border-radius: 12px !important;
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.25) !important;
+}
+:root[data-theme="paper"] body.app-shell header div[aria-label] { rotate: -2deg; }
+:root[data-theme="paper"] body.app-shell header a[aria-label] { rotate: 2deg; }
+:root[data-theme="paper"] body.app-shell header div:nth-last-child(2) > button[aria-label] { rotate: -2.5deg; }
+:root[data-theme="paper"] body.app-shell header div:last-child > button[aria-label] { rotate: 2deg; }
+
+/* The shelf tabs and the game cards: stuck down, never the same way twice. */
+:root[data-theme="paper"] .ellaz-rail > button { border-radius: 6px !important; }
+:root[data-theme="paper"] .ellaz-rail > button:nth-child(odd) { rotate: -1.5deg; }
+:root[data-theme="paper"] .ellaz-rail > button:nth-child(even) { rotate: 1.2deg; }
+:root[data-theme="paper"] div:has(> a + button[aria-pressed]):nth-child(3n + 1) { rotate: -1.2deg; }
+:root[data-theme="paper"] div:has(> a + button[aria-pressed]):nth-child(3n + 2) { rotate: 0.9deg; }
+:root[data-theme="paper"] div:has(> a + button[aria-pressed]):nth-child(3n) { rotate: -0.6deg; }
+
+/* ---- a label on the brand fill ------------------------------------------- */
+/* Keyed on the fill an element ASKS for in its own style, because that is the
+   one thing every shared button, tab and chip here has in common. */
+:root[data-theme="paper"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
+:root[data-theme="paper"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="paper"] .ellaz-key,
+  :root[data-theme="paper"] .hbtn,
+  :root[data-theme="paper"] .ubtn { transition: none; }
+}

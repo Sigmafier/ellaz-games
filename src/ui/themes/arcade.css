@@ -1,8 +1,18 @@
 /* ARCADE CABINET (PIXEL) - theme 5 of the style round (operator pick,
-   2026-09-27). A dark cabinet with scanlines, square pixel buttons with a
-   bevel, neon pink trim and a pixel font on the titles. Served only to a
-   player who picks it. Every rule is scoped to :root[data-theme="arcade"];
-   see paper.css. */
+   2026-09-27). A dark cabinet behind scanlines. The bar is the marquee, the
+   wallet counts CREDIT, the numbers are a score line in pink and white, the
+   board sits inside a cyan and pink frame, the keys are bevelled key caps
+   with stepped pixel corners, and pause, restart and sound are the three
+   round buttons on the control panel. Tuned against the approved mock
+   (docs/themes/style-round-2026-09-27.html, "5 Arcade cabinet").
+
+   ONE COLOUR MOVED FROM THE MOCK, for the contrast floor (measured
+   2026-09-28): the picked cell is #e0115f, not #ff2a6d - white reads 4.76 on
+   it and read 3.62 on the brighter pink.
+
+   Served only to a player who picks it. Every rule is scoped to
+   :root[data-theme="arcade"]; see paper.css. Every `art(...)` is drawn at
+   build time by src/build/themeArt.ts. */
 @import "./fonts/press-start-2p.css";
 
 :root[data-theme="arcade"] {
@@ -30,7 +40,10 @@
   --orange-ink: var(--orange);
   --brand-fill: var(--brand-strong);
   --surface-fill: var(--surface);
-  --page-bg: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.35) 0 2px, transparent 2px 4px), #0d0221;
+  --page-bg:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.35) 0 2px, transparent 2px 4px),
+    art(stars, 240, 46, 9, #b0a9e0, #05d9e8) 0 0 / 240px 240px,
+    radial-gradient(120% 80% at 50% 0, #1d0a45 0, #0d0221 60%);
   --on-brand: #ffffff;
   --brand-strong: #b8104a;
   --badge-fill: rgba(6, 2, 18, 0.8);
@@ -51,30 +64,229 @@
   --radius-3: 0;
   --radius-2: 0;
   --radius-1: 0;
+
+  /* A square with its corners stepped off, one pixel of four. */
+  --pixel-corners: polygon(
+    0 4px, 4px 4px, 4px 0,
+    calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
+    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+  );
+  --bevel: inset -4px -4px 0 #140a33, inset 4px 4px 0 #6b55d6;
+  --bevel-in: inset 4px 4px 0 #140a33, inset -4px -4px 0 #6b55d6;
+
+  /* The board: a screen inside a cyan and pink frame. */
+  --board-bg: #101b4d;
+  --board-frame: 4px solid #05d9e8;
+  --board-radius: 0;
+  --board-line: 1px solid #23307a;
+  --board-rule: 3px solid #05d9e8;
+  --board-ink: #ffffff;
+  --board-you: #ffe45e;
+  --board-bad: #ff8080;
+  --board-sel: #e0115f;
+  --board-same: #1c3a8a;
+
+  --key-radius: 0;
+  --key-bg: #2e1e66;
+  --key-ink: #e0e6ff;
+  --key-shadow: var(--bevel);
+
+  /* What a label wears on a brand fill. The shared buttons ask for `--text`
+     there, which is Day's pairing (a bright pink under dark ink) and unreadable
+     on this theme's brand; the two rules at the foot of this sheet hand them
+     these instead. Measured, and held by theme-sheets.test.ts. */
+  --ink-on-brand: #0d0221;
+  --ink-on-fill: #ffffff;
 }
 
-/* The pixel face is for SHORT words only - a title, a label - never body text:
-   it is twice as wide as Heebo and unreadable in a sentence. */
+/* ---- the page ------------------------------------------------------------ */
+:root[data-theme="arcade"] body { background: var(--page-bg); background-attachment: fixed; }
+:root[data-theme="arcade"] body.screen .urow { background: transparent; }
+
+/* ---- the words ----------------------------------------------------------- */
+/* The pixel face is for SHORT words only - a title, a label, a number - never
+   body text: it is twice as wide as Heebo and unreadable in a sentence. */
 :root[data-theme="arcade"] .gname,
+:root[data-theme="arcade"] .ellaz-wordmark,
 :root[data-theme="arcade"] h1 {
   font-family: var(--font-display) !important;
-  font-size: 13px !important;
-  color: #ffe45e;
-  text-shadow: 2px 2px 0 #ff2a6d;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: #ffe45e !important;
+  text-shadow: 0 0 6px #ffb800, 3px 3px 0 #ff2a6d;
 }
-:root[data-theme="arcade"] .gc-label {
-  font-family: var(--font-display) !important;
-  font-size: 8px !important;
-  letter-spacing: 0.5px;
+/* On a phone the bar leaves the name 87px and the pixel face is wide, so the
+   marquee runs to two short lines, the way a cabinet's does. Two lines of 9px
+   stand 27px tall inside a 44px row, so the bar keeps its height. */
+@media (max-width: 719px) {
+  :root[data-theme="arcade"] body.screen .gname {
+    font-size: 9px !important;
+    line-height: 1.5;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    text-shadow: 0 0 5px #ffb800, 2px 2px 0 #ff2a6d;
+  }
 }
-:root[data-theme="arcade"] .ellaz-board { box-shadow: var(--shadow-2) !important; }
-:root[data-theme="arcade"] body { background: var(--page-bg); }
+
+/* ---- the bar: the marquee ------------------------------------------------ */
 :root[data-theme="arcade"] body.screen .top {
-  background: #1b0f3b;
-  border-block-end: 4px solid #ff2a6d;
+  background: linear-gradient(#24124f, #1b0f3b 55%, #150a30);
+  box-shadow: inset 0 -4px 0 #ff2a6d, 0 0 18px rgba(255, 42, 109, 0.35);
 }
-:root[data-theme="arcade"] body.screen .top .hbtn:not(.moresheet *) {
+:root[data-theme="arcade"] body.screen .top .hbtn:not(.moresheet *),
+:root[data-theme="arcade"] body.screen .top .wallet-wrap:not(.moresheet *) {
   background: #2e1e66;
   border-radius: 0;
   box-shadow: inset -3px -3px 0 #140a33, inset 3px 3px 0 #5a45b5;
+  clip-path: var(--pixel-corners);
+}
+:root[data-theme="arcade"] body.screen .top .hbtn:not(.moresheet *):hover { background: #3a2880; }
+:root[data-theme="arcade"] body.screen .top .hbtn:not(.moresheet *):active {
+  box-shadow: inset 3px 3px 0 #140a33, inset -3px -3px 0 #5a45b5;
+}
+/* CREDIT: the coins, counted the way a cabinet counts them. */
+:root[data-theme="arcade"] body.screen .top .wallet-wrap:not(.moresheet *) {
+  --hdr-ink: #05d9e8;
+  font-family: var(--font-display);
+  font-size: 10px;
+}
+@media (min-width: 720px) {
+  :root[data-theme="arcade"] body.screen .top .wallet-wrap:not(.moresheet *)::before {
+    content: "CREDIT";
+    color: #05d9e8;
+    margin-inline-end: 10px;
+    letter-spacing: 1px;
+  }
+}
+
+/* The control panel's buttons: round, domed, sitting on a hard shadow. */
+:root[data-theme="arcade"] body.screen .top .in > .ubtn,
+:root[data-theme="arcade"] body.screen .top [data-sound]:not(.moresheet *),
+:root[data-theme="arcade"] body.screen .urow .tools .ubtn {
+  --cap: #6b55d6;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.45) 0 12%, transparent 13%), var(--cap);
+  color: #0d0221;
+  border-radius: 50%;
+  clip-path: none;
+  box-shadow: inset -4px -5px 0 rgba(0, 0, 0, 0.32), 0 4px 0 #06010f;
+  transition: translate 0.06s linear, box-shadow 0.06s linear;
+}
+:root[data-theme="arcade"] body.screen .top .in > .ubtn:active,
+:root[data-theme="arcade"] body.screen .top [data-sound]:not(.moresheet *):active,
+:root[data-theme="arcade"] body.screen .urow .tools .ubtn:active {
+  translate: 0 3px;
+  box-shadow: inset -4px -5px 0 rgba(0, 0, 0, 0.32), 0 1px 0 #06010f;
+}
+:root[data-theme="arcade"] body.screen .ubtn[data-pause]:not(.moresheet *) { --cap: #ff2a6d; color: #ffffff; }
+:root[data-theme="arcade"] body.screen .ubtn[data-restart]:not(.moresheet *) { --cap: #ffb800; }
+:root[data-theme="arcade"] body.screen .top [data-sound]:not(.moresheet *) { --cap: #05d9e8; }
+:root[data-theme="arcade"] body.screen .ubtn[data-fav]:not(.moresheet *) { --cap: #3dffa2; }
+:root[data-theme="arcade"] body.screen .ubtn[data-share]:not(.moresheet *) { --cap: #ff71ce; }
+:root[data-theme="arcade"] body.screen .ubtn[data-fullscreen]:not(.moresheet *) { --cap: #b0a9e0; }
+:root[data-theme="arcade"] body.screen .ubtn[data-report]:not(.moresheet *) { --cap: #ff9f43; }
+
+:root[data-theme="arcade"] body.screen .moresheet,
+:root[data-theme="arcade"] .langsheet {
+  background: #1b0f3b;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 4px 0 #3b2a85, 0 0 0 4px #ff2a6d, 0 0 0 8px #0d0221, 0 0 24px rgba(255, 42, 109, 0.4);
+}
+
+/* ---- the numbers: a score line ------------------------------------------- */
+:root[data-theme="arcade"] .gc-cell {
+  --gc-cell-bg: transparent;
+  --gc-cell-shadow: none;
+  --gc-label: 8px;
+  --gc-value: 12px;
+  --gc-level-value: 12px;
+  --gc-record: 8px;
+  --text-dim: #ff2a6d;
+  color: #ffffff !important;
+}
+:root[data-theme="arcade"] .gc-label,
+:root[data-theme="arcade"] .gc-value,
+:root[data-theme="arcade"] .gc-record {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+:root[data-theme="arcade"] .gc-value { margin-block-start: 5px; }
+:root[data-theme="arcade"] .gc-record { color: #05d9e8 !important; margin-block-start: 3px; }
+:root[data-theme="arcade"] .gc-dots { display: none !important; }
+
+/* ---- the board: the screen, inside its frame ----------------------------- */
+:root[data-theme="arcade"] .ellaz-board {
+  box-shadow: 0 0 0 4px #0d0221, 0 0 0 8px #ff2a6d, 0 0 22px 8px rgba(255, 42, 109, 0.3) !important;
+}
+:root[data-theme="arcade"] .ellaz-cell {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  font-size: clamp(10px, 3.1vw, 17px) !important;
+}
+:root[data-theme="arcade"] .ellaz-cell[data-sel] { --board-you: #ffffff; --board-bad: #ffffff; }
+:root[data-theme="arcade"] .ellaz-cell[data-bad] { box-shadow: inset 0 0 0 2px #ff8080; }
+
+/* ---- the keys: key caps with stepped corners ----------------------------- */
+:root[data-theme="arcade"] .ellaz-key {
+  min-width: 46px;
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  font-size: 14px !important;
+  clip-path: var(--pixel-corners);
+}
+:root[data-theme="arcade"] .ellaz-key:hover { --key-bg: #3a2880; }
+:root[data-theme="arcade"] .ellaz-key:active { --key-shadow: var(--bevel-in); --key-ink: #ffe45e; }
+:root[data-theme="arcade"] .ellaz-key-erase { font-size: 18px !important; }
+
+/* ---- home: the marquee behind the top row -------------------------------- */
+:root[data-theme="arcade"] body.app-shell { background: var(--page-bg); }
+/* The band runs edge to edge whatever the column's width, so the scroller
+   must not offer the overhang as somewhere to scroll to. */
+:root[data-theme="arcade"] body.app-shell .ellaz-scroll { overflow-x: hidden; }
+:root[data-theme="arcade"] body.app-shell header {
+  position: relative;
+  isolation: isolate;
+  margin-block-end: 8px;
+}
+:root[data-theme="arcade"] body.app-shell header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: -8px 0;
+  inset-inline: calc(50% - 50vw);
+  background: linear-gradient(#24124f, #1b0f3b 55%, #150a30);
+  box-shadow: inset 0 -4px 0 #ff2a6d, 0 0 18px rgba(255, 42, 109, 0.35);
+}
+:root[data-theme="arcade"] body.app-shell header a[aria-label],
+:root[data-theme="arcade"] body.app-shell header button[aria-label],
+:root[data-theme="arcade"] body.app-shell header div[aria-label] {
+  background: #2e1e66 !important;
+  color: #e0e6ff !important;
+  border-radius: 0 !important;
+  box-shadow: inset -3px -3px 0 #140a33, inset 3px 3px 0 #5a45b5 !important;
+  clip-path: var(--pixel-corners);
+}
+:root[data-theme="arcade"] body.app-shell header div[aria-label] {
+  color: #05d9e8 !important;
+  font-family: var(--font-display);
+  font-size: 10px;
+}
+:root[data-theme="arcade"] .ellaz-rail > button { clip-path: var(--pixel-corners); }
+:root[data-theme="arcade"] a:has(+ button[aria-pressed]) { clip-path: var(--pixel-corners); }
+
+/* ---- a label on the brand fill ------------------------------------------- */
+/* Keyed on the fill an element ASKS for in its own style, because that is the
+   one thing every shared button, tab and chip here has in common. */
+:root[data-theme="arcade"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
+:root[data-theme="arcade"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="arcade"] .ubtn,
+  :root[data-theme="arcade"] .hbtn { transition: none; }
 }

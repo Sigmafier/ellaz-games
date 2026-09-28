@@ -83,6 +83,22 @@ const SESSION: SessionSpec<SudokuSession> = {
   },
 };
 
+/**
+ * A cell's thin line and a box's heavy one; a theme may give both.
+ *
+ * `EDGE` is the right and bottom side of an ordinary cell, and its fallback is
+ * the browser's own button edge ON PURPOSE. This board used to set `border` and
+ * then hand React `borderRight: undefined`, which clears the side the shorthand
+ * had just set - so Day and Night have always drawn `2px outset` there, not the
+ * thin line the source asked for. Measured on the live site 2026-09-28. That is
+ * the board players know, so it is kept pixel for pixel
+ * (scripts/probe/day-is-unchanged.mjs) until somebody decides otherwise; a
+ * theme's `--board-line` replaces it with the line that theme means.
+ */
+const LINE = "var(--board-line, 1px solid rgba(255,255,255,0.08))";
+const EDGE = "var(--board-line, 2px outset rgb(0, 0, 0))";
+const RULE = "var(--board-rule, 2px solid #6c5ce7)";
+
 export function Sudoku({ ctx }: { ctx: GameContext }) {
   const [level, setLevel] = useRememberedLevel(ctx, LEVEL_OPTIONS.map((o) => o.id), "easy");
   const restored = useMemo(() => ctx.session.load(SESSION), [ctx]);
@@ -267,13 +283,16 @@ export function Sudoku({ ctx }: { ctx: GameContext }) {
                 key={v}
                 aria-label={kids ? `enter ${ANIMAL_NAMES[v - 1]}` : `enter ${v}`}
                 onClick={() => enter(v)}
+                // `ellaz-key` and the --key-* fallbacks are what a theme reads:
+                // unset (Day, Night) every value here is the one it always was.
+                className="ellaz-key"
                 style={{
                   minHeight: kids ? 64 : 48,
                   border: "none",
-                  borderRadius: 10,
-                  background: "var(--surface)",
-                  boxShadow: "var(--shadow-1)",
-                  color: "var(--text)",
+                  borderRadius: "var(--key-radius, 10px)",
+                  background: "var(--key-bg, var(--surface))",
+                  boxShadow: "var(--key-shadow, var(--shadow-1))",
+                  color: "var(--key-ink, var(--text))",
                   fontSize: kids ? 34 : 22,
                   fontWeight: 800,
                   lineHeight: 1,
@@ -285,12 +304,14 @@ export function Sudoku({ ctx }: { ctx: GameContext }) {
             <button
               aria-label="erase"
               onClick={() => enter(0)}
+              className="ellaz-key ellaz-key-erase"
               style={{
                 minHeight: kids ? 64 : 48,
                 border: "none",
-                borderRadius: 10,
-                background: "var(--surface-2)",
-                color: "var(--text)",
+                borderRadius: "var(--key-radius, 10px)",
+                background: "var(--key-bg, var(--surface-2))",
+                boxShadow: "var(--key-shadow, none)",
+                color: "var(--key-ink, var(--text))",
                 fontSize: kids ? 28 : 20,
               }}
             >
@@ -317,9 +338,14 @@ export function Sudoku({ ctx }: { ctx: GameContext }) {
           // chrome 259 measured 2026-09-13 - the bar plus the number pad.
           ...boardVars({ vw: 94, vh: 44, cap: 440, chrome: 111 }),
           aspectRatio: "1",
-          background: "#20244a",
-          border: "3px solid #6c5ce7",
-          borderRadius: 8,
+          // THE BOARD'S COLOURS ARE A THEME'S TO GIVE. Each literal below is
+          // the fallback of a --board-* key, so Day and Night - which declare
+          // none of them - paint exactly what they always painted, and a
+          // theme sheet that declares them repaints the board without this
+          // file knowing the theme exists.
+          background: "var(--board-bg, #20244a)",
+          border: "var(--board-frame, 3px solid #6c5ce7)",
+          borderRadius: "var(--board-radius, 8px)",
           touchAction: "none",
         }}
       >
@@ -333,16 +359,26 @@ export function Sudoku({ ctx }: { ctx: GameContext }) {
                 key={`${r}-${c}`}
                 aria-label={`cell ${r + 1},${c + 1}`}
                 onClick={() => setSel([r, c])}
+                className="ellaz-cell"
+                data-sel={selected ? "" : undefined}
+                data-bad={conflict ? "" : undefined}
                 style={{
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRight: c % boxC === boxC - 1 && c !== n - 1 ? "2px solid #6c5ce7" : undefined,
-                  borderBottom: r % boxR === boxR - 1 && r !== n - 1 ? "2px solid #6c5ce7" : undefined,
+                  // FOUR SIDES, each named, never the `border` shorthand with a
+                  // side cleared after it: see EDGE above.
+                  borderTop: LINE,
+                  borderLeft: LINE,
+                  borderRight: c % boxC === boxC - 1 && c !== n - 1 ? RULE : EDGE,
+                  borderBottom: r % boxR === boxR - 1 && r !== n - 1 ? RULE : EDGE,
                   background: selected
-                    ? "#4a4f96"
+                    ? "var(--board-sel, #4a4f96)"
                     : sameVal
-                      ? "rgba(108,92,231,0.25)"
+                      ? "var(--board-same, rgba(108,92,231,0.25))"
                       : "transparent",
-                  color: conflict ? "#ff7675" : state.given[r][c] ? "#ffffff" : "#a29bfe",
+                  color: conflict
+                    ? "var(--board-bad, #ff7675)"
+                    : state.given[r][c]
+                      ? "var(--board-ink, #ffffff)"
+                      : "var(--board-you, #a29bfe)",
                   fontWeight: state.given[r][c] ? 800 : 600,
                   fontSize: kids ? "clamp(24px, 9vw, 48px)" : "clamp(14px, 4.4vw, 26px)",
                   // A conflicting animal can't be tinted red like a digit, so

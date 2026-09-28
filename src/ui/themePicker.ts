@@ -18,30 +18,39 @@ import { THEMES, type Theme, type ThemeId } from "./themes";
  * or the reverse. A sheet that fails to load leaves the theme where it was.
  */
 
-/** A picture of each theme, drawn in its own colours - never words alone. */
+/**
+ * A picture of each theme, drawn in its own colours - never words alone. The
+ * page, the bar across its top, and one key in the corner, which is where a
+ * theme shows its hand: a square of crooked card, a hatched box, a red button
+ * on a long shadow, an arcade button. The approved setting mock, 2026-09-27.
+ */
 interface Swatch {
   readonly page: string;
   readonly bar: string;
-  readonly card: string;
-  readonly ink: string;
-  readonly edge: string;
-  readonly radius: string;
+  readonly key: string;
 }
 
 const SWATCH: Record<ThemeId, Swatch> = {
-  market: { page: "#fff6e9", bar: "#ff4d8d", card: "#fffdf8", ink: "#241c17", edge: "0 2px 0 rgba(36,28,23,.2)", radius: "999px" },
-  night: { page: "#0f1226", bar: "#6c5ce7", card: "#262b52", ink: "#f5f6ff", edge: "0 2px 6px rgba(0,0,0,.4)", radius: "999px" },
-  paper: { page: "#f1e4c8", bar: "#e4574a", card: "#fffaf0", ink: "#3b2f24", edge: "2px 2px 0 rgba(59,47,36,.3)", radius: "5px" },
-  crayon: {
-    page: "repeating-linear-gradient(#fdfdf6 0 7px,#c9dcf2 7px 8px)",
-    bar: "#fdfdf6",
-    card: "#ffffff",
-    ink: "#2b2b2b",
-    edge: "0 0 0 2px #2b2b2b",
-    radius: "14px 4px 12px 5px/5px 12px 4px 14px",
+  market: { page: "#fff6e9", bar: "#5b0f7a", key: "background:#fff;border-radius:6px;box-shadow:0 2px 0 #e8dccb" },
+  night: { page: "#0f1226", bar: "#171b3a", key: "background:#6c5ce7;border-radius:6px" },
+  paper: {
+    page: "#f1e4c8",
+    bar: "#c8433a",
+    key: "background:#ffd166;border-radius:2px;rotate:-6deg;box-shadow:2px 2px 0 rgba(0,0,0,.25)",
   },
-  flat: { page: "#ffcf56", bar: "#3d348b", card: "#ffffff", ink: "#1d1b3a", edge: "2px 2px 0 #d9a93c,4px 4px 0 #d9a93c", radius: "8px" },
-  arcade: { page: "#0d0221", bar: "#1b0f3b", card: "#2e1e66", ink: "#e0e6ff", edge: "0 0 0 2px #ff2a6d", radius: "0" },
+  crayon: {
+    page: "repeating-linear-gradient(#fdfdf6 0 8px,#c9dcf2 8px 9px)",
+    bar: "transparent",
+    key:
+      "border:2px solid #2b2b2b;border-radius:255px 15px 225px 15px/15px 225px 15px 255px;" +
+      "background:repeating-linear-gradient(45deg,rgba(242,95,92,.55) 0 3px,#fff 3px 6px)",
+  },
+  flat: { page: "#ffcf56", bar: "#3d348b", key: "background:#f25f5c;border-radius:50%;box-shadow:2px 2px 0 #b8403d,4px 4px 0 #b8403d" },
+  arcade: {
+    page: "#0d0221",
+    bar: "linear-gradient(#1b0f3b 0 8px,#ff2a6d 8px)",
+    key: "background:#ff2a6d;border-radius:50%;box-shadow:0 3px 0 #06010f,inset -3px -3px 0 rgba(0,0,0,.3)",
+  },
 };
 
 const HEADING = { he: "ערכת נושא", en: "Theme", es: "Tema", sv: "Tema" };
@@ -55,7 +64,7 @@ export function loadSheet(theme: Theme): Promise<void> {
   if (!theme.sheet) return Promise.resolve();
   const href = sheetHref(theme.id);
   // The boot script may already have written it, parser-inserted and loaded.
-  if (document.querySelector(`link[href="${href}"]`)) return Promise.resolve();
+  if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
@@ -73,19 +82,58 @@ function picture(s: Swatch): HTMLElement {
   const box = document.createElement("span");
   box.setAttribute("aria-hidden", "true");
   box.style.cssText =
-    `display:block;width:64px;height:44px;border-radius:8px;overflow:hidden;position:relative;` +
+    `display:block;width:64px;height:42px;border-radius:8px;overflow:hidden;position:relative;` +
     `background:${s.page};box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)`;
   const bar = document.createElement("span");
-  bar.style.cssText = `position:absolute;inset:0 0 auto;height:11px;background:${s.bar}`;
-  const card = document.createElement("span");
-  card.style.cssText =
-    `position:absolute;left:10px;right:10px;top:18px;height:17px;background:${s.card};` +
-    `border-radius:${s.radius};box-shadow:${s.edge}`;
-  const dot = document.createElement("span");
-  dot.style.cssText = `position:absolute;left:8px;top:6px;width:18px;height:5px;border-radius:3px;background:${s.ink};opacity:.75`;
-  card.appendChild(dot);
-  box.append(bar, card);
+  bar.style.cssText = `position:absolute;inset:0 0 auto;height:10px;background:${s.bar}`;
+  const key = document.createElement("span");
+  key.style.cssText = `position:absolute;right:7px;bottom:7px;width:18px;height:18px;box-sizing:border-box;${s.key}`;
+  box.append(bar, key);
   return box;
+}
+
+/**
+ * Fetch the sheets a pick would need, quietly, once the menu is open - so the
+ * pick itself is a repaint and not a download. Measured on the live site
+ * 2026-09-28: a pick took up to 508 ms while its sheet arrived, and one stalled
+ * request left three taps doing nothing at all. Low priority, and only ever for
+ * a player who has opened the menu; nobody else fetches a byte of this.
+ */
+function warmSheets(): void {
+  const go = () => {
+    for (const theme of THEMES) {
+      if (!theme.sheet) continue;
+      const href = sheetHref(theme.id);
+      if (document.querySelector(`link[href="${href}"]`)) continue; // loaded, or already hinted
+      const hint = document.createElement("link");
+      hint.rel = "prefetch";
+      hint.as = "style";
+      hint.href = href;
+      document.head.appendChild(hint);
+    }
+  };
+  if ("requestIdleCallback" in window) requestIdleCallback(go, { timeout: 1500 });
+  else setTimeout(go, 300);
+}
+
+/**
+ * Put the theme on. Where the browser can, the whole page cross-fades from the
+ * old look to the new one instead of snapping; where it cannot, or where the
+ * player has asked for less motion, it changes at once. The theme is set either
+ * way - the fade is how it looks, never whether it happens.
+ */
+function wear(id: ThemeId): void {
+  const set = () => themePort.set(id);
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  if (doc.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    try {
+      doc.startViewTransition(set);
+      return;
+    } catch {
+      /* fall through and set it plainly */
+    }
+  }
+  set();
 }
 
 /**
@@ -117,7 +165,7 @@ export function mountThemePicker(host: HTMLElement, locale: AppLocale, close?: (
   const mark = (current: ThemeId) => {
     for (const [id, b] of buttons) {
       b.setAttribute("aria-pressed", String(id === current));
-      b.style.outline = id === current ? "3px solid currentColor" : "none";
+      b.style.outline = id === current ? "3px solid var(--brand-ink, currentColor)" : "none";
     }
   };
   for (const theme of THEMES) {
@@ -132,13 +180,19 @@ export function mountThemePicker(host: HTMLElement, locale: AppLocale, close?: (
     name.textContent = textFor(theme.label, locale);
     b.append(picture(SWATCH[theme.id]), name);
     b.addEventListener("click", () => {
+      // Said with the picture, not only to a screen reader: a tap that is
+      // waiting on a download must not look like a tap that did nothing.
       b.setAttribute("aria-busy", "true");
+      b.style.opacity = "0.55";
       loadSheet(theme)
-        .then(() => themePort.set(theme.id))
+        .then(() => wear(theme.id))
         .catch(() => {
           /* the sheet is missing: stay on the theme the player already has */
         })
-        .finally(() => b.removeAttribute("aria-busy"));
+        .finally(() => {
+          b.removeAttribute("aria-busy");
+          b.style.opacity = "";
+        });
     });
     buttons.set(theme.id, b);
     grid.appendChild(b);
@@ -146,4 +200,5 @@ export function mountThemePicker(host: HTMLElement, locale: AppLocale, close?: (
   mark(themePort.current);
   themePort.onChange(mark);
   host.append(title, grid);
+  warmSheets();
 }
