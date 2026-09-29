@@ -27,6 +27,7 @@ export const meta: GameMeta = {
   orientation: "any",
   renderer: "dom",
   tier: "simple",
+  layout: "table",
   ownsChrome: true,
   // Points: how many notes are in the biggest tune this player has built. It
   // measures the SIZE of what they made and never whether the music is any

@@ -12,6 +12,7 @@ export const meta: GameMeta = {
   orientation: "any",
   renderer: "dom",
   tier: "simple",
+  layout: "table",
   ownsChrome: true,
   // Matches won, per difficulty. A single GAME inside a match is not the unit
   // a player remembers - the match to 5 is - so the record counts matches.
