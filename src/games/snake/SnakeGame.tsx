@@ -27,6 +27,7 @@ import type { Dir } from "./logic";
 import { dayLabel, overCard } from "./draw";
 import { BAND_H, Band, INK, OverCard, StartCard, toGoLine } from "./SnakeCards";
 import { stageProgress } from "./stageWalls";
+import { PHONE_PAD_CELL, PHONE_STICK_CSS } from "./controls";
 import { meta } from "./meta";
 
 // The one Phaser game in the roster, wearing the same chrome as the other
@@ -323,9 +324,19 @@ export function SnakeGame({ ctx }: { ctx: GameContext }) {
               keyboard who would rather tap than swipe, plus the stick in the
               middle for one who would rather steer. The Joystick setting draws
               one big stick instead; "On the board" draws nothing here. */}
-          {controlMode !== "board" && (
-            <DirectionPad onDir={steer} variant={controlMode === "joystick" ? "stick" : "pad"} />
-          )}
+          {controlMode !== "board" &&
+            (pc ? (
+              <DirectionPad onDir={steer} variant={controlMode === "joystick" ? "stick" : "pad"} />
+            ) : (
+              <div className="snake-stick">
+                {controlMode === "joystick" && <style>{PHONE_STICK_CSS}</style>}
+                <DirectionPad
+                  onDir={steer}
+                  size={PHONE_PAD_CELL}
+                  variant={controlMode === "joystick" ? "stick" : "pad"}
+                />
+              </div>
+            ))}
         </div>
       }
     >

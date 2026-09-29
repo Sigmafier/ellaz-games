@@ -24,6 +24,7 @@ import { versusMatchEnd } from "@shared/versusMoment";
 import { type Level, think } from "./engine";
 import {
   applyMove,
+  captures,
   fromFen,
   legalMoves,
   isCheck,
@@ -32,7 +33,9 @@ import {
   squareName,
   startPosition,
   toFen,
+  type Color,
   type Move,
+  type Piece,
   type Position,
 } from "./logic";
 
@@ -106,6 +109,103 @@ const DARK_ARMY = "#241a12";
  */
 const LIGHT_SQ = "#efdcbe";
 const DARK_SQ = "#9a6f4c";
+
+/**
+ * One piece OFF the board, in the rows of taken pieces: the board's own ink,
+ * the board's own outline in the other army's tone, the board's own glyphs -
+ * the pawn keeps its U+FE0E, so an iPhone draws it in the army's colour and
+ * not as a black emoji.
+ */
+function inkOf(side: Color) {
+  return {
+    color: side === "w" ? LIGHT_ARMY : DARK_ARMY,
+    WebkitTextStroke: `.09em ${side === "w" ? DARK_ARMY : LIGHT_ARMY}`,
+    paintOrder: "stroke fill" as const,
+    textShadow: "0 1px 1px rgba(0,0,0,.22)",
+  };
+}
+
+/**
+ * The height of one row of taken pieces, RESERVED whether the row is empty or
+ * holds fifteen pieces. A row that grew when the first piece fell would move
+ * the board mid-game - `assert:keys` and `assert:difficulty` exist to catch
+ * exactly that, arriving through another door.
+ */
+const TAKEN_ROW = 26;
+
+/**
+ * "Show who ate who" - a player report, 2026-09-27, Android 360px. One row per
+ * side: that side's king, then the pieces it has taken (smallest first), then
+ * `+N` when it is ahead on the board.
+ *
+ * The rows sit on the board's own DARK square colour in both themes, for the
+ * same reason the board does not follow the theme: on night's navy surface the
+ * dark army is 1.45:1 and survives only as its light outline, which reads as
+ * the OTHER army. Walnut is the one tone here both armies read on by their
+ * FILL, which a 20px glyph needs more than a 40px one does - by relative
+ * luminance, ivory #fbf6ec is 4.10:1 against #9a6f4c and near-black #241a12 is
+ * 3.86:1, above the 3:1 a graphic needs, and each keeps its outline on top.
+ * On cream (the light square) the ivory army would be 1.25:1 and rely on a
+ * 1px rim alone. (Computed from the hex, WCAG formula, 2026-09-29 - the same
+ * four figures `a-contrast-floor-is-a-floor-not-a-target.md` records.)
+ *
+ * The `+N` is TEXT, and 3.86:1 is under the 4.5 text needs, so it is a cream
+ * chip with dark ink on it: 12.71:1.
+ *
+ * Pieces of one kind overlap, the way a pile does, so a side that has taken
+ * eight pawns and all seven pieces still fits one line on a 360px phone.
+ */
+function TakenRow(props: { side: Color; pieces: Piece[]; lead: number; label: string }) {
+  const { side, pieces, lead, label } = props;
+  const victim: Color = side === "w" ? "b" : "w";
+  return (
+    <div
+      role="img"
+      aria-label={label + (lead ? ` +${lead}` : "")}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        height: TAKEN_ROW,
+        gap: 8,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        fontSize: 20,
+        lineHeight: 1,
+      }}
+    >
+      <span style={{ ...inkOf(side), fontSize: 22, flex: "none" }}>{GLYPH.k}</span>
+      {/* the pile gives way before the lead does, if a row ever runs out of room */}
+      <span style={{ display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden" }}>
+        {pieces.map((p, i) => (
+          <span
+            key={i}
+            style={{
+              ...inkOf(victim),
+              // a pile of one kind overlaps; a new kind steps clear of it
+              marginInlineStart: i === 0 ? 0 : pieces[i - 1] === p ? "-0.38em" : "0.08em",
+            }}
+          >
+            {GLYPH[p]}
+          </span>
+        ))}
+      </span>
+      {lead > 0 && (
+        <b
+          style={{
+            flex: "none",
+            color: DARK_ARMY,
+            background: LIGHT_SQ,
+            borderRadius: 999,
+            padding: "2px 7px",
+            fontSize: 14,
+          }}
+        >
+          +{lead}
+        </b>
+      )}
+    </div>
+  );
+}
 
 const DIFF_OPTIONS: DifficultyOption<Level>[] = [
   { id: "easy", label: { he: "קל", en: "Easy", es: "Fácil", sv: "Lätt" } },
@@ -209,6 +309,10 @@ export function Chess({ ctx }: { ctx: GameContext }) {
   const result = outcome(position, keys.slice(0, -1));
   const done = result.kind !== "playing";
   const moves = useMemo(() => (done ? [] : legalMoves(position)), [position, done]);
+  // Who ate whom, derived from the list of positions every render - so a
+  // take-back, a new game, a difficulty change and a restored game all show
+  // the right rows with nothing to clear.
+  const taken = useMemo(() => captures(positions), [positions]);
 
   // Whose hand is on the board. Against the computer that is white and only
   // white; in a match it is whichever seat's turn it is.
@@ -471,21 +575,22 @@ export function Chess({ ctx }: { ctx: GameContext }) {
       he: {
         turn: "התור שלך", think: "חושב...", check: "שח!", mate: "מט", draw: "תיקו",
         stale: "פט", wins: "ניצחונות", back: "אחורה", promote: "בחרו כלי", black: "תור השחור",
+        whiteTook: "הלבן אכל", blackTook: "השחור אכל",
       },
       en: {
         turn: "Your turn", think: "Thinking...", check: "Check!", mate: "Checkmate", draw: "Draw",
         stale: "Stalemate", wins: "Wins", back: "Take back", promote: "Choose a piece",
-        black: "Black to move",
+        black: "Black to move", whiteTook: "White took", blackTook: "Black took",
       },
       es: {
         turn: "Te toca", think: "Pensando...", check: "¡Jaque!", mate: "Jaque mate", draw: "Tablas",
         stale: "Ahogado", wins: "Victorias", back: "Deshacer", promote: "Elige una pieza",
-        black: "Juegan las negras",
+        black: "Juegan las negras", whiteTook: "Las blancas comieron", blackTook: "Las negras comieron",
       },
       sv: {
         turn: "Din tur", think: "Tänker...", check: "Schack!", mate: "Schackmatt", draw: "Remi",
         stale: "Patt", wins: "Vinster", back: "Ångra", promote: "Välj en pjäs",
-        black: "Svart spelar",
+        black: "Svart spelar", whiteTook: "Vit tog", blackTook: "Svart tog",
       },
     },
     ctx.locale,
@@ -537,6 +642,26 @@ export function Chess({ ctx }: { ctx: GameContext }) {
       onRestart={reset}
       footer={
         <div style={{ display: "grid", gap: 8 }}>
+          <div
+            style={{
+              display: "grid",
+              gap: 2,
+              padding: "4px 12px",
+              background: DARK_SQ,
+              borderRadius: "var(--radius-2)",
+              boxShadow: "var(--shadow-1)",
+            }}
+          >
+            {(["w", "b"] as const).map((side) => (
+              <TakenRow
+                key={side}
+                side={side}
+                pieces={taken[side]}
+                lead={taken.lead?.side === side ? taken.lead.by : 0}
+                label={`${side === "w" ? T.whiteTook : T.blackTook}: ${taken[side].length}`}
+              />
+            ))}
+          </div>
           {versus ? (
             <VersusBanner v={versus} locale={ctx.locale} counts={versus.wins} result={winner} />
           ) : (

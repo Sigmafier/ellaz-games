@@ -500,3 +500,74 @@ export function moveToSan(p: Position, m: Move): string {
   if (isCheck(next)) san += legalMoves(next).length ? "+" : "#";
   return san;
 }
+
+/**
+ * What each piece is worth, in the pawns every chess book counts in. The king
+ * is 0 because it is never taken - the game ends first.
+ */
+export const PIECE_VALUE: Readonly<Record<Piece, number>> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+/** Smallest first, and a knight before a bishop at the same value - the order
+ *  every chess site lays a row of taken pieces out in. */
+const TAKE_ORDER: readonly Piece[] = ["p", "n", "b", "r", "q"];
+
+export interface Captures {
+  /** The pieces WHITE has taken - so these are black pieces - smallest first. */
+  w: Piece[];
+  /** The pieces BLACK has taken - white pieces - smallest first. */
+  b: Piece[];
+  /** Who is ahead on the board, and by how many pawns; null when level. */
+  lead: { side: Color; by: number } | null;
+}
+
+function countOf(board: (string | null)[], color: Color): Record<string, number> {
+  const n: Record<string, number> = {};
+  for (const pc of board) if (pc && pc[0] === color) n[pc[1]] = (n[pc[1]] ?? 0) + 1;
+  return n;
+}
+
+function material(board: (string | null)[], color: Color): number {
+  let sum = 0;
+  for (const pc of board) if (pc && pc[0] === color) sum += PIECE_VALUE[pc[1] as Piece];
+  return sum;
+}
+
+/**
+ * Who ate whom, read off the game itself: the list of positions, start first,
+ * one per ply - which is exactly what the game keeps and saves.
+ *
+ * Each step is one move by `prev.turn`, and the only way a piece of the OTHER
+ * colour can leave the board is by being taken on that move. So the taken piece
+ * is whatever the opponent has fewer of afterwards. That is exact for en
+ * passant (the pawn is not on the landing square) and for a capture that
+ * promotes (the mover's pieces change, the victim's do not), and it needs no
+ * move list - a game restored from its saved positions has no Move objects.
+ *
+ * Taking a move back or starting again shortens the list, so the rows follow
+ * with nothing to clear.
+ *
+ * The LEAD is measured on the board, not summed from the rows: a pawn that
+ * promoted is a queen now, and a row of what was taken cannot know that.
+ */
+export function captures(positions: readonly Position[]): Captures {
+  const taken: Record<Color, Piece[]> = { w: [], b: [] };
+  for (let i = 1; i < positions.length; i++) {
+    const prev = positions[i - 1];
+    const mover = prev.turn;
+    const before = countOf(prev.board, other(mover));
+    const after = countOf(positions[i].board, other(mover));
+    for (const kind of TAKE_ORDER) {
+      for (let k = after[kind] ?? 0; k < (before[kind] ?? 0); k++) taken[mover].push(kind);
+    }
+  }
+  const order = (p: Piece) => TAKE_ORDER.indexOf(p);
+  taken.w.sort((a, b) => order(a) - order(b));
+  taken.b.sort((a, b) => order(a) - order(b));
+  const last = positions[positions.length - 1];
+  const diff = last ? material(last.board, "w") - material(last.board, "b") : 0;
+  return {
+    w: taken.w,
+    b: taken.b,
+    lead: diff === 0 ? null : { side: diff > 0 ? "w" : "b", by: Math.abs(diff) },
+  };
+}
