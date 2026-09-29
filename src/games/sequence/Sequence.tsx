@@ -10,6 +10,7 @@ import {
 import type { GameContext } from "@sdk/index";
 import { type DifficultyOption } from "@ui/index";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { GameChrome } from "@ui/GameChrome";
 import { burst, haptic, shake } from "@juice/index";
 import { Prompt, shapePath, winMoment, useRememberedLevel } from "@shared/index";
@@ -355,9 +356,12 @@ export function Sequence({ ctx }: { ctx: GameContext }): ReactElement {
         // every GameChrome game pays, the prompt (72) and its 12px gap, and the
         // 60px caption card plus the footer's 14.
         <div
+          // The Prompt chip is drawn above this box, so on the Game table the
+          // board declares the table's chrome plus the chip (GameTable.tsx).
+          data-own-chrome=""
           className={BOARD_CLASS}
           style={{
-            ...boardVars({ vw: 96, vh: 40, cap: 560, chrome: 169, ratio: PC_RATIO }),
+            ...boardVars({ vw: 96, vh: 40, cap: 560, chrome: (isTablePage() ? TABLE_CHROME : 111) + 58, ratio: PC_RATIO }),
             containerType: "inline-size",
             display: "flex",
             flexDirection: "column",

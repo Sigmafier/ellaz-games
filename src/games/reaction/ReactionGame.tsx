@@ -12,6 +12,7 @@ import {
 import type { GameContext } from "@sdk/index";
 import { type DifficultyOption } from "@ui/index";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { GameChrome } from "@ui/GameChrome";
 import { burst, haptic, shake } from "@juice/index";
 import { Prompt, useGameTimer, winMoment, useRememberedLevel } from "@shared/index";
@@ -522,6 +523,9 @@ export function ReactionGame({ ctx }: { ctx: GameContext }): ReactElement {
         aria-live="polite"
         onPointerDown={onPointerDown}
         onKeyDown={onKeyDown}
+        // The Prompt chip is drawn above this box, so on the Game table the
+        // board declares the table's chrome plus the chip (GameTable.tsx).
+        data-own-chrome=""
         className={pc ? BOARD_CLASS : undefined}
         style={{
           // PC: the light's width comes from `.ellaz-board` - the height the
@@ -533,7 +537,7 @@ export function ReactionGame({ ctx }: { ctx: GameContext }): ReactElement {
           // DOWN for the tallest game in the roster is exactly why the chrome is
           // counted rather than guessed on a PC.
           ...(pc
-            ? boardVars({ vw: 56, vh: 24, cap: 230, chrome: 169, ratio: 120 / 220 })
+            ? boardVars({ vw: 56, vh: 24, cap: 230, chrome: (isTablePage() ? TABLE_CHROME : 111) + 58, ratio: 120 / 220 })
             : { width: LIGHT_W }),
           aspectRatio: "120 / 220",
           // The play surface owns the gesture: no scroll, no pinch, no

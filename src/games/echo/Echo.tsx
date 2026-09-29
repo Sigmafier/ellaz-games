@@ -3,6 +3,7 @@ import { textFor, type Locale } from "@i18n/index";
 import type { GameContext } from "@sdk/index";
 import { GameChrome } from "@ui/GameChrome";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { type DifficultyOption } from "@ui/DifficultySelector";
 import { haptic, shake } from "@juice/index";
 import { Prompt, winMoment, useRememberedLevel } from "@shared/index";
@@ -334,6 +335,9 @@ export function Echo({ ctx }: { ctx: GameContext }) {
       <div
         ref={gridRef}
         dir="ltr"
+        // The Prompt chip is drawn above this box, so on the Game table the
+        // board declares the table's chrome plus the chip (GameTable.tsx).
+        data-own-chrome=""
         className={`ellaz-play-surface ${BOARD_CLASS}`}
         style={{
           display: "grid",
@@ -346,7 +350,7 @@ export function Echo({ ctx }: { ctx: GameContext }) {
             vw: 88,
             vh: 42,
             cap: 420,
-            chrome: 169,
+            chrome: (isTablePage() ? TABLE_CHROME : 111) + 58,
             ratio: level.cols / Math.ceil(level.pads / level.cols),
             // The 14px gaps, so a level with a third column is not 5px shorter.
             space: { x: (level.cols - 1) * 14, y: (Math.ceil(level.pads / level.cols) - 1) * 14 },
