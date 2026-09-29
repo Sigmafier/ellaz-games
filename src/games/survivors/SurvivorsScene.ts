@@ -369,6 +369,8 @@ export class SurvivorsScene extends Phaser.Scene {
    * They are different games to play, and the second is what a joystick is.
    */
   private stick: Stick | null = null;
+  /** Which touch owns the stick, so a second finger on the freeze button cannot steer. */
+  private stickTouch = -1;
   /** Which stick this player chose. Their own setting, on this game's chrome. */
   /** Keys currently down. */
   private keys = new Set<string>();
@@ -456,6 +458,7 @@ export class SurvivorsScene extends Phaser.Scene {
       if (this.phase !== "playing") return void this.startFromChrome();
       const o = stickOriginFor(p.x, p.y);
       this.stick = { ox: o.ox, oy: o.oy, px: p.x, py: p.y };
+      this.stickTouch = p.identifier;
     });
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
       if (this.paused) return;
@@ -467,12 +470,40 @@ export class SurvivorsScene extends Phaser.Scene {
     this.input.on("pointerup", () => {
       this.stick = null;
     });
-    // A thumb that leaves the canvas mid-drag never sends `pointerup` here, and
-    // the ship would then walk forever in the last direction held. Phaser emits
-    // this when the pointer leaves the game surface, which is the only tell.
-    this.input.on("gameout", () => {
+    // Let go OFF the canvas - a mouse released over the page. Phaser reports it
+    // as this and never as `pointerup`, so without it the ship would walk on in
+    // the last direction held.
+    this.input.on("pointerupoutside", () => {
       this.stick = null;
     });
+    // THE THUMB OVER THE CHROME IS STILL STEERING. Reported 2026-09-27 from a
+    // 360x726 phone: "When joystick goes over the snow it stops" - the snow
+    // being the freeze button's snowflake, one of the DOM controls drawn over
+    // this canvas. Phaser decides "over the game" per touchmove with
+    // `elementFromPoint`, so a thumb sliding onto ANY overlay fired `gameout`,
+    // this dropped the stick, and the robot stood still until the thumb was
+    // lifted and put down again. A finger that is still down is still the
+    // stick's; only letting go (above) ends it. `gameout` now clears only a
+    // stick nothing is holding.
+    this.input.on("gameout", () => {
+      if (!this.input.activePointer.isDown) this.stick = null;
+    });
+    // And while the thumb is over an overlay Phaser forwards no `pointermove`
+    // at all, so the stick would freeze in the last direction held. A touch
+    // keeps reporting to the element it began on - this canvas - wherever it
+    // travels, so the canvas's own `touchmove` follows it the whole way.
+    // `transformX/Y` is the same page-to-arena mapping Phaser applies to `p.x`.
+    const canvas = this.game.canvas;
+    const follow = (e: TouchEvent) => {
+      if (this.paused || this.phase !== "playing" || !this.stick) return;
+      const t = [...e.touches].find((x) => x.identifier === this.stickTouch) ?? e.touches[0];
+      if (!t) return;
+      this.stick.px = this.scale.transformX(t.pageX);
+      this.stick.py = this.scale.transformY(t.pageY);
+    };
+    canvas.addEventListener("touchmove", follow, { passive: true });
+    this.events.once("shutdown", () => canvas.removeEventListener("touchmove", follow));
+    this.events.once("destroy", () => canvas.removeEventListener("touchmove", follow));
 
     const kb = this.input.keyboard;
     kb?.on("keydown", (e: KeyboardEvent) => {
