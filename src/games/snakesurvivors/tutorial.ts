@@ -49,6 +49,7 @@ export function newTutorial(arena: Arena, rng: () => number = Math.random): Tuto
   run.spawnIn = Infinity; // no crowd: the bat is the only shape
   run.floorIn = Infinity; // no floor gems: the bat's gems are the only gems
   run.calmMs = Infinity; // and it never starts to chase
+  run.mini = 3; // and no mini-boss ever comes to the practice run
   const home = { x: run.x + AHEAD, y: run.y };
   run.foes.push(makeFoe(run, "runner", home.x, home.y));
   return { step: "loop", run, home, ms: 0, skipped: false };

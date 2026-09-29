@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { mulberry32 } from "@shared/rng";
-import { findLoop, HIT_COST, MAX_LEN, snapHint, START_LEN } from "./body";
+import { findLoop, HIT_COST, MAX_LEN, START_LEN } from "./body";
 import { shortestLasso } from "./bots";
 import {
   CAPS, CARD_IDS, NEW_CARDS, SNAP, WEAPONS, cardOffer, cardStat, shieldEvery, snapOf, spitEvery,
 } from "./cards";
-import { BOSS_AT, KINDS, LEVELS, STAGE_CROWD, bossDue, bossProgress, makeFoe, moveFoes } from "./crowd";
+import { BOSS_AT, KINDS, LEVELS, STAGE_CROWD, bossDue, bossProgress, isBoss, makeFoe, moveFoes, stageGoal } from "./crowd";
 import { GEM_LOOK } from "./draw";
 import { GROW, hitsLeft, newRun, step } from "./logic";
 import { ringRun } from "./testRing";
@@ -28,7 +28,7 @@ const ARENA = { w: 420, h: 560 };
 
 let nextId = 9000;
 function foe(kind: Kind, x: number, y: number): Foe {
-  return { id: nextId++, kind, x, y, hp: KINDS[kind].hp, hurt: 0, stun: 0, spikeCool: 0, dash: 0, dashCool: 0, windup: 0 };
+  return { id: nextId++, kind, x, y, hp: KINDS[kind].hp, hurt: 0, stun: 0, spikeCool: 0, dash: 0, dashCool: 0, windup: 0, slow: 0 };
 }
 
 function quiet(run: Run): Run {
@@ -36,6 +36,7 @@ function quiet(run: Run): Run {
   run.floorIn = 1e12;
   run.foes = [];
   run.gems = [];
+  run.mini = 3; // no mini-boss wanders into a hand-set cell
   return run;
 }
 
@@ -48,6 +49,21 @@ const gapOf = (run: Run) => {
   return Math.hypot(t.x - run.x, t.y - run.y);
 };
 
+/**
+ * A U: the head at the top of the left arm going up, the body down 120, across
+ * `gap`, and back up 120 - half a lap of turn, a 120 x `gap` loop, and the tail
+ * end `gap` units from the head.
+ */
+function uRun(gap: number): Run {
+  const run = quiet(ringRun(600, 800, 60));
+  const pts: { x: number; y: number }[] = [];
+  for (let y = 604; y <= 720; y += 4) pts.push({ x: 600, y });
+  for (let x = 604; x < 600 + gap; x += 4) pts.push({ x, y: 720 });
+  for (let y = 720; y >= 600; y -= 4) pts.push({ x: 600 + gap, y });
+  Object.assign(run, { x: 600, y: 600, heading: -Math.PI / 2, path: pts, len: Math.ceil((pts.length * 4) / 12) + 2 });
+  return run;
+}
+
 describe("the loop snaps shut", () => {
   it("closes when the head comes within reach of its body, without touching it", () => {
     const run = openRing(SNAP - 6);
@@ -59,8 +75,9 @@ describe("the loop snaps shut", () => {
     expect(loop!.length).toBe(run.path.length + 1);
   });
 
-  it("does not close from further than its reach", () => {
-    const run = openRing(SNAP + 12);
+  it("does not close from further than its reach while the body has turned under three quarters of a lap", () => {
+    // A U: the body has turned half a lap, and the gap is past the reach.
+    const run = uRun(SNAP + 12);
     expect(gapOf(run)).toBeGreaterThan(SNAP);
     expect(findLoop(run)).toBeNull();
   });
@@ -72,17 +89,8 @@ describe("the loop snaps shut", () => {
     expect(run.crushed).toBe(1);
   });
 
-  it("shows the guide - the point it will close on - while the head approaches, and not from far away", () => {
-    const near = openRing(SNAP * 1.6);
-    const hint = snapHint(near);
-    expect(hint).not.toBeNull();
-    const tail = near.path[near.path.length - 1];
-    expect(Math.hypot(hint!.x - tail.x, hint!.y - tail.y)).toBeLessThan(8);
-    expect(snapHint(openRing(SNAP * 3))).toBeNull();
-  });
-
   it("the Lasso card grows the reach, one step a level", () => {
-    const run = openRing(SNAP + 8);
+    const run = uRun(SNAP + 8);
     expect(findLoop(run)).toBeNull();
     run.taken.lasso = 1;
     expect(snapOf(run)).toBeGreaterThan(SNAP);
@@ -108,11 +116,11 @@ describe("the loop snaps shut", () => {
    * The measurement the reach was picked from (2026-09-28, `lassoTrial`, ten
    * seeds a length, the shortest length that crushes on half of them):
    *
-   *   hand                  touch (old)   reach 30   reach 42
-   *   orbits the bat            30           28         28
-   *   circles, steady           26           26         24
-   *   circles, tightens 12      56           28         26
-   *   circles, tightens 20      60           30         28
+   *   hand                  touch (old)   reach 30   reach 42   + 3/4 lap (round four)
+   *   orbits the bat            30           28         28          28
+   *   circles, steady           26           26         24          20
+   *   circles, tightens 12      56           28         26          20
+   *   circles, tightens 20      60           30         28          20
    *
    * The tightening hand is the reviewer's "46 or any lower size". The starting
    * length must be enough for every one of them.
@@ -245,7 +253,7 @@ describe("about half the bats", () => {
       run.blink = 1e12;
       step(run, 25, { dx: Math.cos(t / 800), dy: Math.sin(t / 800) }, rng);
       run.choosing = null;
-      most = Math.max(most, run.foes.filter((f) => f.kind !== "warden").length);
+      most = Math.max(most, run.foes.filter((f) => !isBoss(f.kind)).length);
     }
     expect(most).toBe(LEVELS.wild.cap);
   });
@@ -272,22 +280,23 @@ describe("stage 2 raises the crowd over stage 1, and stage 3 raises it again", (
   });
 
   it("a real run actually SPAWNS a bigger cap and tougher shapes at stage 2 than stage 1", () => {
-    // Stage 2's spawn is also SLOWER (`STAGE_CROWD[2].spawn`, see its own
-    // comment) - a deliberate trade so a tougher, capped-higher crowd does not
-    // also reach its (higher) cap fast enough to crush faster. So the window
-    // has to be long enough for the slow-refill stage to actually FILL, not
-    // just long enough for stage 1's quicker one - 150 s clears both.
+    // Round four's second pass: stage 2 also SENDS faster than stage 1
+    // (`STAGE_CROWD[2].spawn` under 1). 150 s is long enough for both to fill.
     const capAt = (stage: 1 | 2) => {
       const rng = mulberry32(3);
       const run = newRun("normal", ARENA, rng);
       run.stage = stage;
+      run.mini = 3;
+      // R4.5: a stage's crowd climbs in over its first `RAMP_IN`, so read it
+      // from the middle of the stage, where it has.
+      if (stage === 2) run.crushed = Math.round((stageGoal("normal", 1).crushed + stageGoal("normal", 2).crushed) / 2);
       run.calmMs = 0; // skip the safe start: the crowd chases from frame one
       let most = 0;
       for (let t = 0; t < 150_000; t += 25) {
         run.blink = 1e12;
         step(run, 25, { dx: Math.cos(t / 700), dy: Math.sin(t / 700) }, rng);
         run.choosing = null;
-        most = Math.max(most, run.foes.filter((f) => f.kind !== "warden").length);
+        most = Math.max(most, run.foes.filter((f) => !isBoss(f.kind)).length);
       }
       return most;
     };
@@ -296,23 +305,26 @@ describe("stage 2 raises the crowd over stage 1, and stage 3 raises it again", (
     // A fresh runner at stage 2 takes more than the round-three one hit.
     const stage2 = quiet(newRun("normal", ARENA, fixed));
     stage2.stage = 2;
+    stage2.crushed = stageGoal("normal", 2).crushed - 1; // past the climb-in (R4.5)
     const at = spawnPoint(mulberry32(1), stage2);
     const runnerStage2 = makeFoe(stage2, "runner", at.x, at.y);
     expect(runnerStage2.hp).toBeGreaterThan(KINDS.runner.hp);
   });
 });
 
-describe("nine cards", () => {
-  it("are the six and three new ones, and Spit is the third weapon", () => {
-    expect(CARD_IDS).toHaveLength(9);
-    expect([...NEW_CARDS].sort()).toEqual(["lasso", "shield", "spit"]);
+describe("the cards round three had", () => {
+  it("are nine of round four's sixteen, and Spit is still the third weapon", () => {
+    // Round four (2026-09-29) added seven more; see round4.test.ts.
+    expect(CARD_IDS).toHaveLength(16);
+    expect(CARD_IDS.slice(0, 9)).toEqual(["fangs", "spikes", "magnet", "swift", "regrow", "shockwave", "spit", "lasso", "shield"]);
+    expect(NEW_CARDS).toHaveLength(7);
     expect(WEAPONS).toEqual(["fangs", "spikes", "spit"]);
   });
 
-  it("a card you do not have is offered at level one, marked new if it is one of the three", () => {
+  it("a card you do not have is offered at level one, marked new if round four added it", () => {
     const taken = newRun("normal", ARENA, fixed).taken;
-    expect(cardOffer(taken, "spit")).toMatchObject({ from: 0, to: 1, owned: false, isNew: true, was: null });
-    expect(cardOffer(taken, "magnet")).toMatchObject({ from: 0, to: 1, owned: false, isNew: false });
+    expect(cardOffer(taken, "chain")).toMatchObject({ from: 0, to: 1, owned: false, isNew: true, was: null });
+    expect(cardOffer(taken, "spit")).toMatchObject({ from: 0, to: 1, owned: false, isNew: false, was: null });
   });
 
   it("a card you own is offered as its NEXT level, saying what that level gives and what you have now", () => {
@@ -331,8 +343,8 @@ describe("nine cards", () => {
   });
 
   it("an owned card stays new-less: the badge is for a card never taken", () => {
-    const taken = { ...newRun("normal", ARENA, fixed).taken, lasso: 1 };
-    expect(cardOffer(taken, "lasso").isNew).toBe(false);
+    const taken = { ...newRun("normal", ARENA, fixed).taken, frost: 1 };
+    expect(cardOffer(taken, "frost").isNew).toBe(false);
   });
 });
 
@@ -438,20 +450,21 @@ describe("the chrome shows the round-three rules", () => {
   const GAME = strip(readFileSync(new URL("./SnakeSurvivorsGame.tsx", import.meta.url), "utf8"));
   const SCENE = strip(readFileSync(new URL("./SnakeSurvivorsScene.ts", import.meta.url), "utf8"));
 
-  it("the picker reads every offered card through cardOffer: an owned card says 'from -> to', a new one says NEW", () => {
+  it("the picker reads every offered card through cardOffer: an owned card says 'from -> to'", () => {
     expect(GAME).toContain("const o = cardOffer(status.taken, id);");
     expect(GAME).toMatch(/o\.owned && <span dir="ltr">\{` \$\{o\.from\} → \$\{o\.to\}`\}<\/span>/);
-    expect(GAME).toMatch(/o\.isNew && \(/);
+    // Round four: the approved mock puts a TIER badge on every card instead of
+    // the NEW chip (round4.test.ts pins the badge).
     expect(GAME).toContain("upgrade(num(o.now), num(o.was))");
   });
 
   it("there is no clock; the boss meter reads the CURRENT stage's own trigger and the larger fraction", () => {
     expect(GAME).toMatch(/clock: "",/);
-    expect(GAME).toContain("bossProgress(status.meter)");
+    expect(GAME).toContain("bossProgress({ ...status.meter, level: status.level })");
     // ROUND FOUR: the meter no longer quotes a fixed BOSS_AT - it looks up
-    // whichever stage `status.meter.stage` says, since stage 2 and 3 have
-    // their own (higher) triggers.
-    expect(GAME).toContain("STAGE_TRIGGER[status.meter.stage]");
+    // whichever stage `status.meter.stage` says, on this level, since stage 2
+    // and 3 have their own (higher) triggers.
+    expect(GAME).toContain("stageGoal(status.level, status.meter.stage)");
     expect(GAME).toContain("${meterAt.len}");
     expect(GAME).toContain("${meterAt.crushed}");
     expect(GAME).not.toContain("BOSS_AT");
@@ -463,7 +476,7 @@ describe("the chrome shows the round-three rules", () => {
   });
 
   it("the scene draws the snap guide, the coloured gems, the shots and the warden's wind-up", () => {
-    expect(SCENE).toContain("snapHint(r)");
+    expect(SCENE).toContain("pendingLoop(r)");
     expect(SCENE).toContain("drawGem(g, gem.x, gem.y, pulse + gem.x, gem.v)");
     expect(SCENE).toContain("drawShot(g, shot)");
     expect(SCENE).toMatch(/f\.windup > 0\) drawWindup\(/);

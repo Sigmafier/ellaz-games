@@ -7,8 +7,8 @@ import { snakesurvivorsFr } from "./fr/snakesurvivors";
  * the snake's starting, shortest and longest length, what a bump costs and the
  * smallest loop that crushes (`body.ts`), the blink after a bump and what each
  * gem colour is worth (`logic.ts`), each stage's warden trigger, hp and crowd
- * (`crowd.ts`, `STAGE_TRIGGER`/`BOSS_HP`/`STAGE_CROWD`), the nine cards, their
- * caps and the snap reach (`cards.ts`), and the coin milestone
+ * (`crowd.ts`, `STAGE_TRIGGER`/`BOSS_HP`/`STAGE_CROWD`), the sixteen cards, their
+ * tiers, caps and the snap reach (`cards.ts`), and the coin milestone
  * (`SnakeSurvivorsScene.ts`). Nothing here is simulated; it is all a constant
  * already declared in those files, so a retune either shows up here or this
  * page starts quoting a number the game no longer has.
@@ -18,7 +18,7 @@ import { snakesurvivorsFr } from "./fr/snakesurvivors";
  * stage clock, so no sentence here quotes one any more.
  *
  * ROUND FOUR (2026-09-28): a run is three STAGES now, each closed by its own
- * warden, tougher than the last (3/4/5 loops) - beating one opens the next
+ * warden, tougher than the last (3/5/7 loops) - beating one opens the next
  * with a harder crowd, and only the third win ends the run. No sentence here
  * may say "the warden" as if there were only ever one.
  */
@@ -37,13 +37,13 @@ export const snakesurvivors: GameContent = {
       body: [
         "יש במשחק הזה מהלך אחד. מציירים עיגול עם עצמכם. מה שנמצא בפנים כשהעיגול נסגר נעלם, ומשאיר אחריו יהלומים.",
 
-        "הזנב הוא החיים, והמספר על המסך הוא פשוט האורך שלכם. הנחש מתחיל ב-28 חוליות. צורה שמגיעה לראש נוגסת 1 מהן, ואחר כך הנחש מהבהב 1.4 שניות שבהן שום דבר לא נוגע בו - בדיוק מספיק זמן להתרחק ממה שנגס. יורדים מתחת ל-3 חוליות והריצה נגמרת. יהלומים מחזירים אורך וממלאים את הפס שמביא את הקלף הבא: יהלום כחול שווה שליש חוליה, אדום שני שלישים, וצהוב חוליה שלמה. הנחש הכי ארוך שאפשר לגדל הוא 60 חוליות, ונחש ארוך יכול לצייר לולאה רחבה יותר.",
+        "הזנב הוא החיים, והמספר על המסך הוא פשוט האורך שלכם. הנחש מתחיל ב-28 חוליות. צורה שמגיעה לראש נוגסת לפחות 1 מהן, ואחר כך הנחש מהבהב 1.4 שניות שבהן שום דבר לא נוגע בו - בדיוק מספיק זמן להתרחק ממה שנגס. יורדים מתחת ל-3 חוליות והריצה נגמרת. יהלומים מחזירים אורך וממלאים את הפס שמביא את הקלף הבא: יהלום כחול שווה שליש חוליה, אדום שני שלישים, וצהוב חוליה שלמה. הנחש הכי ארוך שאפשר לגדל הוא 60 חוליות, ונחש ארוך יכול לצייר לולאה רחבה יותר.",
 
         "הגוף הוא לא קיר. צורות חוצות אותו בחופשיות, וזה כל הטריק: קהל שרודף אחרי הראש בזמן שאתם מסתובבים חותך פינה ונשאר בתוך העיגול שאתם מציירים. אז סוגרים, ולא צריך לפגוע בזנב בדיוק: ברגע שהראש מגיע למרחק 42 יחידות מהגוף, הלולאה נסגרת, וקו מקווקו מראה איפה. אבל הגודל קובע. לולאה מוחצת רק אם היא סוגרת לפחות 4000 יחידות רבועות, בערך עיגול ברדיוס 36, אז סיבוב צפוף במקום לא מוחץ כלום, והצורות שמתיישבות בתוכו מגיעות בסוף לראש. בגלל זה האורך הוא יותר מחיים: נחש ארוך יכול להרשות לעצמו לולאה רחבה, נחש קצר בקושי מצליח לסגור אחת, וכל יהלום מחזיר קצת מהטווח הזה. סגירה אחת היא מחיצה אחת, וכל צורה בפנים חוטפת ממנה מכה אחת.",
 
         "שלוש צורות הולכות לעברכם, ואלה אותן שלוש שממלאות את הישרדות ניאון. הרץ הוא עטלף קטן ומהיר. הכדור הוא רפש שנסחף פנימה אחרי שהריצה כבר נמשכת זמן מה. הבריון הוא סרטן איטי וקשוח שמופיע עוד יותר מאוחר, ולולאה אחת לא מספיקה לו - הוא צריך שתיים. אין שעון. הריצה מחולקת לשלושה שלבים, וכל שלב נסגר בשומר משלו. הראשון מגיע כשאתם באורך 50 חוליות או אחרי 10 צורות מחוצות, מה שקודם, ומד בתחתית המסך מראה כמה נשאר. זה עטלף ענק שנעצר וזוהר לפני שהוא מסתער ישר עליכם, וזה הרגע לסטות הצידה - מוחצים אותו בשלוש לולאות, מכה אחת בכל לולאה.",
 
-        "מוחצים את השומר הראשון וזה פותח את השלב הבא: הקהל גדל - יותר צורות, מגיעות מהר יותר, והבריון מצטרף מוקדם יותר - וכל צורה צריכה עוד לולאה כדי להיחשב מחוצה. השומר השני מחכה אחרי 25 צורות מחוצות בסך הכול, קשוח מהראשון; השלישי אחרי 45, קשוח עוד יותר ומסתער עליכם לעיתים קרובות יותר. מוחצים את שלושתם והריצה שלכם.",
+        "מוחצים את השומר הראשון וזה פותח את השלב הבא: הקהל גדל - יותר צורות, מגיעות מהר יותר, והבריון מצטרף מוקדם יותר - וכל צורה צריכה עוד לולאה כדי להיחשב מחוצה. השומר השני מחכה אחרי 240 צורות מחוצות בסך הכול ברמה רגילה, קשוח מהראשון; השלישי אחרי 760, קשוח עוד יותר ומסתער עליכם לעיתים קרובות יותר. מוחצים את שלושתם והריצה שלכם.",
 
         "שלוש הרמות משנות את הקהל בנוסף למה שכל שלב כבר מוסיף: כמה מהר מגיעות צורות, כמה מהר הן הולכות וכמה מהן על המסך בבת אחת. הנחש זהה בשלושתן. זה המשחק השני במשפחת הנחש, והפעם הנחש כבר לא זוחל על רשת.",
       ],
@@ -87,10 +87,10 @@ export const snakesurvivors: GameContent = {
       faq: [
         { q: "נחש הישרדות חינמי?", a: "כן, ואין שום דבר להירשם אליו או לקנות." },
         { q: "איך סוגרים לולאה?", a: "מנווטים את הראש בחזרה עד 42 יחידות מהגוף, והלולאה נסגרת מעצמה. היא צריכה להקיף לפחות 4000 יחידות רבועות, כך שסיבוב צפוף במקום לא נחשב, וכל סגירה פוגעת פעם אחת בכל צורה שבפנים." },
-        { q: "מה קורה כשצורה נוגעת בי?", a: "אם היא נוגעת בראש, מאבדים חוליה אחת ומקבלים 1.4 שניות של הבהוב שבו שום דבר לא פוגע. אם היא נוגעת בגוף, לא קורה כלום: צורות חוצות את הגוף בחופשיות, וככה קהל נכנס לתוך הלולאה." },
-        { q: "כמה זמן נמשכת ריצה?", a: "אין שעון. הריצה מחולקת לשלושה שלבים: השומר הראשון מגיע ב-50 חוליות או 10 צורות מחוצות, מה שקודם. השני מחכה אחרי 25 צורות מחוצות בסך הכול והוא קשוח יותר, והשלישי אחרי 45 וקשוח עוד יותר. מוחצים את שלושתם והריצה נוצחה." },
-        { q: "מה עושים הקלפים?", a: "יש תשעה. שלושה הם נשקים: ניבים נושכים צורה שנוגעת בראש, זנב קוצני פוגע במי שנוגע בגוף, ויריקה יורה בצורה הקרובה כל 2 שניות, אבל אף פעם לא בשומר. מגנט מושך יהלומים, זריז מוסיף 10% מהירות בכל דרגה, צמיחה מגדלת חוליה כל 9 שניות, גל הדף הודף את הצורות שממש מחוץ ללולאה, לאסו נותן ללולאה להיסגר מרחוק יותר, ומגן סופג מכה אחת בחינם ואז נטען מחדש." },
-        { q: "איך נספר הניקוד?", a: "בצורות שנמחצו. השיא נשמר על המכשיר, בנפרד לכל רמה, וכל 25 צורות שנמחצו מביאות מטבעות." },
+        { q: "מה קורה כשצורה נוגעת בי?", a: "אם היא נוגעת בראש, מאבדים לפחות חוליה אחת ומקבלים 1.4 שניות של הבהוב שבו שום דבר לא פוגע. אם היא נוגעת בגוף, לא קורה כלום: צורות חוצות את הגוף בחופשיות, וככה קהל נכנס לתוך הלולאה." },
+        { q: "כמה זמן נמשכת ריצה?", a: "אין שעון. הריצה מחולקת לשלושה שלבים: השומר הראשון מגיע ב-50 חוליות או 10 צורות מחוצות, מה שקודם. השני מחכה אחרי 240 צורות מחוצות בסך הכול ברמה רגילה והוא קשוח יותר, והשלישי אחרי 760 וקשוח עוד יותר. מוחצים את שלושתם והריצה נוצחה." },
+        { q: "מה עושים הקלפים?", a: "שישה עשר: תשעה אפורים, ארבעה כחולים נדירים ושלושה זהובים נדירים עוד יותר. שלושה מהאפורים הם נשקים: ניבים נושכים צורה שנוגעת בראש, זנב קוצני פוגע במי שנוגע בגוף, ויריקה יורה בצורה הקרובה כל 2 שניות, אבל אף פעם לא בשומר. מגנט מושך יהלומים, זריז מוסיף 10% מהירות בכל דרגה, צמיחה מגדלת חוליה כל 9 שניות, גל הדף הודף את הצורות שממש מחוץ ללולאה, לאסו נותן ללולאה להיסגר מרחוק יותר, ומגן סופג מכה אחת בחינם ואז נטען מחדש. הכחולים והזהובים מוסיפים שרשרת מחיצה, יהלומים כפולים, שובל כפור, גוף ארוך, ראש כפול, חור שחור ונובה." },
+        { q: "איך נספר הניקוד?", a: "בצורות שנמחצו. השיא נשמר על המכשיר, בנפרד לכל רמה, וכל 100 צורות שנמחצו מביאות מטבעות." },
         { q: "מה הקשר לנחש ולהישרדות ניאון?", a: "זה המשחק השני במשפחת הנחש: אותו נחש ניאון כמו בנחש הקלאסי, מול שלוש הצורות שבאות מהישרדות ניאון." },
       ],
 
@@ -108,13 +108,13 @@ export const snakesurvivors: GameContent = {
       body: [
         "There is one move. Draw a circle with yourself. Whatever is inside when the circle closes is gone, and it leaves gems behind.",
 
-        "Your tail is your health, and the length counter on the screen is simply how long you are. The snake starts at 28 segments. A shape that reaches your head bites off 1 of them, and then you blink for 1.4 seconds while nothing can touch you, which is just long enough to get clear of whatever did it. Drop below 3 segments and the run is over. Gems put the length back and fill the bar that brings the next card. A blue gem is worth a third of a segment, a red one two thirds and a yellow one a whole segment. The longest you can grow is 60 segments, and a longer snake can draw a bigger loop.",
+        "Your tail is your health, and the length counter on the screen is simply how long you are. The snake starts at 28 segments. A shape that reaches your head bites off at least 1 of them, and then you blink for 1.4 seconds while nothing can touch you, just long enough to get clear of it. Drop below 3 segments and the run is over. Gems put the length back and fill the bar that brings the next card. A blue gem is worth a third of a segment, a red one two thirds and a yellow one a whole segment. The longest you can grow is 60 segments, and a longer snake can draw a bigger loop.",
 
         "Your body is not a wall. Shapes cross it freely, and that is the trick: a crowd chasing your head while you circle cuts the corner and ends up inside the circle you are drawing. Close it then.",
 
         "You do not have to touch your own tail exactly. Once your head comes within 42 units of your body, the loop snaps shut, and a dashed line shows where as you come round. Size still matters. A loop only crushes if it encloses at least 4,000 square units, roughly a circle with a radius of 36, so spinning tight in one spot crushes nothing, and the shapes that settle inside that spin reach your head soon enough. That is why length is more than health: a long snake can afford a wide loop, a short one struggles to draw one at all, and every gem gives some of that reach back. One closing is one crush. Every shape inside takes a single hit from it, however many there are.",
 
-        "Three kinds of shape walk at you, the same three that fill Neon Survival: the runner is a small, fast bat, the orb a slime that drifts in later, and the brute a slow, tough crab that needs two loops, not one. There is no clock. A run is three stages, each closed by a tougher warden - the first at 50 segments or 10 crushed, the second at 25 in total, the third at 45. Each is a giant bat that stops and glows before it lunges: swerve then, three loops down. Beat all three and the run is yours.",
+        "Three kinds of shape walk at you, the same three that fill Neon Survival: the runner is a small, fast bat, the orb a slime that drifts in later, and the brute a slow, tough crab that needs two loops, not one. There is no clock. A run is three stages, each closed by a tougher warden - the first at 50 segments or 10 crushed, the second at 240 in total, the third at 760. Each is a giant bat that stops and glows before it lunges: swerve then, three loops down. Beat all three and the run is yours.",
 
         "Calm, Normal and Wild change the crowd on top of what each stage already raises - how often shapes arrive, how fast they walk and how many are on screen at once. The snake is identical on all three. Nothing about it gets weaker.",
       ],
@@ -158,10 +158,10 @@ export const snakesurvivors: GameContent = {
       faq: [
         { q: "Is Snake Survivors free?", a: "Yes, and there is nothing to sign up for or buy." },
         { q: "How do I close a loop?", a: "Steer your head back round to within 42 units of your body and the loop snaps shut. It has to enclose at least 4,000 square units, so a tight spin in place does not count, and each closing hits every shape inside it once." },
-        { q: "What happens when a shape touches me?", a: "If it touches your head, you lose 1 segment and blink for 1.4 seconds while nothing can hurt you. If it touches your body, nothing happens: shapes cross the body freely, which is how a crowd ends up inside your loop." },
-        { q: "How long is a run?", a: "There is no clock. A run is three stages: the first warden at 50 segments or 10 crushed, the second at 25 in total, the third at 45 - each tougher than the last. Beat all three and the run is won." },
-        { q: "What do the cards do?", a: "There are nine. Three are weapons: Fangs bites a shape that touches your head, Spiked tail hurts shapes that touch your body, and Spit shoots the nearest shape every 2 seconds, though never the warden. Magnet pulls gems in, Swift adds 10% speed per level, Regrow grows a segment back every 9 seconds, Shockwave throws back the shapes just outside a loop, Lasso lets a loop snap shut from further away, and Shield takes one bump for free, then recharges." },
-        { q: "How is the score counted?", a: "In shapes crushed. Your best is kept on your device, separately for each level, and every 25 crushed earns coins." },
+        { q: "What happens when a shape touches me?", a: "If it touches your head, you lose at least 1 segment and blink for 1.4 seconds while nothing can hurt you. If it touches your body, nothing happens: shapes cross the body freely, which is how a crowd ends up inside your loop." },
+        { q: "How long is a run?", a: "A run is three stages: the first warden at 50 segments or 10 crushed, the second at 240 in total, the third at 760 on Normal, each tougher than the last. Beat all three and the run is won." },
+        { q: "What do the cards do?", a: "Sixteen: nine grey, four rarer blue, three rarest gold. Three grey ones are weapons: Fangs bites a shape that touches your head, Spiked tail hurts shapes that touch your body, and Spit shoots the nearest shape every 2 seconds, though never the warden. Magnet pulls gems in, Swift adds 10% speed per level, Regrow grows a segment back every 9 seconds, Shockwave throws back the shapes just outside a loop, Lasso lets a loop snap shut from further away, and Shield takes one bump for free, then recharges." },
+        { q: "How is the score counted?", a: "In shapes crushed. Your best is kept on your device, separately for each level, and every 100 crushed earns coins." },
         { q: "How is it related to Snake and Neon Survival?", a: "It is the Snake family's second game: the same neon snake as classic Snake, up against the three shapes from Neon Survival." },
       ],
 
@@ -179,13 +179,13 @@ export const snakesurvivors: GameContent = {
       body: [
         "Aquí nadie apunta. Tu única arma es el dibujo que haces con tu propio cuerpo, y el único golpe que existe es cerrar el lazo.",
 
-        "La cola es la vida, y el número de la pantalla es simplemente lo larga que eres. La serpiente empieza con 28 segmentos. Una forma que llega a la cabeza se lleva 1, y después parpadeas durante 1,4 segundos en los que nada puede tocarte, justo lo necesario para salir de allí. Por debajo de 3 segmentos, la partida termina. Las gemas devuelven longitud y llenan la barra que trae la siguiente carta: una azul vale un tercio de segmento, una roja dos tercios y una amarilla un segmento entero. Como mucho llegarás a 60 segmentos, y cuanto más larga, más grande el lazo que puedes dibujar.",
+        "La cola es la vida, y el número de la pantalla es simplemente lo larga que eres. La serpiente empieza con 28 segmentos. Una forma que llega a la cabeza se lleva al menos 1, y después parpadeas durante 1,4 segundos en los que nada puede tocarte, justo para salir de allí. Por debajo de 3 segmentos, la partida termina. Las gemas devuelven longitud y llenan la barra que trae la siguiente carta: una azul vale un tercio de segmento, una roja dos tercios y una amarilla un segmento entero. Como mucho llegarás a 60 segmentos, y cuanto más larga, más grande el lazo que puedes dibujar.",
 
         "Tu cuerpo no es una pared. Las formas lo cruzan sin problema, y ahí está el truco: un grupo que persigue tu cabeza mientras giras acorta por dentro y acaba metido en el círculo que estás dibujando. Entonces cierras, sin tocarte la cola con precisión: en cuanto la cabeza pasa a 42 unidades de tu cuerpo, el lazo se cierra, y una línea discontinua te enseña dónde. Pero el tamaño manda. Un lazo solo aplasta si encierra al menos 4000 unidades cuadradas, más o menos un círculo de radio 36, así que dar vueltas cerradas en el sitio no aplasta nada, y lo que se acomoda dentro de ese giro acaba alcanzándote la cabeza. Por eso la longitud es más que vida: una serpiente larga puede permitirse un lazo amplio, una corta apenas consigue cerrar uno, y cada gema te devuelve parte de ese alcance. Cada cierre es un golpe para todo lo que haya dentro.",
 
         "Tres formas vienen a por ti, las mismas de Supervivencia Neón: el corredor, un murciélago pequeño y rápido; el orbe, un limo que llega tras un rato; el bruto, un cangrejo lento y duro que necesita dos lazos, no uno.",
 
-        "No hay reloj. Tres etapas, cada una cerrada por un guardián más duro: el primero a los 50 segmentos o 10 formas, el segundo a las 25 en total, el tercero a las 45. Cada uno es un murciélago gigante que se para y brilla antes de lanzarse: esquiva, tres lazos y cae. Vence a los tres y ganas. Los niveles cambian la multitud: cuánto tardan las formas, lo rápido que andan, cuántas caben en pantalla.",
+        "No hay reloj. Tres etapas, cada una cerrada por un guardián más duro: el primero a los 50 segmentos o 10 formas, el segundo a las 240 en total, el tercero a las 760. Cada uno es un murciélago gigante que se para y brilla antes de lanzarse: esquiva, tres lazos y cae. Vence a los tres y ganas. Los niveles cambian la multitud: cuánto tardan las formas, lo rápido que andan, cuántas caben en pantalla.",
 
         "Es el segundo juego de la familia de la serpiente. Aquí ya no hay cuadrícula.",
       ],
@@ -229,10 +229,10 @@ export const snakesurvivors: GameContent = {
       faq: [
         { q: "¿Serpiente superviviente es gratis?", a: "Sí, y no hay nada en lo que registrarse ni nada que comprar." },
         { q: "¿Cómo se cierra un lazo?", a: "Guía la cabeza de vuelta hasta 42 unidades de tu cuerpo y el lazo se cierra solo. Tiene que encerrar al menos 4000 unidades cuadradas, así que girar cerrado en el sitio no cuenta, y cada cierre golpea una vez a cada forma que haya dentro." },
-        { q: "¿Qué pasa si una forma me toca?", a: "Si te toca la cabeza, pierdes 1 segmento y parpadeas 1,4 segundos en los que nada te hace daño. Si te toca el cuerpo, no pasa nada: las formas cruzan el cuerpo libremente, y así es como una multitud acaba dentro de tu lazo." },
-        { q: "¿Cuánto dura una partida?", a: "No hay reloj. Tres etapas: el primer guardián a los 50 segmentos o 10 formas, el segundo a las 25 en total, el tercero a las 45 - cada uno más duro. Vence a los tres y ganas." },
-        { q: "¿Qué hacen las cartas?", a: "Hay nueve. Tres son armas: Colmillos muerde a la forma que te toca la cabeza, la Cola con púas hiere a lo que te toca el cuerpo y Escupir dispara a la forma más cercana cada 2 segundos, aunque nunca al guardián. Imán atrae las gemas, Veloz suma un 10% de velocidad por nivel, Regenerar hace crecer un segmento cada 9 segundos, Onda empuja a las formas que quedan justo fuera del lazo, Lazo deja cerrar el lazo desde más lejos, y Escudo para un golpe gratis y luego se recarga." },
-        { q: "¿Cómo se cuenta la puntuación?", a: "En formas aplastadas. El récord se guarda en tu aparato, por separado para cada nivel, y cada 25 aplastadas ganas monedas." },
+        { q: "¿Qué pasa si una forma me toca?", a: "Si te toca la cabeza, pierdes al menos 1 segmento y parpadeas 1,4 segundos sin que nada te dañe. Si te toca el cuerpo, no pasa nada: las formas cruzan el cuerpo libremente, y así es como una multitud acaba dentro de tu lazo." },
+        { q: "¿Cuánto dura una partida?", a: "Tres etapas: el primer guardián a los 50 segmentos o 10 formas, el segundo a las 240 en total y el tercero a las 760 en Normal, cada uno más duro. Vence a los tres y ganas." },
+        { q: "¿Qué hacen las cartas?", a: "Dieciséis, siete de ellas raras. Tres son armas: Colmillos muerde a la forma que te toca la cabeza, la Cola con púas hiere a lo que te toca el cuerpo y Escupir dispara a la forma más cercana cada 2 segundos, aunque nunca al guardián. Imán atrae las gemas, Veloz suma un 10% de velocidad por nivel, Regenerar hace crecer un segmento cada 9 segundos, Onda empuja a las formas que quedan justo fuera del lazo, Lazo deja cerrar el lazo desde más lejos, y Escudo para un golpe gratis y luego se recarga." },
+        { q: "¿Cómo se cuenta la puntuación?", a: "En formas aplastadas. El récord se guarda en tu aparato, por separado para cada nivel, y cada 100 aplastadas ganas monedas." },
         { q: "¿Qué tiene que ver con Snake y Supervivencia Neón?", a: "Es el segundo juego de la familia: la misma serpiente de neón que el Snake clásico, contra las tres formas de Supervivencia Neón." },
       ],
 
@@ -250,7 +250,7 @@ export const snakesurvivors: GameContent = {
       claim: "A loop only crushes if it encloses at least 4,000 square units, roughly a circle with a radius of 36",
       source: "src/games/snakesurvivors/body.ts",
     },
-    { claim: "A shape that reaches your head bites off 1 of them", source: "src/games/snakesurvivors/body.ts" },
+    { claim: "A shape that reaches your head bites off at least 1 of them (more in the last stage on Normal and Wild)", source: "src/games/snakesurvivors/crowd.ts" },
     { claim: "Once your head comes within 42 units of your body the loop snaps shut", source: "src/games/snakesurvivors/cards.ts" },
     { claim: "Drop below 3 segments and the run is over", source: "src/games/snakesurvivors/body.ts" },
     { claim: "The longest you can grow is 60 segments", source: "src/games/snakesurvivors/body.ts" },
@@ -261,7 +261,7 @@ export const snakesurvivors: GameContent = {
       source: "src/games/snakesurvivors/crowd.ts",
     },
     {
-      claim: "the second warden comes at 25 crushed in total, the third at 45; each is tougher than the last",
+      claim: "the second warden comes at 240 crushed in total and the third at 760 on Normal; each is tougher than the last",
       source: "src/games/snakesurvivors/crowd.ts",
     },
     {
@@ -269,7 +269,7 @@ export const snakesurvivors: GameContent = {
       source: "src/games/snakesurvivors/crowd.ts",
     },
     {
-      claim: "nine cards, Fangs, Spiked tail, Magnet, Swift and Spit up to 3 levels, Regrow, Shockwave, Lasso and Shield up to 2",
+      claim: "sixteen cards in three tiers: nine grey, Fangs, Spiked tail, Magnet, Swift and Spit up to 3 levels, Regrow, Shockwave, Lasso and Shield up to 2; four blue rare, Chain Crush, Double Gems, Frost Trail, Long Body; three gold epic, once a run",
       source: "src/games/snakesurvivors/cards.ts",
     },
     { claim: "Spit shoots the nearest shape every 2 seconds, never the warden", source: "src/games/snakesurvivors/cards.ts" },
@@ -277,6 +277,7 @@ export const snakesurvivors: GameContent = {
     { claim: "Shield takes one bump for free and then recharges, in 12 seconds or 7 at its second level", source: "src/games/snakesurvivors/cards.ts" },
     { claim: "Swift adds 10% speed and a tighter turn per level", source: "src/games/snakesurvivors/cards.ts" },
     { claim: "Regrow grows a segment back on its own every 9 seconds", source: "src/games/snakesurvivors/cards.ts" },
-    { claim: "every 25 crushed earns coins", source: "src/games/snakesurvivors/SnakeSurvivorsScene.ts" },
+    { claim: "every 100 crushed earns coins", source: "src/games/snakesurvivors/SnakeSurvivorsScene.ts" },
+    { claim: "Chain Crush zaps the two nearest shapes outside a loop; Long Body lets you grow 20 segments longer; Nova clears the screen on every fifth crush", source: "src/games/snakesurvivors/cards.ts" },
   ],
 };

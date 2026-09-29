@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "@shared/rng";
 import { ringRun } from "./testRing";
 import { HIT_COST, MIN_LEN, START_LEN } from "./body";
-import { BOSS_AT, KINDS } from "./crowd";
+import { BOSS_AT, BOSS_HP, KINDS, stageGoal } from "./crowd";
 import { CAPS, WEAPONS, offerCards } from "./cards";
 import { hitsLeft, newRun, pickCard, step } from "./logic";
 import type { Foe, Kind, Run } from "./types";
@@ -20,7 +20,7 @@ const fixed = () => 0.5;
 
 let nextId = 1000;
 function foe(kind: Kind, x: number, y: number): Foe {
-  return { id: nextId++, kind, x, y, hp: KINDS[kind].hp, hurt: 0, stun: 0, spikeCool: 0, dash: 0, dashCool: 0, windup: 0 };
+  return { id: nextId++, kind, x, y, hp: KINDS[kind].hp, hurt: 0, stun: 0, spikeCool: 0, dash: 0, dashCool: 0, windup: 0, slow: 0 };
 }
 
 /** A run with the spawn clock held off, so only the shapes a cell places exist. */
@@ -28,6 +28,7 @@ function quiet(run: Run): Run {
   run.spawnIn = 1e9;
   run.foes = [];
   run.gems = [];
+  run.mini = 3; // no mini-boss wanders into a hand-set cell
   return run;
 }
 
@@ -298,11 +299,15 @@ describe("the three bosses", () => {
   });
 
   it("boss 2 arrives at stage 2's own trigger, tougher than boss 1, and beating it opens stage 3", () => {
-    const run = ringAt(2, 25);
+    // Round four's second pass: stage 2's trigger is `stageGoal` (240 on normal).
+    const run = ringAt(2, stageGoal("normal", 2).crushed - 1);
+    step(run, 16, STILL, fixed);
+    expect(run.phase, "one short of the trigger").toBe("stage");
+    run.crushed += 1;
     step(run, 16, STILL, fixed);
     expect(run.phase).toBe("boss");
     const boss = run.foes.find((f) => f.kind === "warden")!;
-    expect(boss.hp).toBe(4);
+    expect(boss.hp).toBe(BOSS_HP[2]);
     expect(boss.hp).toBeGreaterThan(KINDS.warden.hp);
     const total = boss.hp;
     for (let loop = 1; loop <= total; loop++) {
@@ -315,11 +320,12 @@ describe("the three bosses", () => {
   });
 
   it("the win needs boss 3 dead: at stage 3, boss 3 is tougher still, and only its death wins the run", () => {
-    const run = ringAt(3, 45);
+    const run = ringAt(3, stageGoal("normal", 3).crushed);
     step(run, 16, STILL, fixed);
     expect(run.phase).toBe("boss");
     const boss = run.foes.find((f) => f.kind === "warden")!;
-    expect(boss.hp).toBe(5);
+    expect(boss.hp).toBe(BOSS_HP[3]);
+    expect(boss.hp).toBeGreaterThan(BOSS_HP[2]);
     const total = boss.hp;
     for (let loop = 1; loop <= total; loop++) {
       closeOn(run, boss);

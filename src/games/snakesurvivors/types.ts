@@ -18,7 +18,11 @@ export type LevelKey = "calm" | "normal" | "wild";
  * The three shapes from Neon Survival's cast, and its warden as the boss. The
  * names are Neon Survival's so a reader of both games reads one vocabulary.
  */
-export type Kind = "runner" | "orb" | "brute" | "warden";
+export type Kind =
+  | "runner" | "orb" | "brute" | "warden"
+  // round four's second pass (R4.5): a fast weak dasher from stage 2, a
+  // shooter from stage 3 that fires at the head from range, and the mini-boss
+  | "dasher" | "shooter" | "mini";
 
 /**
  * Which boss a run is working toward: 1, 2 or 3 (round four, operator ruling:
@@ -50,6 +54,14 @@ export interface Foe {
    * the telegraph that lets a player see it coming (round three, 2026-09-28).
    */
   windup: number;
+  /** ms left SLOWED by the Frost Trail (round four); 0 = full speed. */
+  slow: number;
+  /** A mini-boss's stage, which decides its look and its health. */
+  form?: Stage;
+  /** A dasher's locked target and ms until it re-aims - it runs STRAIGHT, it does not pursue. */
+  aim?: { x: number; y: number; ms: number };
+  /** A shooter's ms until its next shot (it winds up through `windup` first). */
+  fire?: number;
 }
 
 export interface Gem {
@@ -65,12 +77,20 @@ export interface Gem {
 }
 
 /**
- * The nine cards. `fangs`, `spikes` and `spit` are the three WEAPONS - three
+ * The cards. `fangs`, `spikes` and `spit` are the three WEAPONS - three
  * different ways the snake hurts a shape without closing a loop, and they look
  * different: a bite at the head, spikes along the body, a shot from the mouth.
  * The other six change the snake.
  */
-export type CardId = "fangs" | "spikes" | "magnet" | "swift" | "regrow" | "shockwave" | "spit" | "lasso" | "shield";
+export type CardId =
+  | "fangs" | "spikes" | "magnet" | "swift" | "regrow" | "shockwave" | "spit" | "lasso" | "shield"
+  // round four's blue RARE cards
+  | "chain" | "doubleGems" | "frost" | "longBody"
+  // round four's gold EPIC cards, each at most once a run
+  | "twinHead" | "blackHole" | "nova";
+
+/** How rare a card is (round four): grey common, blue rare, gold epic. */
+export type Tier = "common" | "rare" | "epic";
 
 /** A Spit shot in flight. */
 export interface Shot {
@@ -87,8 +107,24 @@ export interface Shot {
  * back; they are a report, emptied at the start of every step.
  */
 export type Ev =
-  | { k: "crush"; n: number; x: number; y: number; poly: Pt[] }
-  | { k: "ko"; kind: Kind; x: number; y: number }
+  /**
+   * A loop that caught something. `caught` is every shape it hit, where it
+   * stood and what it was, so the scene can burst each one in ITS OWN colour;
+   * `bonus` is the extra gem a big crush drops (`crushFx`). `by` says which end
+   * closed it - the head, or the tail with Twin Head.
+   */
+  | { k: "crush"; n: number; x: number; y: number; poly: Pt[]; caught: { kind: Kind; x: number; y: number }[]; bonus: boolean; by: "head" | "tail" }
+  /** Chain Crush: a zap from the loop to a shape outside it. */
+  | { k: "zap"; x0: number; y0: number; x1: number; y1: number }
+  /** Nova: every non-boss shape in view was just cleared. */
+  | { k: "nova"; x: number; y: number; n: number }
+  /** Black Hole: a vortex opened where a loop closed. */
+  | { k: "vortex"; x: number; y: number }
+  | { k: "ko"; kind: Kind; x: number; y: number; form?: Stage }
+  /** A mini-boss arrived, halfway to this stage's warden. */
+  | { k: "mini"; x: number; y: number; stage: Stage }
+  /** A shooter fired a bolt at the head. */
+  | { k: "bolt"; x: number; y: number }
   | { k: "hurt"; kind: Kind; x: number; y: number }
   | { k: "hit"; kind: Kind; x: number; y: number }
   | { k: "shield" }
@@ -153,13 +189,26 @@ export interface Run {
   regrowAt: number;
   /** Spit shots in flight. */
   shots: Shot[];
+  /** Shooters' bolts in flight (R4.5) - they hurt the HEAD only, and pass over the body. */
+  bolts: Shot[];
   /** ms until Spit may shoot again. */
   spitIn: number;
   /** ms until the Shield is ready again; 0 = ready (with the card). */
   shieldIn: number;
+  /**
+   * Loops that CAUGHT something, all run long - Nova fires on every fifth
+   * (round four). Counted separately from `crushed`, which counts SHAPES.
+   */
+  loopsCaught: number;
+  /** Black Hole vortices still open: where, and ms left. */
+  vortices: { x: number; y: number; life: number }[];
+  /** ms before the TAIL may close another loop (Twin Head). */
+  tailCool: number;
   crushed: number;
   phase: Phase;
   /** Which boss is next - 1, 2 or 3. See `Stage`. */
   stage: Stage;
+  /** The last stage whose mini-boss has come (0 = none yet). One per stage. */
+  mini: number;
   events: Ev[];
 }

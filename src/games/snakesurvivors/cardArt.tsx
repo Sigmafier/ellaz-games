@@ -1,5 +1,6 @@
-// A small drawing for each of the nine cards, so a card is a picture first and
-// words second - a child who cannot read "Shockwave" can still see rings.
+// A small drawing for each card, so a card is a picture first and words second -
+// a child who cannot read "Shockwave" can still see rings. Round four's seven
+// each get a picture of their own, never an old one resized.
 import type { ReactNode } from "react";
 import type { CardId } from "./types";
 
@@ -92,6 +93,83 @@ export const CARD_ART: Record<CardId, () => ReactNode> = {
         <circle r="15" fill="#74b9ff" fillOpacity="0.18" />
         <circle r="8" fill="#55efc4" />
         <circle cx="3" cy="-2" r="2" fill="#fff" />
+      </>,
+    ),
+  // Chain Crush: a closed loop, and a bolt forking out of it to two bats.
+  chain: () =>
+    svg(
+      <>
+        <circle cx="-9" cy="4" r="8" fill="none" stroke="#55efc4" strokeWidth="3.5" />
+        <path d="M-2 1 L4 -2 L2 3 L9 -1" fill="none" stroke="#8fd3ff" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <path d="M4 -2 L8 -10 L7 -5 L13 -12" fill="none" stroke="#8fd3ff" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <circle cx="13" cy="-12" r="3.5" fill="#9b7bff" />
+        <circle cx="12" cy="2" r="3.5" fill="#9b7bff" />
+      </>,
+    ),
+  // Double Gems: two gems, blue over red, and a gold glint.
+  doubleGems: () =>
+    svg(
+      <>
+        <polygon points="4,-13 13,-2 4,9 -5,-2" fill="#ff7675" />
+        <polygon points="-5,-7 4,4 -5,15 -14,4" fill="#74b9ff" />
+        <circle cx="-8" cy="1" r="2.2" fill="#dff1ff" />
+        <path d="M12 -14 V-8 M9 -11 H15" stroke="#ffd166" strokeWidth="2" strokeLinecap="round" />
+      </>,
+    ),
+  // Frost Trail: an ice flake over the snake's violet tail.
+  frost: () =>
+    svg(
+      <>
+        <path d="M-16 12 Q-6 4 4 12" fill="none" stroke="#6c5ce7" strokeWidth="6" strokeLinecap="round" />
+        {[0, 60, 120].map((a) => (
+          <g key={a} transform={`rotate(${a} 3 -5)`}>
+            <path d="M3 -16 V6 M0 -13 L3 -10 L6 -13 M0 3 L3 0 L6 3" fill="none" stroke="#a8e6ff" strokeWidth="2" strokeLinecap="round" />
+          </g>
+        ))}
+      </>,
+    ),
+  // Long Body: a snake stretched right across the card, and an arrow off its tail.
+  longBody: () =>
+    svg(
+      <>
+        <path d="M-17 8 C-12 -2 -6 -2 -2 6 C2 14 8 14 12 4" fill="none" stroke="#62c1d9" strokeWidth="5" strokeLinecap="round" />
+        <circle cx="13" cy="2" r="5" fill="#55efc4" />
+        <circle cx="15" cy="0.5" r="1.5" fill="#fff" />
+        <path d="M-12 -10 H6 M1 -14 L6 -10 L1 -6" fill="none" stroke="#ffd166" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </>,
+    ),
+  // Twin Head: one body, a head at each end.
+  twinHead: () =>
+    svg(
+      <>
+        <path d="M-11 8 C-11 -8 11 -8 11 8" fill="none" stroke="#67aae2" strokeWidth="5" strokeLinecap="round" />
+        <circle cx="-11" cy="10" r="6" fill="#55efc4" />
+        <circle cx="11" cy="10" r="6" fill="#6c5ce7" />
+        <circle cx="-13" cy="9" r="1.6" fill="#fff" />
+        <circle cx="-9" cy="9" r="1.6" fill="#fff" />
+        <circle cx="9" cy="9" r="1.6" fill="#fff" />
+        <circle cx="13" cy="9" r="1.6" fill="#fff" />
+      </>,
+    ),
+  // Black Hole: a dark core and violet arms spiralling into it.
+  blackHole: () =>
+    svg(
+      <>
+        <circle r="15" fill="#1a1040" />
+        <path d="M0 -14 C10 -14 14 -4 8 2 C4 6 -2 4 -2 0" fill="none" stroke="#9b7bff" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M0 14 C-10 14 -14 4 -8 -2 C-4 -6 2 -4 2 0" fill="none" stroke="#d6c8ff" strokeWidth="2.5" strokeLinecap="round" />
+        <circle r="3.5" fill="#0b0e22" stroke="#9b7bff" strokeWidth="1.5" />
+      </>,
+    ),
+  // Nova: a gold burst with a white heart, rays in every direction.
+  nova: () =>
+    svg(
+      <>
+        {Array.from({ length: 8 }, (_, i) => (
+          <polygon key={i} points="-2.5,-6 2.5,-6 0,-18" fill="#ffd166" transform={`rotate(${i * 45})`} />
+        ))}
+        <circle r="8" fill="#ffd166" />
+        <circle r="4.5" fill="#fff" />
       </>,
     ),
 };

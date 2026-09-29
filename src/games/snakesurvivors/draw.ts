@@ -9,7 +9,7 @@ import { mulberry32 } from "@shared/rng";
 import { bodyColor } from "../snake/draw";
 import { WALL } from "../survivors/world";
 import { BODY_R, HEAD_R } from "./body";
-import type { Arena, Pt, Run } from "./types";
+import type { Arena, Kind, Pt, Run } from "./types";
 
 export interface Pen {
   fillStyle(color: number, alpha?: number): unknown;
@@ -20,7 +20,41 @@ export interface Pen {
   strokePoints(points: Pt[], closeShape?: boolean): unknown;
 }
 
-export const INK = { ground: 0x0b0e22, grid: 0x161b3d, wall: 0x6c5ce7, mint: 0x55efc4, gold: 0xffd166, gem: 0x74b9ff, gemLit: 0xdff1ff, eye: 0xffffff, pupil: 0x0b0e22, red: 0xff7675 };
+export const INK = { ground: 0x0b0e22, grid: 0x161b3d, wall: 0x6c5ce7, mint: 0x55efc4, gold: 0xffd166, gem: 0x74b9ff, gemLit: 0xdff1ff, eye: 0xffffff, pupil: 0x0b0e22, red: 0xff7675, ice: 0xa8e6ff, zap: 0x8fd3ff };
+
+/**
+ * Each shape's own colour - the bat's violet, the slime's green, the crab's
+ * red - for the burst a crush throws off it (round four). An effect is drawn in
+ * the thing's own colour, never white on the glass.
+ */
+export const KIND_INK: Record<Kind, number> = {
+  runner: 0x9b7bff,
+  orb: 0x7bd88f,
+  brute: 0xff6b5b,
+  warden: 0xff7675,
+  // R4.5: the robot's red, the golem's stone, and the mini-boss's gold.
+  dasher: 0xe8493f,
+  shooter: 0xa9b0c8,
+  mini: 0xffd166,
+};
+
+/**
+ * The mini-boss's health bar, drawn over its head: `frac` of it lit gold on a
+ * dark rail. Pure geometry through the Pen, so it is testable without Phaser.
+ */
+export function drawHpBar(g: Pen, x: number, y: number, w: number, frac: number): void {
+  const f = Math.max(0, Math.min(1, frac));
+  const h = 5;
+  const rail = [{ x: x - w / 2, y }, { x: x + w / 2, y }, { x: x + w / 2, y: y + h }, { x: x - w / 2, y: y + h }];
+  g.fillStyle(0x0b0e22, 0.85);
+  g.fillPoints(rail, true);
+  if (f > 0) {
+    g.fillStyle(INK.gold, 1);
+    g.fillPoints([{ x: x - w / 2, y }, { x: x - w / 2 + w * f, y }, { x: x - w / 2 + w * f, y: y + h }, { x: x - w / 2, y: y + h }], true);
+  }
+  g.lineStyle(1.5, INK.gold, 0.9);
+  g.strokePoints(rail, true);
+}
 
 /** The body's radius at a point, `t` 0 at the head to 1 at the tail. */
 export const bodyRadius = (t: number) => BODY_R * (1.15 - 0.45 * Math.min(1, Math.max(0, t)));
@@ -49,6 +83,8 @@ export function drawSnake(g: Pen, run: Run, blink: boolean): void {
     g.fillCircle(run.path[i].x, run.path[i].y, bodyRadius(i / n));
   }
   if (run.taken.spikes) drawSpikes(g, run, a);
+  if (run.taken.frost) drawFrost(g, run, a);
+  if (run.taken.twinHead) drawTailHead(g, run, a);
   g.fillStyle(INK.mint, 0.22 * a);
   g.fillCircle(run.x, run.y, HEAD_R * 1.9);
   g.fillStyle(INK.mint, a);
@@ -135,15 +171,76 @@ const ring = (c: Pt, r: number, n = 18): Pt[] =>
   Array.from({ length: n }, (_, i) => ({ x: c.x + Math.cos((i / n) * 2 * Math.PI) * r, y: c.y + Math.sin((i / n) * 2 * Math.PI) * r }));
 
 /**
- * THE SNAP GUIDE (round three): a dashed mint line from the head to the body
- * point the loop is about to snap shut on, and a small ring on that point - the
- * mock the operator ACKed. Drawn while `snapHint` finds one.
+ * The guide ARC (round four): the path from the head to the point the loop will
+ * snap shut on - a circular arc that leaves the head along its heading and
+ * lands on the point, so it reads as "keep turning this way". `n` points, head
+ * first. A point dead ahead (or behind) gets a straight line.
  */
-export function drawSnapGuide(g: Pen, head: Pt, at: Pt, pulse: number): void {
-  g.lineStyle(3, INK.mint, 0.85);
-  for (const [a, b] of dashes(head, at)) g.strokePoints([a, b], false);
-  g.lineStyle(2.5, INK.mint, 0.9);
-  g.strokePoints(ring(at, 8 + 1.5 * Math.sin(pulse)), true);
+export function guideArc(head: Pt, heading: number, at: Pt, n = 16): Pt[] {
+  const fx = Math.cos(heading);
+  const fy = Math.sin(heading);
+  const dx = at.x - head.x;
+  const dy = at.y - head.y;
+  const d2 = dx * dx + dy * dy;
+  // The signed distance of the target off the heading line: the arc's bend.
+  const side = -fy * dx + fx * dy;
+  if (d2 === 0) return [{ x: head.x, y: head.y }];
+  if (Math.abs(side) < 1e-6) return Array.from({ length: n }, (_, i) => ({ x: head.x + (dx * i) / (n - 1), y: head.y + (dy * i) / (n - 1) }));
+  // A circle tangent to the heading at the head and through `at`: radius d^2 / (2 * side).
+  const r = d2 / (2 * side);
+  const cx = head.x - fy * r;
+  const cy = head.y + fx * r;
+  const a0 = Math.atan2(head.y - cy, head.x - cx);
+  let a1 = Math.atan2(at.y - cy, at.x - cx);
+  // Walk the way the heading turns: counter-clockwise in screen space when r > 0.
+  const dir = r > 0 ? 1 : -1;
+  let sweep = a1 - a0;
+  while (dir * sweep <= 0) sweep += dir * 2 * Math.PI;
+  if (Math.abs(sweep) > 2 * Math.PI) sweep -= dir * 2 * Math.PI;
+  a1 = a0 + sweep;
+  const R = Math.abs(r);
+  return Array.from({ length: n }, (_, i) => {
+    const a = a0 + (sweep * i) / (n - 1);
+    return { x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R };
+  });
+}
+
+/**
+ * THE GUIDE (round four, replacing round three's thin dashed line and small
+ * ring): a thick glowing arc from the head to the snap point, and a big
+ * pulsing ring on the point. Drawn while `pendingLoop` finds a loop.
+ */
+export function drawSnapGuide(g: Pen, head: Pt, heading: number, at: Pt, pulse: number): void {
+  const arc = guideArc(head, heading, at);
+  g.lineStyle(12, INK.mint, 0.16);
+  g.strokePoints(arc, false);
+  g.lineStyle(5, INK.mint, 0.85);
+  for (let i = 0; i + 1 < arc.length; i += 2) g.strokePoints([arc[i], arc[i + 1]], false);
+  const k = 0.5 + 0.5 * Math.sin(pulse);
+  g.lineStyle(10, INK.mint, 0.18);
+  g.strokePoints(ring(at, 18 + 4 * k, 24), true);
+  g.lineStyle(3.5, INK.mint, 0.95);
+  g.strokePoints(ring(at, 14 + 3 * k, 24), true);
+}
+
+/** Round four's "N inside": a mint glow ring under a shape the loop would catch now. */
+export function drawInsideMark(g: Pen, x: number, y: number, r: number, pulse: number, ink: number = INK.mint): void {
+  const k = 0.5 + 0.5 * Math.sin(pulse);
+  g.fillStyle(ink, 0.16 + 0.08 * k);
+  g.fillCircle(x, y, r + 9);
+  g.lineStyle(2.5, ink, 0.9);
+  g.strokePoints(ring({ x, y }, r + 7 + 1.5 * k, 20), true);
+}
+
+/** A shooter's bolt: an orange-red ember with a hot core and a trail - a thing to dodge. */
+export function drawBolt(g: Pen, s: { x: number; y: number; vx: number; vy: number }): void {
+  const d = Math.hypot(s.vx, s.vy) || 1;
+  g.fillStyle(0xff7a3d, 0.3);
+  g.fillCircle(s.x - (s.vx / d) * 9, s.y - (s.vy / d) * 9, 5);
+  g.fillStyle(0xff7a3d, 0.45);
+  g.fillCircle(s.x, s.y, 9);
+  g.fillStyle(0xffd166, 1);
+  g.fillCircle(s.x, s.y, 5);
 }
 
 /** A Spit shot: a small gold drop with a faint trail. */
@@ -174,13 +271,110 @@ export function drawWindup(g: Pen, from: Pt, to: Pt, left: number, total: number
   g.strokePoints(ring(from, 44 - 16 * k, 24), true);
 }
 
-/** A loop that just closed: filled mint, outlined white, fading over `life`. */
-export function drawLoop(g: Pen, poly: Pt[], age: number, life: number): void {
+/** The two colours a channel-wise blend runs between, `k` 0 = a, 1 = b. */
+export function mixInk(a: number, b: number, k: number): number {
+  const t = Math.max(0, Math.min(1, k));
+  const ch = (sh: number) => Math.round(((a >> sh) & 255) + (((b >> sh) & 255) - ((a >> sh) & 255)) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+
+/**
+ * A loop that just CRUSHED (round four: "a crush HITS"): it fills WHITE for
+ * `flashMs`, then fades to mint and out over `life`; the rim stays white.
+ */
+export function drawLoop(g: Pen, poly: Pt[], age: number, life: number, flashMs = 0): void {
   const k = Math.max(0, 1 - age / life);
-  g.fillStyle(INK.mint, 0.3 * k);
+  const hot = flashMs > 0 ? Math.max(0, 1 - age / flashMs) : 0;
+  g.fillStyle(mixInk(INK.mint, 0xffffff, hot), (0.3 + 0.45 * hot) * k);
   g.fillPoints(poly, true);
-  g.lineStyle(3, 0xffffff, 0.9 * k);
+  g.lineStyle(3 + 3 * hot, 0xffffff, 0.9 * k);
   g.strokePoints(poly, true);
+}
+
+/** The shockwave: a white ring, then mint, travelling out past the loop and fading. */
+export function drawShockRing(g: Pen, c: Pt, r: number, k: number): void {
+  g.lineStyle(10 * (1 - k) + 2, 0xffffff, 0.35 * (1 - k));
+  g.strokePoints(ring(c, r, 40), true);
+  g.lineStyle(3, mixInk(0xffffff, INK.mint, k), 0.9 * (1 - k));
+  g.strokePoints(ring(c, r, 40), true);
+}
+
+/** Black Hole: three rings turning inward, violet, shrinking as the vortex closes. */
+export function drawVortex(g: Pen, c: Pt, t: number, left: number, total: number): void {
+  const k = Math.max(0, Math.min(1, left / total));
+  g.fillStyle(0x1a1040, 0.55 * k);
+  g.fillCircle(c.x, c.y, 26 * k + 8);
+  for (let i = 0; i < 3; i++) {
+    const r = (18 + i * 16) * (0.6 + 0.4 * k);
+    const spin = t / (260 + i * 90) + i * 2.1;
+    const arc = Array.from({ length: 10 }, (_, j) => {
+      const a = spin + (j / 9) * Math.PI * 1.3;
+      return { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r };
+    });
+    g.lineStyle(3 - i * 0.6, i === 0 ? 0xd6c8ff : 0x9b7bff, 0.85 * k);
+    g.strokePoints(arc, false);
+  }
+}
+
+/** Chain Crush's zap: a jagged blue bolt, re-jagged by `seed` each frame so it crackles. */
+export function zapPoints(a: Pt, b: Pt, seed: number, n = 7): Pt[] {
+  const rnd = mulberry32(seed >>> 0);
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const d = Math.hypot(dx, dy) || 1;
+  return Array.from({ length: n }, (_, i) => {
+    const t = i / (n - 1);
+    const off = i === 0 || i === n - 1 ? 0 : (rnd() - 0.5) * Math.min(26, d * 0.25);
+    return { x: a.x + dx * t - (dy / d) * off, y: a.y + dy * t + (dx / d) * off };
+  });
+}
+
+export function drawZap(g: Pen, a: Pt, b: Pt, seed: number, k: number): void {
+  const pts = zapPoints(a, b, seed);
+  g.lineStyle(7, INK.zap, 0.25 * k);
+  g.strokePoints(pts, false);
+  g.lineStyle(2.5, 0xffffff, 0.95 * k);
+  g.strokePoints(pts, false);
+}
+
+/** Nova: a gold ring racing out across the view, and a pale fill behind it. */
+export function drawNova(g: Pen, c: Pt, r: number, k: number): void {
+  g.fillStyle(INK.gold, 0.12 * (1 - k));
+  g.fillCircle(c.x, c.y, r);
+  g.lineStyle(14 * (1 - k) + 3, INK.gold, 0.8 * (1 - k));
+  g.strokePoints(ring(c, r, 48), true);
+}
+
+/**
+ * Twin Head: the tail end wears a second, smaller head - violet, the tail's
+ * own colour - with eyes facing away from the body.
+ */
+export function drawTailHead(g: Pen, run: Run, a: number): void {
+  const n = run.path.length;
+  if (n < 2) return;
+  const t = run.path[n - 1];
+  const q = run.path[n - 2];
+  const heading = Math.atan2(t.y - q.y, t.x - q.x);
+  g.fillStyle(INK.wall, 0.25 * a);
+  g.fillCircle(t.x, t.y, HEAD_R * 1.6);
+  g.fillStyle(bodyColor(1), a);
+  g.fillCircle(t.x, t.y, HEAD_R * 0.85);
+  for (const e of eyesOf(t.x, t.y, heading)) {
+    g.fillStyle(INK.eye, a);
+    g.fillCircle(e.x, e.y, 2.2);
+    g.fillStyle(INK.pupil, a);
+    g.fillCircle(e.x + Math.cos(heading), e.y + Math.sin(heading), 1.1);
+  }
+}
+
+/** Frost Trail: icy flecks along the back half of the body. */
+function drawFrost(g: Pen, run: Run, a: number): void {
+  const n = run.path.length;
+  g.fillStyle(INK.ice, 0.75 * a);
+  for (let i = Math.floor(n / 3); i < n; i += 4) {
+    const p = run.path[i];
+    g.fillCircle(p.x, p.y, bodyRadius(i / n) * 0.55);
+  }
 }
 
 /** Dots on the tutorial's ring, and how fast they march round it (radians/s). */

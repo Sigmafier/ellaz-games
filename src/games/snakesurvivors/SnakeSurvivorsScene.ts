@@ -5,16 +5,21 @@ import { mulberry32 } from "@shared/rng";
 import { animKey, createStudioAnims, originFor, type PhaserAnimsLike } from "@shared/sprites/load-atlas";
 // Two real effects: a buzz in the hand when the head is hit, and a confetti puff
 // over the page for a crush of four or more.
-import { burst as juiceBurst, haptic } from "@juice/index";
+import { burst as juiceBurst, haptic, prefersReducedMotion } from "@juice/index";
+import { textFor } from "@i18n/index";
 import { CAST, type CastKey, type Clip } from "../survivors/sprites";
 import { knobAt, originFor as stickOriginFor, stickVector, STICK_RADIUS, type Stick } from "../survivors/stick";
 import { cameraOf } from "../survivors/world";
-import { FOR_KIND, SHEETS, kindScale } from "./cast";
-import { snapHint } from "./body";
-import { BOSS_HP, LUNGE } from "./crowd";
+import { SHEETS, kindScale, sheetOf } from "./cast";
+import { centreOf, insideNow, pendingLoop } from "./body";
+import { HOLE } from "./cards";
+import { BOSS_HP, KINDS, LUNGE, MINI_HP, biteCost, isBoss } from "./crowd";
+import { crushFx } from "./crushFx";
 import {
-  INK, drawGem, drawGemArrow, drawGround, drawGuideRing, drawLoop, drawShieldRing, drawShot, drawSnake, drawSnapGuide, drawWindup,
+  INK, KIND_INK, drawBolt, drawGem, drawGemArrow, drawHpBar, drawGround, drawGuideRing, drawInsideMark, drawLoop, drawNova, drawShieldRing,
+  drawShockRing, drawShot, drawSnake, drawSnapGuide, drawVortex, drawWindup, drawZap,
 } from "./draw";
+import { FX_TEXT, type FxText } from "./fxText";
 import { ARENA, newRun, pickCard, step } from "./logic";
 import {
   gemTarget, guideRing, hasSeenTutorial, leaveTutorial, markTutorialSeen, newTutorial, tickTutorial, tutorialPick,
@@ -44,6 +49,8 @@ export interface SnakeSurvivorsStatus {
   offer: CardId[];
   taken: Record<CardId, number>;
   boss: { now: number; max: number } | null;
+  /** Segments one bump costs right now (round four: 2 from stage 2 on wild) - the hearts divide by it. */
+  bite: number;
   newBest: boolean;
   /** The guided first run's step, or null on a real run. */
   tutorial: TutorialStep | null;
@@ -56,11 +63,19 @@ export interface SnakeSurvivorsStatus {
   banner: Stage | null;
 }
 
-/** Coins, no star, every this many crushed - an endless-feeling mid-run ping. */
-const MILESTONE_EVERY = 25;
+/**
+ * Coins, no star, every this many crushed - an endless-feeling mid-run ping.
+ * 25 until round four's second pass (2026-09-29): a won run now crushes about
+ * 580 to 900 shapes where it crushed 47, so 25 would have paid out thirty
+ * times a run; 100 pays six to nine, a few more than the old two.
+ */
+const MILESTONE_EVERY = 100;
 const TIER: Record<LevelKey, "easy" | "medium" | "hard"> = { calm: "easy", normal: "medium", wild: "hard" };
 const DEPTH = { bg: 0, fx: 5, corpse: 8, foe: 10, snake: 20, pop: 40, hud: 50 } as const;
-const LOOP_LIFE = 520;
+const LOOP_LIFE = 620;
+/** How long a Chain Crush zap and a Nova ring stay on screen. */
+const ZAP_LIFE = 260;
+const NOVA_LIFE = 700;
 const MAX_CORPSES = 14;
 const KEYS: Record<string, Steer> = {
   arrowleft: { dx: -1, dy: 0 }, a: { dx: -1, dy: 0 },
@@ -69,7 +84,7 @@ const KEYS: Record<string, Steer> = {
   arrowdown: { dx: 0, dy: 1 }, s: { dx: 0, dy: 1 },
 };
 
-type Spark = { x: number; y: number; vx: number; vy: number; life: number; ink: number };
+type Spark = { x: number; y: number; vx: number; vy: number; life: number; ink: number; size: number };
 
 export class SnakeSurvivorsScene extends Phaser.Scene {
   private ctx!: GameContext;
@@ -94,7 +109,18 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
   private mobs = new Map<number, Phaser.GameObjects.Sprite>();
   private corpses: Phaser.GameObjects.Sprite[] = [];
   private sparks: Spark[] = [];
-  private loops: { poly: Pt[]; age: number }[] = [];
+  private loops: { poly: Pt[]; age: number; flashMs: number }[] = [];
+  /** Round four's crush: shockwave rings, Chain Crush zaps and Nova rings, each fading. */
+  private rings: { c: Pt; from: number; to: number; age: number; life: number }[] = [];
+  private zaps: { a: Pt; b: Pt; age: number }[] = [];
+  private novas: { c: Pt; age: number }[] = [];
+  /** Under the shapes: the mint marks on what the loop would catch now. */
+  private under!: Phaser.GameObjects.Graphics;
+  /** The "N inside" chip beside the head. */
+  private insideChip!: Phaser.GameObjects.Text;
+  private fx: FxText = FX_TEXT.en;
+  /** The one "CRUSH xN!" on screen: a circling snake crushes every few hundred ms, and a new one replaces the last rather than stacking on it. */
+  private crushBanner: Phaser.GameObjects.Text | null = null;
   private peak = 0;
   private bestBefore = 0;
   private newBest = false;
@@ -110,6 +136,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
 
   init(data: { ctx: GameContext; arena?: Arena; onStatus?: (s: SnakeSurvivorsStatus) => void; onReady?: (s: SnakeSurvivorsScene) => void }) {
     this.ctx = data.ctx;
+    this.fx = textFor(FX_TEXT, data.ctx.locale);
     this.arena = data.arena ?? ARENA;
     this.onStatus = data.onStatus;
     this.onReady = data.onReady;
@@ -131,11 +158,29 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     }
     this.bg = this.add.graphics().setDepth(DEPTH.bg);
     drawGround(this.bg, this.run.world);
+    this.under = this.add.graphics().setDepth(DEPTH.fx);
     this.fg = this.add.graphics().setDepth(DEPTH.snake);
+    this.insideChip = this.add
+      .text(0, 0, "", {
+        fontFamily: "Fredoka, Heebo, sans-serif",
+        fontSize: "15px",
+        color: "#0b0e22",
+        fontStyle: "bold",
+        backgroundColor: "#55efc4",
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(DEPTH.pop)
+      .setVisible(false);
     this.hud = this.add.graphics().setDepth(DEPTH.hud).setScrollFactor(0);
     this.lvText = this.add
-      .text(12, this.arena.h - 14, "", { fontFamily: "Fredoka, Heebo, sans-serif", fontSize: "12px", color: "#cfd3f5", fontStyle: "bold" })
-      .setOrigin(0, 1)
+      // R4.5, "the HUD should be bigger": 12px -> 18px, riding ON the level
+      // bar (itself 5 -> 8 px) at its TRAILING end - the weapon slots grew
+      // too, and at the leading end they sat on it on a PC.
+      .text(this.arena.w - 16, this.arena.h - 10, "", {
+        fontFamily: "Fredoka, Heebo, sans-serif", fontSize: "18px", color: "#f5f6ff", fontStyle: "bold", stroke: "#0b0e22", strokeThickness: 4,
+      })
+      .setOrigin(1, 0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.hud);
 
@@ -237,12 +282,17 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.newBest = false;
     this.nextMilestone = MILESTONE_EVERY;
     this.bannerUntil = 0;
+    this.crushBanner?.destroy();
+    this.crushBanner = null;
     for (const s of this.mobs.values()) s.destroy();
     this.mobs.clear();
     for (const c of this.corpses) c.destroy();
     this.corpses.length = 0;
     this.sparks.length = 0;
     this.loops.length = 0;
+    this.rings.length = 0;
+    this.zaps.length = 0;
+    this.novas.length = 0;
     this.draw();
     this.publish(true);
   }
@@ -281,17 +331,44 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     const now = this.time.now;
     for (const e of this.run.events) {
       if (e.k === "crush") {
-        this.loops.push({ poly: e.poly, age: 0 });
-        this.popup(`+${e.n}`, e.x, e.y);
-        this.ctx.audio.play(e.n >= 3 ? "success" : "pop", { semitones: Math.min(12, e.n * 2) });
-        this.cameras.main.shake(120 + 30 * Math.min(e.n, 6), 0.004 + 0.002 * Math.min(e.n, 6));
+        // WHICH effect for which crush is decided in `crushFx`, pure and
+        // tested; this only plays it.
+        const fx = crushFx(e.n, prefersReducedMotion());
+        this.loops.push({ poly: e.poly, age: 0, flashMs: fx.flashMs });
+        const c = centreOf(e.poly);
+        const size = Math.max(...e.poly.map((p) => Math.hypot(p.x - c.x, p.y - c.y)));
+        this.rings.push({ c, from: size * 0.9, to: size * fx.ringReach, age: 0, life: fx.ringMs });
+        for (const f of e.caught) this.spray(f.x, f.y, KIND_INK[f.kind], fx.perFoe, 5, 520);
+        this.ctx.audio.play(fx.sound, { semitones: Math.min(12, e.n * 2) });
+        if (fx.shake) this.cameras.main.shake(fx.shake.ms, fx.shake.amount);
+        if (fx.banner !== null) this.banner(this.fx.crush(fx.banner), e.x, e.y - size * 0.55);
+        else this.popup(`+${e.n}`, e.x, e.y);
+        if (e.bonus) this.popup(this.fx.bonus, e.x, e.y + 6, "#ffd166", 16);
         if (e.n >= 4) {
           const p = this.screenPoint(e.x, e.y);
           juiceBurst(p.x, p.y);
         }
       } else if (e.k === "ko") {
-        this.corpse(e.x, e.y, e.kind);
+        this.corpse(e.x, e.y, e.kind, e.form);
         this.spray(e.x, e.y, INK.gold, 8);
+      } else if (e.k === "zap") {
+        this.zaps.push({ a: { x: e.x0, y: e.y0 }, b: { x: e.x1, y: e.y1 }, age: 0 });
+        this.spray(e.x1, e.y1, INK.zap, 6);
+      } else if (e.k === "nova") {
+        this.novas.push({ c: { x: e.x, y: e.y }, age: 0 });
+        this.popup(this.fx.nova, e.x, e.y - 30, "#ffd166", 30);
+        this.ctx.audio.play("success", { semitones: 12 });
+        if (!prefersReducedMotion()) this.cameras.main.shake(320, 0.012);
+      } else if (e.k === "mini") {
+        // The callout: a MINI-BOSS banner over the arena, a gold flash and the
+        // boss sting - the same weight as a warden arriving, in its own colour.
+        this.banner(this.fx.mini, this.run.x, this.run.y - 70, 1400);
+        this.ctx.audio.play("star", { semitones: 3 });
+        this.cameras.main.flash(180, 255, 209, 102);
+      } else if (e.k === "bolt") {
+        this.spray(e.x, e.y, 0xff7a3d, 6);
+      } else if (e.k === "vortex") {
+        this.spray(e.x, e.y, 0x9b7bff, 10);
       } else if (e.k === "hurt") this.spray(e.x, e.y, 0xffffff, 5);
       else if (e.k === "hit") {
         // Drawn AT THE SHAPE that bit, in red, with the segment it cost over the
@@ -384,6 +461,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       // BOSS_HP[r.stage]: while a warden is up, r.stage is still ITS stage -
       // it only moves on once the warden falls and `boss` goes back to null.
       boss: boss ? { now: boss.hp, max: BOSS_HP[r.stage] } : null,
+      bite: biteCost(r),
       newBest: this.newBest,
       tutorial: this.tut ? this.tut.step : null,
       banner: r.phase === "stage" && t < this.bannerUntil ? r.stage : null,
@@ -398,21 +476,50 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.cameras.main.setScroll(cam.x, cam.y);
     const g = this.fg;
     g.clear();
-    const pulse = (this.time?.now ?? 0) / 180;
+    this.under.clear();
+    const now = this.time?.now ?? 0;
+    const pulse = now / 180;
     for (const gem of r.gems) drawGem(g, gem.x, gem.y, pulse + gem.x, gem.v);
-    for (const l of this.loops) drawLoop(g, l.poly, l.age, LOOP_LIFE);
+    for (const v of r.vortices) drawVortex(this.under, v, now, v.life, HOLE.ms);
+    for (const l of this.loops) drawLoop(g, l.poly, l.age, LOOP_LIFE, l.flashMs);
+    for (const ring of this.rings) {
+      const k = ring.age / ring.life;
+      drawShockRing(g, ring.c, ring.from + (ring.to - ring.from) * Math.sqrt(k), k);
+    }
+    for (const z of this.zaps) drawZap(g, z.a, z.b, Math.floor(now / 50) + z.a.x, 1 - z.age / ZAP_LIFE);
+    for (const n of this.novas) drawNova(g, n.c, 40 + 420 * (n.age / NOVA_LIFE), n.age / NOVA_LIFE);
     this.drawTutorial(g);
     // The warden's wind-up: the warning before its lunge.
-    for (const f of r.foes) if (f.kind === "warden" && f.windup > 0) drawWindup(g, f, r, f.windup, LUNGE.windup);
-    // The snap guide: where the loop is about to close, while it is in reach.
-    const snap = this.phase === "playing" ? snapHint(r) : null;
-    if (snap) drawSnapGuide(g, r, snap, pulse);
+    for (const f of r.foes) if (isBoss(f.kind) && f.windup > 0) drawWindup(g, f, r, f.windup, LUNGE.windup);
+    // A shooter winding up glows orange under it: the shot is coming.
+    for (const f of r.foes) if (f.kind === "shooter" && f.windup > 0) drawInsideMark(this.under, f.x, f.y, KINDS.shooter.r + 2, pulse * 3, 0xff7a3d);
+    // A mini-boss wears a gold ring under it and its health over its head.
+    for (const f of r.foes) {
+      if (f.kind !== "mini") continue;
+      drawInsideMark(this.under, f.x, f.y, KINDS.mini.r + 4, pulse, INK.gold);
+      drawHpBar(g, f.x, f.y - KINDS.mini.r - 30, 64, f.hp / MINI_HP[f.form ?? 1]);
+    }
+    // The guide: where the loop is about to close, and - round four - a mint
+    // mark under every shape it would catch now, with the count by the head.
+    const pending = this.phase === "playing" ? pendingLoop(r) : null;
+    const caught = pending ? insideNow(r, pending) : [];
+    if (pending) drawSnapGuide(g, r, r.heading, pending.at, pulse);
+    for (const f of caught) drawInsideMark(this.under, f.x, f.y, KINDS[f.kind].r, pulse + f.id);
+    this.insideChip.setVisible(caught.length > 0);
+    if (caught.length) {
+      this.insideChip.setText(this.fx.inside(caught.length));
+      // Beside the head, held inside the view so a head at the edge keeps it on screen.
+      const x = Math.min(r.x + 18, cam.x + this.arena.w - this.insideChip.width - 6);
+      const y = Math.max(r.y - 22, cam.y + this.insideChip.height);
+      this.insideChip.setPosition(Math.max(cam.x + 6, x), y);
+    }
     drawSnake(g, r, r.blink > 0 && Math.floor(r.blink / 90) % 2 === 0);
     if (r.taken.shield && r.shieldIn === 0) drawShieldRing(g, r, pulse);
     for (const shot of r.shots) drawShot(g, shot);
+    for (const b of r.bolts) drawBolt(g, b);
     for (const s of this.sparks) {
       g.fillStyle(s.ink, Math.min(1, s.life / 200));
-      g.fillRect(s.x - 1.5, s.y - 1.5, 3, 3);
+      g.fillRect(s.x - s.size / 2, s.y - s.size / 2, s.size, s.size);
     }
     this.syncSprites();
     this.drawHud();
@@ -435,9 +542,9 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     const x = 12;
     const bw = w - 24;
     h.fillStyle(0x232a5c, 0.9);
-    h.fillRoundedRect(x, vh - 10, bw, 5, 2.5);
+    h.fillRoundedRect(x, vh - 14, bw, 8, 4);
     h.fillStyle(INK.gem, 1);
-    h.fillRoundedRect(x, vh - 10, Math.max(5, (bw * this.run.xp) / this.run.need), 5, 2.5);
+    h.fillRoundedRect(x, vh - 14, Math.max(8, (bw * this.run.xp) / this.run.need), 8, 4);
     this.lvText.setText(`LV ${this.run.lv}`);
     if (this.stick) {
       const k = knobAt(this.stick);
@@ -455,14 +562,16 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       seen.add(f.id);
       let s = this.mobs.get(f.id);
       if (!s) {
-        s = this.spriteFor(FOR_KIND[f.kind], f.x, f.y, DEPTH.foe).setScale(kindScale(f.kind));
+        s = this.spriteFor(sheetOf(f), f.x, f.y, DEPTH.foe).setScale(kindScale(f.kind, f.form));
         this.mobs.set(f.id, s);
       }
       s.setPosition(f.x, f.y).setFlipX(this.run.x < f.x);
-      this.want(s, FOR_KIND[f.kind], this.clipOf(f));
+      this.want(s, sheetOf(f), this.clipOf(f));
       if (f.hurt > 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
-      else if (f.kind === "warden" && f.windup > 0 && Math.floor(f.windup / 90) % 2 === 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
+      else if ((isBoss(f.kind) || f.kind === "shooter") && f.windup > 0 && Math.floor(f.windup / 90) % 2 === 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
       else if (f.kind === "warden") s.setTint(INK.red).setTintMode(Phaser.TintModes.MULTIPLY);
+      else if (f.kind === "mini") s.setTint(INK.gold).setTintMode(Phaser.TintModes.MULTIPLY);
+      else if (f.slow > 0) s.setTint(INK.ice).setTintMode(Phaser.TintModes.MULTIPLY);
       else s.clearTint();
     }
     for (const [id, s] of this.mobs) {
@@ -491,10 +600,10 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
   }
 
   /** A crushed shape plays `ko` once where it fell, then goes. */
-  private corpse(x: number, y: number, kind: Foe["kind"]) {
+  private corpse(x: number, y: number, kind: Foe["kind"], form?: Stage) {
     while (this.corpses.length >= MAX_CORPSES) this.corpses.shift()?.destroy();
-    const key = FOR_KIND[kind];
-    const s = this.spriteFor(key, x, y, DEPTH.corpse).setScale(kindScale(kind));
+    const key = sheetOf({ kind, form });
+    const s = this.spriteFor(key, x, y, DEPTH.corpse).setScale(kindScale(kind, form));
     s.play(animKey(key, "ko"));
     s.once("animationcomplete", () => {
       const i = this.corpses.indexOf(s);
@@ -504,20 +613,42 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.corpses.push(s);
   }
 
-  private spray(x: number, y: number, ink: number, n: number) {
+  private spray(x: number, y: number, ink: number, n: number, size = 3, life = 360) {
     for (let i = 0; i < n; i++) {
       const a = this.rng() * Math.PI * 2;
-      const v = 40 + this.rng() * 120;
-      this.sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 360, ink });
+      const v = 40 + this.rng() * (size > 3 ? 180 : 120);
+      this.sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life, ink, size });
     }
   }
 
-  private popup(text: string, x: number, y: number, color = "#ffd166") {
+  private popup(text: string, x: number, y: number, color = "#ffd166", size = 24) {
     const t = this.add
-      .text(x, y - 20, text, { fontFamily: "Fredoka, Heebo, sans-serif", fontSize: "24px", color, fontStyle: "bold", stroke: "#0b0e22", strokeThickness: 5 })
+      .text(x, y - 20, text, { fontFamily: "Fredoka, Heebo, sans-serif", fontSize: `${size}px`, color, fontStyle: "bold", stroke: "#0b0e22", strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(DEPTH.pop);
     this.tweens.add({ targets: t, y: y - 56, alpha: 0, duration: 800, ease: "Cubic.easeOut", onComplete: () => t.destroy() });
+  }
+
+  /** The big "CRUSH xN!": pops in large over the loop, holds, and floats away. */
+  private banner(text: string, x: number, y: number, holdMs = 650) {
+    if (this.crushBanner) {
+      this.tweens.killTweensOf(this.crushBanner);
+      this.crushBanner.destroy();
+    }
+    const t = this.add
+      .text(x, y, text, { fontFamily: "Fredoka, Heebo, sans-serif", fontSize: "40px", color: "#ffd166", fontStyle: "bold", stroke: "#3b2a05", strokeThickness: 7 })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.pop)
+      .setScale(prefersReducedMotion() ? 1 : 0.4);
+    this.tweens.add({ targets: t, scale: 1, duration: 160, ease: "Back.easeOut" });
+    this.tweens.add({
+      targets: t, y: y - 36, alpha: 0, delay: holdMs, duration: 450, ease: "Cubic.easeIn",
+      onComplete: () => {
+        if (this.crushBanner === t) this.crushBanner = null;
+        t.destroy();
+      },
+    });
+    this.crushBanner = t;
   }
 
   private tickFx(dt: number) {
@@ -526,6 +657,12 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.sparks = this.sparks.filter((s) => s.life > 0);
     for (const l of this.loops) l.age += dt;
     this.loops = this.loops.filter((l) => l.age < LOOP_LIFE);
+    for (const r of this.rings) r.age += dt;
+    this.rings = this.rings.filter((r) => r.age < r.life);
+    for (const z of this.zaps) z.age += dt;
+    this.zaps = this.zaps.filter((z) => z.age < ZAP_LIFE);
+    for (const n of this.novas) n.age += dt;
+    this.novas = this.novas.filter((n) => n.age < NOVA_LIFE);
   }
 
   // ---- screen points for the DOM effects ------------------------------------

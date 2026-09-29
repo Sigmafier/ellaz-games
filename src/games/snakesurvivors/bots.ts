@@ -4,7 +4,7 @@
 import { mulberry32 } from "@shared/rng";
 import { WEAPONS } from "./cards";
 import { ARENA, newRun, pickCard, step } from "./logic";
-import { makeFoe } from "./crowd";
+import { isBoss, makeFoe } from "./crowd";
 import type { Arena, LevelKey, Run, Steer } from "./types";
 
 /** Never steers: glides straight until the wall stops it. */
@@ -14,6 +14,15 @@ export interface Outcome {
   end: "won" | "dead" | "timeout";
   ms: number;
   crushed: number;
+  /** The stage the run ended in. */
+  stage: 1 | 2 | 3;
+  /** Level-ups the run reached (every one, whether a card was taken or not). */
+  ups: number;
+  /**
+   * Per stage the run reached: when it opened (ms), and the non-warden shapes
+   * on the floor - the average over every step of that stage, and the most.
+   */
+  stages: { stage: 1 | 2 | 3; at: number; avg: number; max: number }[];
 }
 
 /**
@@ -26,22 +35,33 @@ export interface Outcome {
  * `rules.weapons: false` never takes fangs, spikes or spit either.
  */
 export function play(
-  level: LevelKey, seed: number, bot: (run: Run) => Steer, arena: Arena = ARENA, capMs = 8 * 60_000,
-  rules: { loops: boolean; weapons: boolean } = { loops: true, weapons: true },
+  level: LevelKey, seed: number, bot: (run: Run) => Steer, arena: Arena = ARENA, capMs = 14 * 60_000,
+  rules: { loops: boolean; weapons: boolean; cards?: boolean } = { loops: true, weapons: true },
 ): Outcome {
   const rng = mulberry32(seed);
   const run = newRun(level, arena, rng);
+  let ups = 0;
+  const acc: { stage: 1 | 2 | 3; at: number; sum: number; n: number; max: number }[] = [];
+  const done = (end: Outcome["end"]): Outcome => ({
+    end, ms: run.t, crushed: run.crushed, stage: run.stage, ups,
+    stages: acc.map((a) => ({ stage: a.stage, at: a.at, avg: a.sum / a.n, max: a.max })),
+  });
   while (run.t < capMs) {
-    if (!rules.loops) run.loopCool = 1e12;
+    if (!rules.loops) (run.loopCool = 1e12), (run.tailCool = 1e12);
     step(run, 25, bot(run), rng);
     if (run.choosing) {
-      const pick = rules.weapons ? run.choosing[0] : run.choosing.find((c) => !WEAPONS.includes(c));
+      ups += 1;
+      const pick = rules.cards === false ? undefined : rules.weapons ? run.choosing[0] : run.choosing.find((c) => !WEAPONS.includes(c));
       if (pick) pickCard(run, pick);
       else run.choosing = null;
     }
-    if (run.phase === "won" || run.phase === "dead") return { end: run.phase, ms: run.t, crushed: run.crushed };
+    if (acc[acc.length - 1]?.stage !== run.stage) acc.push({ stage: run.stage, at: run.t, sum: 0, n: 0, max: 0 });
+    const a = acc[acc.length - 1];
+    const on = run.foes.reduce((n, f) => n + (isBoss(f.kind) ? 0 : 1), 0);
+    (a.sum += on), (a.n += 1), (a.max = Math.max(a.max, on));
+    if (run.phase === "won" || run.phase === "dead") return done(run.phase);
   }
-  return { end: "timeout", ms: run.t, crushed: run.crushed };
+  return done("timeout");
 }
 
 /**
@@ -100,7 +120,7 @@ export function levelBy(
   const run = newRun(level, arena, rng);
   let lv2At = Infinity;
   while (run.t < ms) {
-    if (!rules.loops) run.loopCool = 1e12;
+    if (!rules.loops) (run.loopCool = 1e12), (run.tailCool = 1e12);
     step(run, 25, bot(run), rng);
     if (run.choosing) {
       // With three weapons among nine cards an offer can be ALL weapons; a bot

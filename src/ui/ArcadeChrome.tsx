@@ -73,6 +73,8 @@ export type ArcadeHud = {
   boss: { now: number; max: number; label: string } | null;
   /** Localised by the game, because this component does no translation. */
   labels: { hearts: string; score: string };
+  /** Multiplies every HUD size (default 1); Snake Survivors passes 1.5 because its operator asked for a HUD read at a glance. */
+  scale?: number;
 };
 
 /**
@@ -227,6 +229,12 @@ export function ArcadeChrome<T extends string>({
   // utility row, so nobody would draw restart at all unless this does.
   const [ownRestart] = useState(() => !pageOwnsRestart());
 
+  // `hud.scale` multiplies all three terms of every HUD clamp; at 1 each
+  // string is exactly the literal it replaced.
+  const k = hud.scale ?? 1;
+  const m = (n: number) => Math.round(n * k * 100) / 100;
+  const sz = (min: number, cqw: number, max: number) => `clamp(${m(min)}px, ${m(cqw)}cqw, ${m(max)}px)`;
+
   const bossLeft = hud.boss && hud.boss.max > 0
     ? Math.max(0, Math.min(1, hud.boss.now / hud.boss.max))
     : 0;
@@ -241,7 +249,7 @@ export function ArcadeChrome<T extends string>({
         // arena is 234px wide at 639 and 565px at 1920, so the coefficients
         // below are chosen against those two widths rather than against a
         // drawing.
-        fontSize: "clamp(9px, 2cqw, 14px)",
+        fontSize: sz(9, 2, 14),
         letterSpacing: "0.12em",
         opacity: DIM,
         marginBottom: "0.35em",
@@ -288,7 +296,7 @@ export function ArcadeChrome<T extends string>({
     <div
       role="img"
       aria-label={`${hud.labels.hearts}: ${now} / ${max}`}
-      style={{ display: "flex", gap: "0.25em", alignItems: "center", fontSize: "clamp(11px, 2.6cqw, 18px)" }}
+      style={{ display: "flex", gap: "0.25em", alignItems: "center", fontSize: sz(11, 2.6, 18) }}
     >
       {Array.from({ length: Math.max(0, max) }, (_, i) => {
         const full = i < now;
@@ -390,7 +398,7 @@ export function ArcadeChrome<T extends string>({
                     padding: "0.2em 0.7em 0.2em 0.35em",
                     borderRadius: "var(--radius-pill)",
                     background: "var(--stage-cover)",
-                    fontSize: "clamp(10px, 2.3cqw, 15px)",
+                    fontSize: sz(10, 2.3, 15),
                     whiteSpace: "nowrap",
                     opacity: hud.chip.ready ? 1 : DIM,
                   }}
@@ -404,14 +412,14 @@ export function ArcadeChrome<T extends string>({
               {label(hud.labels.score)}
               <div
                 dir="ltr"
-                style={{ fontSize: "clamp(18px, 6cqw, 40px)", lineHeight: 1, color: "var(--yellow)" }}
+                style={{ fontSize: sz(18, 6, 40), lineHeight: 1, color: "var(--yellow)" }}
               >
                 {hud.score}
               </div>
               {hud.best !== undefined && (
                 <div
                   dir="ltr"
-                  style={{ fontSize: "clamp(9px, 2cqw, 14px)", opacity: DIM, marginTop: "0.3em" }}
+                  style={{ fontSize: sz(9, 2, 14), opacity: DIM, marginTop: "0.3em" }}
                 >
                   {ctx.t("best")} {hud.best}
                 </div>
@@ -429,8 +437,8 @@ export function ArcadeChrome<T extends string>({
               insetInlineStart: "3.5%",
               bottom: "3.5%",
               display: "flex",
-              gap: "clamp(4px, 1cqw, 8px)",
-              padding: "clamp(3px, 0.8cqw, 6px)",
+              gap: sz(4, 1, 8),
+              padding: sz(3, 0.8, 6),
               borderRadius: "var(--radius-2)",
               background: "var(--stage-cover)",
             }}
@@ -439,8 +447,8 @@ export function ArcadeChrome<T extends string>({
               <div
                 key={`${i}-${slot.id}`}
                 style={{
-                  width: "clamp(26px, 6.2cqw, 44px)",
-                  height: "clamp(26px, 6.2cqw, 44px)",
+                  width: sz(26, 6.2, 44),
+                  height: sz(26, 6.2, 44),
                   boxSizing: "border-box",
                   borderRadius: "var(--radius-1)",
                   border: slot.art ? "2px solid var(--line)" : "2px dashed var(--line)",
@@ -463,7 +471,7 @@ export function ArcadeChrome<T extends string>({
               position: "absolute",
               insetInlineEnd: "3.5%",
               bottom: "3.5%",
-              fontSize: "clamp(13px, 4.2cqw, 28px)",
+              fontSize: sz(13, 4.2, 28),
             }}
           >
             {hud.clock}
@@ -474,7 +482,7 @@ export function ArcadeChrome<T extends string>({
           {hud.boss && (
             <div style={{ position: "absolute", insetInline: "16%", bottom: "3.8%" }}>
               <div style={{ textAlign: "center" }}>{label(hud.boss.label)}</div>
-              {bar(bossLeft, "var(--brand-2)", "clamp(4px, 1.1cqw, 9px)")}
+              {bar(bossLeft, "var(--brand-2)", sz(4, 1.1, 9))}
             </div>
           )}
         </div>
