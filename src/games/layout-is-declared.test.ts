@@ -19,7 +19,7 @@ import { join } from "node:path";
 const GAMES_DIR = new URL(".", import.meta.url).pathname;
 
 /** The games on the table, in the order they moved. Add one only with its before/after. */
-const ON_THE_TABLE = ["sudoku", "snake", "coloring", "memory", "wordguess", "2048"];
+const ON_THE_TABLE = ["sudoku", "snake", "coloring", "memory", "wordguess", "2048", "tictactoe", "flow", "onestroke", "nonogram", "parking", "minesweeper"];
 
 const METAS = readdirSync(GAMES_DIR, { withFileTypes: true })
   .filter((e) => e.isDirectory() && existsSync(join(GAMES_DIR, e.name, "meta.ts")))
