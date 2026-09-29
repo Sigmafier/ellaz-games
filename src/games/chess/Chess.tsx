@@ -44,8 +44,18 @@ import {
  * (U+2654..2659) is NOT used, because it is hairline at a phone's cell size
  * and several fonts substitute a different face for it, so the two armies stop
  * matching. This is what the approved mock draws.
+ *
+ * THE PAWN CARRIES U+FE0E, and it is the only one that needs it. U+265F is
+ * the one glyph in the set that Unicode also lists as an EMOJI (the other
+ * five are not), so an iPhone draws it from the colour-emoji font - a black
+ * pawn picture that ignores `color` and `-webkit-text-stroke` alike. Reported
+ * from an iPhone on 2026-09-21, Hebrew, at the opening position: "all the
+ * soldiers are black" - soldiers being what Hebrew calls pawns. The text
+ * variation selector asks for the text glyph, which does take the army's ink.
+ * `a-pawn-is-an-emoji-on-an-iphone.test.ts` holds it for every glyph, so a
+ * future set cannot bring the trap back.
  */
-const GLYPH: Record<string, string> = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const GLYPH: Record<string, string> = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟\uFE0E" };
 
 /**
  * THE TWO SIDES ARE A FIXED PAIR, AND NEITHER MAY BE A THEME TOKEN.
