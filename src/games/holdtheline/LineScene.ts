@@ -68,7 +68,16 @@ export class LineScene extends Phaser.Scene {
   /** One pooled sprite per walker id, and the defender's own. */
   private pool = new Map<number, { s: Phaser.GameObjects.Sprite; key: CastKey; kind: string }>();
   private defender: Phaser.GameObjects.Sprite | null = null;
-  private shots: Phaser.GameObjects.Rectangle[] = [];
+  /**
+   * Every shot, the aim mark and the hit flashes, redrawn each frame on one
+   * layer. It replaced a 6x2 pale-yellow rectangle per round, which on a
+   * 360px phone was drawn about 3x1 CSS pixels, pale on a pale sky, and did
+   * not point anywhere. Reported 2026-09-27: "shots are not clear where they
+   * land or hit".
+   */
+  private fx: Phaser.GameObjects.Graphics | null = null;
+  /** Recent hits, drawn as a flash that shrinks away. `age` is in ms. */
+  private flashes: { x: number; y: number; age: number; kill: boolean }[] = [];
   private paused = false;
   private aim = { x: 0, y: 0 };
   private held = false;
@@ -108,6 +117,7 @@ export class LineScene extends Phaser.Scene {
     }
     this.drawGround();
     this.spawnDefender();
+    this.fx = this.add.graphics().setDepth(8);
 
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       this.held = true;
@@ -241,7 +251,7 @@ export class LineScene extends Phaser.Scene {
     if (this.paused) return;
     if (this.held) this.shoot();
     step(this.run, dtMs);
-    this.draw();
+    this.draw(dtMs);
     this.push();
   }
 
@@ -262,7 +272,7 @@ export class LineScene extends Phaser.Scene {
     return made;
   }
 
-  private draw(): void {
+  private draw(dtMs = 0): void {
     const live = new Set<number>();
     for (const w of this.run.walkers) {
       live.add(w.id);
@@ -278,19 +288,7 @@ export class LineScene extends Phaser.Scene {
       }
     }
 
-    // Shots are rectangles rather than sprites: there is no authored art for a
-    // round, and a pooled rectangle costs nothing next to 40 walkers.
-    while (this.shots.length < this.run.shots.length) {
-      const r = this.add.rectangle(0, 0, 6, 2, 0xfff0a0);
-      r.setDepth(8);
-      this.shots.push(r);
-    }
-    this.run.shots.forEach((b, i) => {
-      const r = this.shots[i];
-      r.setVisible(true);
-      r.setPosition(b.x, b.y);
-    });
-    for (let i = this.run.shots.length; i < this.shots.length; i++) this.shots[i].setVisible(false);
+    this.drawShots(dtMs);
 
     if (this.defender) {
       const d = this.defender;
@@ -298,6 +296,74 @@ export class LineScene extends Phaser.Scene {
       // The defender leans at whatever it is aiming at, which is the one cue a
       // player has that the gun is pointed where they think it is.
       d.setFlipX(this.aim.x < GUN_X);
+    }
+  }
+
+  /**
+   * Where the gun is pointed, where every round is, and where one struck.
+   *
+   * Three cues, each drawn at a size set in SCREEN pixels rather than arena
+   * units - `px` converts - because the arena is drawn at about half size on
+   * a portrait phone and a mark sized in units shrinks with it:
+   *
+   * - an AIM RING where the next round will pass, and a faint dotted line to
+   *   it from the gun, only while a wave is running;
+   * - each round as a TRACER along its own path, a bright core on a dark edge
+   *   so it reads on the pale sky and on the road alike; the enemy's are red;
+   * - a FLASH where a round struck a walker, bigger for the one that dropped
+   *   it, read off the run's own `hit` and `kill` events so it cannot claim a
+   *   hit the simulation did not make.
+   */
+  private drawShots(dtMs: number): void {
+    const g = this.fx;
+    if (!g) return;
+    g.clear();
+    const px = (n: number) => n * Math.max(1, this.scale.displayScale.x);
+
+    for (const e of this.run.events) {
+      if (e.t === "hit" || e.t === "kill") this.flashes.push({ x: e.x, y: e.y, age: 0, kill: e.t === "kill" });
+    }
+
+    if (this.run.phase === "wave" && !isOver(this.run)) {
+      const gx = GUN_X;
+      const gy = gunY(this.arena);
+      const dx = this.aim.x - gx;
+      const dy = this.aim.y - gy;
+      const len = Math.hypot(dx, dy);
+      if (len > px(20)) {
+        g.fillStyle(0xffffff, 0.55);
+        for (let d = px(18); d < len - px(12); d += px(10)) {
+          g.fillCircle(gx + (dx / len) * d, gy + (dy / len) * d, px(1.2));
+        }
+      }
+      g.lineStyle(px(4), 0x3a2410, 0.55);
+      g.strokeCircle(this.aim.x, this.aim.y, px(11));
+      g.lineStyle(px(2), 0xffffff, 0.95);
+      g.strokeCircle(this.aim.x, this.aim.y, px(11));
+      g.fillStyle(0xffffff, 0.95);
+      g.fillCircle(this.aim.x, this.aim.y, px(2));
+    }
+
+    for (const b of this.run.shots) {
+      const v = Math.hypot(b.vx, b.vy) || 1;
+      const tail = px(16);
+      const tx = b.x - (b.vx / v) * tail;
+      const ty = b.y - (b.vy / v) * tail;
+      g.lineStyle(px(5), 0x3a2410, 0.8);
+      g.lineBetween(tx, ty, b.x, b.y);
+      g.lineStyle(px(3), b.hostile ? 0xff4b3a : 0xffd23f, 1);
+      g.lineBetween(tx, ty, b.x, b.y);
+    }
+
+    const LIFE = 220;
+    this.flashes = this.flashes.filter((f) => (f.age += dtMs) < LIFE);
+    for (const f of this.flashes) {
+      const k = 1 - f.age / LIFE;
+      const r = px(f.kill ? 16 : 10) * (0.6 + 0.4 * k);
+      g.fillStyle(0xffffff, 0.9 * k);
+      g.fillCircle(f.x, f.y, r * 0.55);
+      g.lineStyle(px(3), 0xffd23f, k);
+      g.strokeCircle(f.x, f.y, r);
     }
   }
 
