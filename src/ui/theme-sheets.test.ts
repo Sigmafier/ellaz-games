@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { THEMES, themeBootScript } from "./themes";
 import { KEY_CSS } from "./Key";
+import { SETTINGS } from "./kinds";
+import { isValuesOnly, rulesOf } from "./button-kit.test";
 import { contrastRatio } from "./ink";
 import { blockFor, keysIn } from "./theme-tokens.test";
 // A test may reach into src/build (no-app-imports.test.ts exempts `.test.ts`).
@@ -123,9 +125,21 @@ function contrastFailures(t: Record<string, string>): string[] {
     .map(([fg, bg, floor, r]) => `${fg} on ${bg}: ${r.toFixed(2)} < ${floor}`);
 }
 
+/**
+ * A PALETTE sheet is a whole theme: its own colour tokens, held to everything
+ * tokens.css is held to below. A STYLE sheet (Wood, K3 2026-09-29) keeps Day's
+ * palette - which lives at bare `:root`, so a theme that declares no colour
+ * inherits it - and sets kit settings only. Told apart by the token block, and
+ * `a style sheet is values only` below holds the second kind to its shape.
+ */
+const isPalette = (id: string) => new RegExp(`:root\\[data-theme="${id}"\\]\\s*\\{`).test(strip(sheetOf(id)));
+const PALETTES = SHEET_THEMES.filter(isPalette);
+const STYLES = SHEET_THEMES.filter((id) => !isPalette(id));
+
 describe("the theme list and the sheets agree", () => {
-  it("names the four the style round picked, and only those, as sheet themes", () => {
-    expect(SHEET_THEMES).toEqual(["paper", "crayon", "flat", "arcade"]);
+  it("names the four the style round picked as palettes, and Wood as a style over Day", () => {
+    expect(PALETTES).toEqual(["paper", "crayon", "flat", "arcade"]);
+    expect(STYLES).toEqual(["wood"]);
   });
 
   it("has a sheet for every sheet theme and a tokens.css block for every other", () => {
@@ -136,7 +150,7 @@ describe("the theme list and the sheets agree", () => {
   });
 });
 
-describe.each(SHEET_THEMES)("the %s sheet", (id) => {
+describe.each(PALETTES)("the %s sheet", (id) => {
   const css = sheetOf(id);
   const t = tokens(css, id);
   const theme = THEMES.find((x) => x.id === id)!;
@@ -182,6 +196,26 @@ describe.each(SHEET_THEMES)("the %s sheet", (id) => {
       expect(m[1]).toMatch(/^\.\/fonts\/[a-z0-9-]+\.css$/);
       expect(existsSync(root(`./themes/${m[1].slice(2)}`)), m[1]).toBe(true);
     }
+  });
+});
+
+describe.each(STYLES)("the %s style", (id) => {
+  const css = sheetOf(id);
+  const rules = rulesOf(css);
+  const theme = THEMES.find((x) => x.id === id)!;
+  const day = tokens(TOKENS, "market");
+
+  it("is kit settings on the theme's body and nothing else - no token, no selector", () => {
+    expect(rules.length).toBeGreaterThan(0);
+    expect(rules.filter((r) => r.sel !== `:root[data-theme="${id}"] body` || !isValuesOnly(r)).map((r) => r.sel)).toEqual([]);
+    const set = [...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1].slice(2));
+    expect(set.length).toBeGreaterThan(10);
+    expect(set.filter((n) => !SETTINGS.includes(n as never))).toEqual([]);
+  });
+
+  it("wears Day's palette, so paints Day's browser chrome and splash", () => {
+    expect(day["--brand"].toLowerCase()).toBe(theme.browserChrome);
+    expect(day["--bg"].toLowerCase()).toBe(theme.background);
   });
 });
 

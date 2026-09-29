@@ -4,7 +4,7 @@ import { themePort } from "./theme";
 import { THEMES, type Theme, type ThemeId } from "./themes";
 
 /**
- * THE THEME CHOICE - six pictures in the "..." menu, on every screen
+ * THE THEME CHOICE - a picture per theme in the "..." menu, on every screen
  * (operator ruling 2026-09-27: "the '...' menu, every page").
  *
  * LAZY, and plain DOM rather than React: the emitted screens (games, the room,
@@ -50,6 +50,13 @@ const SWATCH: Record<ThemeId, Swatch> = {
     page: "#0d0221",
     bar: "linear-gradient(#1b0f3b 0 8px,#ff2a6d 8px)",
     key: "background:#ff2a6d;border-radius:50%;box-shadow:0 3px 0 #06010f,inset -3px -3px 0 rgba(0,0,0,.3)",
+  },
+  // Day's page and bar - Wood changes only the table - so the picture is the
+  // table top itself, with a tile from the rack on it.
+  wood: {
+    page: "repeating-linear-gradient(91deg,#c58e57 0 9px,#bd8650 9px 10px,#cc9862 10px 19px,#c28b54 19px 20px)",
+    bar: "#5b0f7a",
+    key: "background:#f3dcb0;border-radius:4px;box-shadow:0 3px 0 #8a5a30",
   },
 };
 
@@ -137,7 +144,7 @@ function wear(id: ThemeId): void {
 }
 
 /**
- * Draw the six choices into `host`. Safe to call again; it draws once.
+ * Draw the choices into `host`. Safe to call again; it draws once.
  * `close`, when given, makes the host its own card under the button and closes
  * it on a tap anywhere outside the button and the card (Home). A screen's
  * emitted `.moresheet` is already a card, and its menu closes itself.

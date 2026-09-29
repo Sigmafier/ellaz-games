@@ -1,0 +1,60 @@
+/* WOOD - "Board game night": a wooden kitchen table under the game (the table
+   round, 2026-09-28, material M.wood in .lab-shots/t/table.html).
+
+   A STYLE, NOT A PALETTE. Wood keeps Day's colours - the page, the bar, every
+   label - and changes only what the kit draws on a Game table: the mat, the
+   level disc, the number cards, the restart and pause tokens, the tray and the
+   keys in it, and the plaques the app's buttons sit on in the corners. So
+   this sheet is ONE block of settings (src/ui/kinds.ts) and
+   nothing else: no token, no selector, no code. It is the proof that a new
+   style is a list of values (games-doctrine G8, operator ruling 2026-09-28,
+   "Values only"); theme-sheets.test.ts holds it to exactly that shape.
+
+   A game that is not on the table reads none of these, so under Wood it looks
+   exactly as it does under Day. */
+:root[data-theme="wood"] body {
+  /* the table top: planks, a dark rim, a little shade toward the player */
+  --mat-fill: repeating-linear-gradient(91deg, #c58e57 0 22px, #bd8650 22px 24px, #cc9862 24px 47px, #c28b54 47px 49px);
+  --mat-edge: inset 0 0 0 3px rgba(80, 44, 14, .25), inset 0 -12px 34px rgba(80, 44, 14, .28);
+
+  /* the level: a turned wooden disc, flat on the table */
+  --disc-fill: #ecc995;
+  --disc-ink: #4a2a10;
+  --disc-tilt: 0deg;
+  --disc-shadow: inset 0 -6px 0 rgba(90, 52, 22, .3), 0 5px 0 #8a5a30;
+  --disc-dot: rgba(74, 42, 16, .3);
+  --disc-dot-on: #4a2a10;
+
+  /* the numbers: wooden blocks */
+  --card-fill: #e3b97f;
+  --card-ink: #3a220d;
+  --card-label: #5a3416;
+  --card-tilt: 0deg;
+  --card-tilt-alt: 0deg;
+  --card-shadow: inset 0 -5px 0 rgba(90, 52, 22, .28), 0 5px 0 #8a5a30;
+
+  /* restart and pause: painted game pieces in the game's own bar colour */
+  --token-radius: 10px;
+  --token-fill: oklch(from var(--g) .30 calc(c * 1.05) h);
+  --token-ink: #fff;
+  --token-tilt: 0deg;
+  --token-tilt-alt: 0deg;
+  --token-shadow: inset 0 -7px 0 rgba(0, 0, 0, .3), 0 5px 0 rgba(60, 30, 10, .4);
+
+  /* the tile rack, and the tiles in it */
+  --tray-fill: #6d4526;
+  --tray-edge: inset 0 6px 0 rgba(0, 0, 0, .3), 0 4px 0 #4e2f18;
+  --tray-ink: #fff4e0;
+  --tray-key-fill: #f3dcb0;
+  --tray-key-ink: #3a220d;
+  --tray-key-radius: 6px;
+  --tray-key-shadow: 0 4px 0 #b88a4d, inset 0 0 0 1px rgba(90, 52, 22, .25);
+
+  /* the app's buttons in the corners, off the table: ivory plaques with a
+     wooden rim */
+  --corner-fill: #fffdf8;
+  --corner-fill-hover: #ffffff;
+  --corner-ink: #6b5c50;
+  --corner-title-ink: #241c17;
+  --corner-shadow: inset 0 0 0 2px #c58e57;
+}

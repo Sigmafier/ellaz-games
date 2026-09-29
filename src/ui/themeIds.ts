@@ -1,8 +1,8 @@
 /**
  * THE THEME IDS - split out of `themes.ts` on 2026-09-27 so a first visit
- * carries the six ids and nothing else. `themes.ts` re-exports all of this, so
+ * carries the ids and nothing else. `themes.ts` re-exports all of this, so
  * the build and the tests read one list; only the port (`theme.ts`) imports
- * this file directly. If the port imported `themes.ts`, the six theme records
+ * this file directly. If the port imported `themes.ts`, the theme records
  * (labels, icons, colours) would ride in the shell: a module shared between
  * the shell and the lazy picker lands in the shell WHOLE.
  *
@@ -17,7 +17,7 @@
  * words - `isThemeId` reads this array, not `THEMES`, so the records tree-shake
  * out of the shell.
  */
-export const THEME_IDS = ["market", "night", "paper", "crayon", "flat", "arcade"] as const;
+export const THEME_IDS = ["market", "night", "paper", "crayon", "flat", "arcade", "wood"] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
 

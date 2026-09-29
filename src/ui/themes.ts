@@ -108,6 +108,17 @@ export const THEMES: readonly Theme[] = [
     background: "#0d0221",
     sheet: true,
   },
+  // A STYLE rather than a palette (operator ACK 2026-09-29, K3): Day's colours
+  // with a wooden Game table, as one sheet of kit settings. So its browser
+  // chrome and splash are Day's, and theme-sheets.test.ts holds it to that.
+  {
+    id: "wood",
+    label: { he: "עץ", en: "Wood", es: "Madera", sv: "Trä" },
+    icon: "cards",
+    browserChrome: "#ff4d8d",
+    background: "#fff6e9",
+    sheet: true,
+  },
 ];
 
 export function themeById(id: ThemeId): Theme {

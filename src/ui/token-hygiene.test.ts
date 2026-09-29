@@ -106,10 +106,14 @@ const COLOUR_EXEMPT = new Map<string, string>([
     "the Arcade theme's token definitions - the same thing tokens.css is for Day and Night, in the one sheet only a player who picks Arcade fetches",
   ],
   [
+    "ui/themes/wood.css",
+    "the Wood style's kit settings - the wooden table's colours, in the one sheet only a player who picks Wood fetches",
+  ],
+  [
     "ui/themePicker.ts",
-    "the six swatch pictures in the Theme menu. Each is drawn in ITS OWN theme's " +
+    "the swatch pictures in the Theme menu. Each is drawn in ITS OWN theme's " +
       "colours, never in tokens: drawn in tokens, every picture would show the " +
-      "theme the player is already in, and the picker would be six copies of one.",
+      "theme the player is already in, and the picker would be copies of one.",
   ],
   [
     "juice/effects.ts",
