@@ -336,6 +336,10 @@ export default defineConfig({
           // most visits never do - and the sheet plus its capture is not
           // something a child downloads before choosing a game.
           "**/report-*.js",
+          // The career kit - the trail map, the vending shop, the gear screen and
+          // their rules. Only a career game's lobby fetches it; see the `career`
+          // branch in manualChunks below.
+          "**/career-*.js",
           "**/page-*.js",
           // The room's SECOND SHELF - 52 more shop items, their drawings and
           // their catalogue rows, in one chunk. `art.tsx` and `items.ts` ship
@@ -566,6 +570,27 @@ export default defineConfig({
           // would put three more requests in front of somebody who has already
           // decided to tell us something.
           if (/\/src\/report\//.test(path)) return "report";
+
+          // THE CAREER KIT (2026-09-29): the map, the vending shop, the gear screen
+          // (`src/ui/career/`) and the rules they draw (`src/shared/career/`). Only
+          // a career game ever opens them, through `loadCareerKit()`'s dynamic
+          // import, so they must reach nobody else's first visit.
+          //
+          // It MUST sit above both catch-alls below: `src/shared/**` would pin the
+          // rules to `page` (fetched by every visitor who opens ANY game) and
+          // `src/ui/**` would pin the screens to the SHELL. NAMING it is the second
+          // of the three changes precache-glob-sweeps-new-chunks.md names; the
+          // dynamic import in src/ui/career/load.ts is the first, the
+          // `**/career-*.js` globIgnores entry above is the third.
+          //
+          // `load.ts` is the ONE file under it that must NOT be in the chunk: it
+          // holds the dynamic import, so pinning it here would make every game
+          // that calls it import the whole kit statically - the loader inside the
+          // thing it loads. Returning undefined lets it follow its importer (the
+          // game's own chunk), the arrangement `cloudSync.ts` has with `cloud`.
+          // And not the `src/ui/` catch-all either, which would put it in the shell.
+          if (/\/src\/ui\/career\/load\.ts$/.test(path)) return undefined;
+          if (/\/src\/(shared|ui)\/career\//.test(path)) return "career";
 
           // `meta.ts` is imported STATICALLY by the portal catalog so the home grid
           // can render without any game code. It must never land in a lazy game

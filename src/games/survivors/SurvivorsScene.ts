@@ -30,6 +30,12 @@ import { bladePositions, bladeReach, bladesEvolved, dronePosition, holds } from 
 import { NOVA_FIRE } from "./evolve";
 import { chargeOf, dashReady, triggerFreeze } from "./powers";
 import { applyCard, offerCards, type Card } from "./cards";
+// THE CAREER (P3): a level is built by `newCareerRun`, and each world looks the way
+// `groundArt.ts` draws it - this file only calls in, so it does not grow a world.
+import { PLAIN_STATS, careerResult, newCareerRun } from "./careerRun";
+import { drawCoins, drawDark, drawPools, drawWeather, drawWorldGround, tintFor } from "./groundArt";
+import { inDark } from "./twists";
+import type { CareerResult, CareerStats } from "./types";
 
 // Phaser draws the arena and reads the input. Every rule is in `logic.ts`, so this
 // class owns exactly three things: pixels, pointers, and telling the React chrome
@@ -93,6 +99,8 @@ export type SurvivorsStatus = {
    * mean a state object that mutates underneath it between renders.
    */
   taken: Record<UpgradeId, number>;
+  /** A career level's gold picked up so far, or null on a quick run. */
+  gold: number | null;
 };
 
 /** A mid-run ping every this many shapes. A nudge, not an achievement. */
@@ -376,6 +384,19 @@ export class SurvivorsScene extends Phaser.Scene {
   private keys = new Set<string>();
 
   private onStatus?: (s: SurvivorsStatus) => void;
+  /** THE CAREER: which level is being played (null on a quick run), with what, and this run's name. */
+  private careerLevel: string | null = null;
+  private careerStats: CareerStats = PLAIN_STATS;
+  private careerToken = "";
+  private runCount = 0;
+  /** Which floor the ground Graphics holds, so a level change redraws it and a retry does not. */
+  private groundFor = "";
+  /** The career's extra layers: pools and gold under the shapes, darkness over them, weather over all. */
+  private low!: Phaser.GameObjects.Graphics;
+  private high!: Phaser.GameObjects.Graphics;
+  private weather!: Phaser.GameObjects.Graphics;
+  /** Told once when a career level ends, with what it earned, to be banked. */
+  private onCareerEnd?: (r: CareerResult, token: string) => void;
   /**
    * The scene hands ITSELF over once it exists. Asking Phaser for it does not
    * work: `scene.start()` only QUEUES a start, so `getScene` on the next line
@@ -393,8 +414,10 @@ export class SurvivorsScene extends Phaser.Scene {
     arena?: Arena;
     onStatus?: (s: SurvivorsStatus) => void;
     onReady?: (scene: SurvivorsScene) => void;
+    onCareerEnd?: (r: CareerResult, token: string) => void;
   }) {
     this.ctx = data.ctx;
+    this.onCareerEnd = data.onCareerEnd;
     this.arena = data.arena ?? ARENA;
     this.onStatus = data.onStatus;
     this.onReady = data.onReady;
@@ -440,6 +463,9 @@ export class SurvivorsScene extends Phaser.Scene {
 
     this.bg = this.add.graphics().setDepth(DEPTH.bg);
     this.drawGround();
+    this.low = this.add.graphics().setDepth(DEPTH.bg + 1);
+    this.high = this.add.graphics().setDepth(DEPTH.enemy + 1);
+    this.weather = this.add.graphics().setDepth(DEPTH.fg + 0.5).setScrollFactor(0);
     this.fg = this.add.graphics().setDepth(DEPTH.fg);
     this.hud = this.add.graphics().setDepth(DEPTH.fg + 1).setScrollFactor(0);
 
@@ -546,7 +572,9 @@ export class SurvivorsScene extends Phaser.Scene {
       taken: { ...this.run.up },
       // THE LEVEL'S OWN CLOCK, not a module constant: the swarm is three minutes
       // on calm, five on normal and eight on wild since 2026-09-21.
-      timeLeft: Math.max(0, runMs(this.run.level) - this.run.t),
+      // A career level counts down ITS clock - to the win, or to its boss.
+      timeLeft: Math.max(0, (this.run.career ? this.run.career.timeMs : runMs(this.run.level)) - this.run.t),
+      gold: this.run.career ? this.run.career.gold : null,
       hp: this.run.hp,
       maxHp: this.run.maxHp,
       power: this.run.power,
@@ -593,7 +621,7 @@ export class SurvivorsScene extends Phaser.Scene {
     if (this.phase === "playing") return;
     if (this.phase !== "ready") this.restart();
     this.phase = "playing";
-    this.ctx.analytics.levelStart(this.selectedLevel);
+    this.ctx.analytics.levelStart(this.run.career ? `career-${this.run.career.level}` : this.selectedLevel);
     this.publish();
   }
 
@@ -626,8 +654,30 @@ export class SurvivorsScene extends Phaser.Scene {
     this.publish();
   }
 
+  /**
+   * A career level, from the map. The stats are the save's, reduced by
+   * `careerRules.simStats`; the run starts at "ready" behind the level banner.
+   */
+  startCareer(levelId: string, stats: CareerStats) {
+    this.careerLevel = levelId;
+    this.careerStats = stats;
+    this.restart();
+  }
+
+  /** Back to the quick run: its own floor, its own rules, untouched. */
+  leaveCareer() {
+    if (this.careerLevel === null) return;
+    this.careerLevel = null;
+    this.restart();
+  }
+
   private restart() {
-    this.run = newRun(this.selectedLevel, this.arena, this.startWeapon);
+    this.run = this.careerLevel
+      ? newCareerRun(this.careerLevel, this.careerStats, this.arena, this.startWeapon)
+      : newRun(this.selectedLevel, this.arena, this.startWeapon);
+    // A run's name, so the save can refuse to pay the same run twice.
+    this.careerToken = this.careerLevel ? `${this.careerLevel}:${Date.now()}:${++this.runCount}` : "";
+    if (this.groundFor !== (this.run.career?.level ?? "quick")) this.drawGround();
     this.phase = "ready";
     // A new run is never a paused one: restarting from behind the cover would
     // otherwise leave a lid over a ready screen nobody can read or reach.
@@ -854,6 +904,10 @@ export class SurvivorsScene extends Phaser.Scene {
     // The ship falls over when the hearts run out. `ko` is a one-shot, so it
     // holds its last frame rather than looping a death forever.
     if (!survived) this.ship.play(animKey(PLAYER, "ko"));
+    if (this.run.career) {
+      this.finishCareer(survived);
+      return;
+    }
     if (survived) {
       this.ctx.analytics.levelComplete(this.selectedLevel, this.run.t);
       // The score rides the win rather than being a second announcement, so the
@@ -883,6 +937,38 @@ export class SurvivorsScene extends Phaser.Scene {
     }
     this.draw();
     this.publish();
+  }
+
+  /**
+   * A CAREER level ended. The SITE hears a reason, never an amount: a win is
+   * `level_complete` at the world's tier and nothing more - no score, so a career
+   * level never writes the quick run's boards. The GAME's own gold, stars and gear
+   * are banked by the chrome, once, from what this reports.
+   */
+  private finishCareer(survived: boolean) {
+    const c = this.run.career!;
+    const label = `career-${c.level}`;
+    if (survived) {
+      this.ctx.analytics.levelComplete(label, this.run.t);
+      winMoment(this.ctx, { reason: "level_complete", tier: TIER[this.run.level], level: label, ms: this.run.t, at: this.shipPoint() });
+    } else this.ctx.analytics.levelFail(label, "out of hearts");
+    this.onCareerEnd?.(careerResult(this.run), this.careerToken);
+    this.draw();
+    this.publish();
+  }
+
+  /** The career's own layers, every frame: pools and gold under the shapes, darkness over them, weather over all. */
+  private drawCareer() {
+    this.low.clear();
+    this.high.clear();
+    this.weather.clear();
+    const c = this.run.career;
+    if (!c) return;
+    const now = this.time.now;
+    drawPools(this.low, c.pools, now);
+    drawCoins(this.low, c.coins, now);
+    drawDark(this.high, this.run, (x, y) => inDark(this.run, x, y), now);
+    drawWeather(this.weather, c.world, this.arena.w, this.arena.h, now);
   }
 
   /** An arena point in viewport pixels - what the DOM effects and coins need. */
@@ -1004,6 +1090,11 @@ export class SurvivorsScene extends Phaser.Scene {
     const blink = this.run.invuln > 0 && Math.floor(this.run.invuln / 90) % 2 === 0;
     this.ship.setPosition(this.run.x, this.run.y).setAlpha(blink ? 0.25 : 1);
     if (Math.abs(input.dx) > 0.02) this.ship.setFlipX(input.dx < 0);
+    // FROST: skates leave a white trail while the robot slides.
+    const ice = this.run.career?.twist === "ice" ? this.run.career : null;
+    if (ice && Math.hypot(ice.vx, ice.vy) > 50) {
+      for (const side of [-4, 4]) this.sparks.push({ x: this.run.x + side, y: this.run.y + 9, vx: 0, vy: 0, life: 420, ink: 0xeaf8ff });
+    }
     if (this.phase === "playing") {
       const moving = Math.hypot(input.dx, input.dy) > 0.02;
       this.want(this.ship, PLAYER, now < this.hurtUntil ? "hurt" : now < this.attackUntil ? "attack" : moving ? "walk" : "idle");
@@ -1075,7 +1166,15 @@ export class SurvivorsScene extends Phaser.Scene {
       // A dressed shape wears its own ink for as long as it lives, so an elite is
       // never read as the ordinary shape whose body it borrows.
       else if (DRESSED.has(e.kind)) s.setTint(ENEMY_INK[e.kind]).setTintMode(Phaser.TintModes.MULTIPLY);
-      else s.clearTint();
+      // A CAREER world tints its crowd - icy in frost, ember in lava (groundArt.ts).
+      else if (this.run.career && tintFor(this.run.career.world, e.kind) !== null) {
+        s.setTint(tintFor(this.run.career.world, e.kind)!).setTintMode(Phaser.TintModes.MULTIPLY);
+      } else s.clearTint();
+      // NEON CITY: a shape in the dark is all but invisible - its eyes are drawn
+      // over the darkness instead. Only on a career run; a sprite is born at alpha
+      // 1 (`spriteFor` sets none), so 1 here is its birth value, not a guess
+      // (a-setter-that-replaces-erases-what-the-thing-was-born-with.md).
+      if (this.run.career) s.setAlpha(e.id !== this.run.boss && inDark(this.run, e.x, e.y) ? 0.08 : 1);
       if (frozen) {
         if (!this.wasFrozen || !s.anims.isPaused) s.anims.pause();
       } else {
@@ -1096,6 +1195,12 @@ export class SurvivorsScene extends Phaser.Scene {
     const g = this.bg;
     const { w, h } = this.run.world;
     g.clear();
+    const c = this.run.career;
+    this.groundFor = c?.level ?? "quick";
+    if (c) {
+      drawWorldGround(g, c.world, w, h, c.seed);
+      return;
+    }
     g.fillStyle(INK.ground, 1);
     g.fillRect(0, 0, w, h);
     g.lineStyle(1, INK.grid, 1);
@@ -1174,6 +1279,7 @@ export class SurvivorsScene extends Phaser.Scene {
     // simulation spawns around, so what is drawn and what is played agree.
     const cam = cameraOf(this.run);
     this.cameras.main.setScroll(cam.x, cam.y);
+    this.drawCareer();
 
     // GEMS ARE DRAWN BY WHAT THEY ARE WORTH. Every gem used to be the same
     // little diamond, which was right while they were worth 1, 2 or 4 - close

@@ -35,6 +35,10 @@ import { GUNS, bossHpFor, gunEveryFor, nearestEnemy, radiusOf, spawn, speedOf, s
 import { WEAPONS, fireSlot, freshSlot, weaponDamage, weaponEvery } from "./weapons";
 import { FINAL, RULES, STAGE_MS, bossKindFor, isLastStage, spawnEvery, stageIsOver, stageMs } from "./stages";
 import { magnetRange, playerSpeed, shieldEvery, shieldReady, xpNeeded } from "./upgrades";
+// THE CAREER (P3). Every call below sits behind `if (s.career)`, so a quick run -
+// which has no career - runs exactly the lines it ran before, draw for draw.
+import { careerClock, careerCoins, careerEnd, careerLoot, careerTime } from "./careerHooks";
+import { slide, tickPools } from "./twists";
 
 // The public surface, unchanged by the split. Types first, then the tables and
 // the derived numbers, then this file's own.
@@ -304,6 +308,8 @@ function damage(s: RunState, e: Enemy, dmg: number, by?: WeaponId) {
       near.x = e.x;
       near.y = e.y;
     } else s.gems.push({ id: s.nextId++, x: e.x, y: e.y, value: worth });
+    // A career kill may drop gold too - on top of the gem, never instead of it.
+    if (s.career) careerLoot(s, e);
   }
 }
 
@@ -414,6 +420,29 @@ function fireEnemy(s: RunState, e: Enemy, gun: NonNullable<(typeof GUNS)[EnemyKi
   s.events.push({ type: "efire", kind: e.kind, x: e.x, y: e.y });
 }
 
+/**
+ * A boss walks in at the top edge of the VIEW, just out of sight. ONE function for
+ * the quick run's three stage bosses and the career's one, so the two cannot
+ * arrive differently. `gunCd` and `summonCd` start FULL - the first thing a boss
+ * does is walk, not throw, and it does not arrive already surrounded.
+ */
+function arriveBoss(s: RunState, kind: EnemyKind, hp: number) {
+  const id = s.nextId++;
+  const cam = cameraOf(s);
+  s.enemies.push({
+    id,
+    kind,
+    x: cam.x + s.arena.w / 2,
+    y: cam.y - 34,
+    hp,
+    flash: 0,
+    gunCd: gunEveryFor(kind, s.level),
+    summonCd: FINAL[s.level].summonMs,
+  });
+  s.boss = id;
+  s.events.push({ type: "boss", stage: s.stage, kind });
+}
+
 function grantXp(s: RunState, value: number) {
   s.xp += value;
   while (s.xp >= s.need) {
@@ -459,31 +488,18 @@ export function step(
   // second.
   if (s.boss === null) {
     s.t += dt;
-    if (stageIsOver(s)) {
+    // A career level's boss comes on ITS clock, at ITS health (careerHooks.ts).
+    if (s.career) careerClock(s, (kind, hp) => arriveBoss(s, kind, hp));
+    else if (stageIsOver(s)) {
       s.t = s.stage * stageMs(s.level);
       const kind = bossKindFor(s.stage);
-      const id = s.nextId++;
-      const cam = cameraOf(s);
       // THE LEVEL'S OWN WALL: `RULES[level].bossHp` multiplies every boss, so an
       // eight-minute wild run does not end on the same 420 a three-minute calm
-      // one does. `gunCd` starts full for the same reason every other shooter's
-      // does - the first thing it does is walk, not throw.
-      s.enemies.push({
-        id,
-        kind,
-        x: cam.x + s.arena.w / 2,
-        y: cam.y - 34,
-        hp: bossHpFor(kind, s.level),
-        flash: 0,
-        gunCd: gunEveryFor(kind, s.level),
-        // The summon clock starts FULL too, so the first thing the golem does
-        // is walk - it does not arrive already surrounded by its own crowd.
-        summonCd: FINAL[s.level].summonMs,
-      });
-      s.boss = id;
-      s.events.push({ type: "boss", stage: s.stage, kind });
+      // one does.
+      arriveBoss(s, kind, bossHpFor(kind, s.level));
     }
   }
+  if (s.career) careerTime(s, dt);
   if (s.invuln > 0) s.invuln = Math.max(0, s.invuln - dt);
   if (s.shieldCd > 0) s.shieldCd = Math.max(0, s.shieldCd - dt);
   tickPowers(s, dt);
@@ -493,7 +509,9 @@ export function step(
   // than a straight line - the oldest bug in the genre. Held inside the walls of
   // the WORLD, not the view: the view follows you, the walls do not.
   const len = Math.hypot(input.dx, input.dy);
-  if (len > 0.02) {
+  // FROST's twist: on ice the robot eases up to speed and slides when let go.
+  if (s.career?.twist === "ice") slide(s, input, playerSpeed(s), sec, PLAYER_R);
+  else if (len > 0.02) {
     const v = playerSpeed(s) * sec;
     const p = clampToWorld(s, s.x + (input.dx / len) * v, s.y + (input.dy / len) * v, PLAYER_R);
     s.x = p.x;
@@ -532,7 +550,8 @@ export function step(
   // them around this same angle, so one number moves all of them.
   if (holds(s, "drone")) s.droneAngle = (s.droneAngle + DRONE.spin * sec) % (Math.PI * 2);
 
-  const pace = RULES[s.level].speed;
+  // A career level's shapes move at its own pace on top of the world's base row.
+  const pace = s.career ? RULES[s.level].speed * s.career.pace : RULES[s.level].speed;
   for (const e of s.enemies) {
     if (e.flash > 0) e.flash = Math.max(0, e.flash - dt);
     if (e.bladeCd) e.bladeCd = Math.max(0, e.bladeCd - dt);
@@ -714,6 +733,10 @@ export function step(
     }
   }
 
+  // LAVA's twist: pools open near the robot, warn, then burn - through `takeHit`,
+  // so the dash and the shield answer a pool exactly as they answer a shape.
+  if (s.career?.twist === "pools" && !frozen) tickPools(s, dt, rng, PLAYER_R, (x, y) => takeHit(s, x, y));
+
   // Gems drift in once they are close enough, and are collected on touch.
   //
   // A BIGGER PILE IS A BIGGER TARGET (`gemReach`), and that is what pays for
@@ -746,6 +769,8 @@ export function step(
     s.charge = Math.min(FREEZE_NEED, s.charge + gained);
     grantXp(s, gained);
   }
+  // A career level's gold on the floor, under the same magnet.
+  if (s.career) careerCoins(s, pull, sec);
 
   // THE NOVA LEAVES BURNING GROUND where each of its fragments dies.
   //
@@ -800,6 +825,11 @@ export function step(
   // hearts - "you won" and "you have nothing left and two stages to go" are not
   // the same sentence, and only one of them is true. The boss itself can never
   // be the shape that ties, because a dead enemy is skipped by the contact loop.
+  // A career level ends on its own rule - its clock, or its one boss.
+  if (s.career) {
+    careerEnd(s);
+    return s;
+  }
   const bossDown = s.boss !== null && !s.enemies.some((e) => e.id === s.boss);
   if (bossDown && isLastStage(s.stage)) {
     s.phase = "won";

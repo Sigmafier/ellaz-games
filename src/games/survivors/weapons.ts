@@ -87,7 +87,9 @@ export function rowFor(slot: Slot): WeaponRow {
  * existed, plus the new term.
  */
 export const weaponDamage = (s: RunState, slot: Slot): number =>
-  boltDamage(s) + (slot.id === "blades" ? 0 : rowFor(slot).bonus) + (slot.lv - 1);
+  (boltDamage(s) + (slot.id === "blades" ? 0 : rowFor(slot).bonus) + (slot.lv - 1)) *
+  // A career run's damage stat (gear, shop). `?? 1` on a quick run - x * 1 is x.
+  (s.career?.damage ?? 1);
 
 /** How long this slot waits between shots, at its level. */
 export const weaponEvery = (s: RunState, slot: Slot): number =>

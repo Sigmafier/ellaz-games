@@ -6,6 +6,7 @@ import type { Enemy, EnemyKind, LevelKey, RunState } from "./types";
 import { dist2, spawnPoint } from "./world";
 import { FINAL, RULES, SHOOTERS, STAGES, SUMMONS, stageT } from "./stages";
 import { sightRange } from "./upgrades";
+import { careerKinds, hidden } from "./careerHooks";
 
 /**
  * The golem's health, and it is MEASURED rather than felt.
@@ -283,7 +284,8 @@ export function kindsAt(s: RunState): EnemyKind[] {
 
 export function spawn(s: RunState, rng: () => number) {
   if (s.enemies.length >= CAP_ENEMIES) return;
-  const kinds = kindsAt(s);
+  // A career level sends its WORLD's crowd (worlds.ts), unlocked by its own clock.
+  const kinds = s.career ? careerKinds(s) : kindsAt(s);
   let kind = kinds[Math.floor(rng() * kinds.length)];
   // THE SHOOTER CAP, and it downgrades rather than re-rolling: a re-roll would
   // take a second rng call and every calm run ever played would deal a different
@@ -300,7 +302,7 @@ export function spawn(s: RunState, rng: () => number) {
   // chance is zero. Rolling unconditionally keeps the rng stream the same shape
   // on every stage, so the same seed still plays the same run - a roll that only
   // sometimes happens would shift every draw after it.
-  const elite = rng() < (ELITE_CHANCE[s.stage - 1] ?? 0);
+  const elite = rng() < (s.career ? s.career.elite : (ELITE_CHANCE[s.stage - 1] ?? 0));
   // Just outside the VIEW, not the world - see `spawnPoint`.
   const p = spawnPoint(rng, s);
   s.enemies.push({
@@ -308,7 +310,8 @@ export function spawn(s: RunState, rng: () => number) {
     kind,
     x: p.x,
     y: p.y,
-    hp: hpOf(kind, elite),
+    // A career level's shapes are tougher by its own multiplier; a quick run's are exactly `hpOf`.
+    hp: s.career ? hpOf(kind, elite) * s.career.hp : hpOf(kind, elite),
     flash: 0,
     ...(elite ? { elite: true } : {}),
   });
@@ -383,6 +386,10 @@ export function nearestEnemy(s: RunState, fromX = s.x, fromY = s.y): Enemy | nul
   let bestD = sightRange(s) ** 2;
   for (const e of s.enemies) {
     if (e.hp <= 0) continue;
+    // NEON CITY's twist: a shape in the dark is not a target (twists.ts). Never the
+    // BOSS: measured, a warden that wandered into the dark with a robot that kept out
+    // of it was a fight nobody could finish (a bot ran 600 s at full hearts).
+    if (s.career && e.id !== s.boss && hidden(s, e)) continue;
     const d = dist2(fromX, fromY, e.x, e.y);
     if (d < bestD) {
       bestD = d;
@@ -424,6 +431,7 @@ export function bossBar(s: RunState): { hp: number; maxHp: number; kind: EnemyKi
   // multiplies every boss since 2026-09-21, so a bar drawn against calm's figure
   // would sit full for the first 45% of a wild fight and then fall off a cliff -
   // the same defect the comment above describes, one level further out.
-  const maxHp = bossHpFor(boss.kind, s.level);
+  // A career boss's health is its LEVEL's, so the bar's denominator is too.
+  const maxHp = s.career ? s.career.bossHp : bossHpFor(boss.kind, s.level);
   return { hp: boss.hp, maxHp, kind: boss.kind, fill: Math.max(0, Math.min(1, boss.hp / maxHp)) };
 }

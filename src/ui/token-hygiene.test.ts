@@ -30,6 +30,22 @@ const SHELL_DIRS = ["portal", "ui", "juice", "shared"];
  */
 const COLOUR_EXEMPT = new Map<string, string>([
   [
+    "ui/career/palette.ts",
+    "the career kit's fixed game-art colours, each paired with its own ink. The screens are " +
+      "game art on their own dark floor, so a theme token against a fixed fill is the chess " +
+      "night-theme contrast bug; the screen files hold no literal, so a stray one there still fails",
+  ],
+  [
+    "ui/career/icons.tsx",
+    "the career kit's SVG pictures (coin, cart, shirt, lock, crown) - drawings, not UI chrome; " +
+      "same reasoning as ui/gameArt.ts",
+  ],
+  [
+    "ui/career/scenery.tsx",
+    "the trail map's world backdrops (skyline, ice peaks, volcano) - painted scenery drawn " +
+      "under the map, not chrome; same reasoning as ui/gameArt.ts",
+  ],
+  [
     "ui/tokens.css",
     "the token definitions themselves - this is where colour is supposed to live",
   ],

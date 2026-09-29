@@ -52,8 +52,10 @@ export const WEAPON_LV_MAX = 5;
 export const fireEvery = (s: RunState) => Math.max(130, Math.round(620 * Math.pow(0.86, s.up.rapid)));
 export const boltDamage = (s: RunState) => 1 + s.up.power;
 export const boltCount = (s: RunState) => 1 + s.up.spread;
-export const playerSpeed = (s: RunState) => 148 + 20 * s.up.swift;
-export const magnetRange = (s: RunState) => 46 + 30 * s.up.magnet;
+// A CAREER run's speed and reach carry what the player brought in (gear, shop).
+// `?? 1` on a quick run, and x * 1 is x exactly, so its numbers do not move by a bit.
+export const playerSpeed = (s: RunState) => (148 + 20 * s.up.swift) * (s.career?.speed ?? 1);
+export const magnetRange = (s: RunState) => (46 + 30 * s.up.magnet) * (s.career?.magnet ?? 1);
 /**
  * How much gem value the next power level costs.
  *

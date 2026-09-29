@@ -35,6 +35,13 @@ import { ARENA, ARENA_WIDE, RUN_MS, UPGRADE_CAP, UPGRADE_IDS, WEAPON_LV_MAX, typ
 } from "./logic";
 import { UPGRADE_ART } from "./upgradeArt";
 import { phoneArena, phoneBox } from "./phoneArena";
+// THE CAREER (P3, 2026-09-29). The entrance is two tiles now - Career and Quick
+// run (the operator's pick "quickB") - and everything the career draws lives in
+// its own file; this component only switches between the two.
+import { CareerLayer } from "./CareerLayer";
+import { MenuButton } from "./careerScreens";
+import { neonCareerWords } from "./careerWords";
+import type { CareerResult } from "./types";
 
 // The second Phaser game in the roster, wearing the same chrome as the other
 // forty-two. React owns the bar and the upgrade cards; Phaser owns the arena.
@@ -94,8 +101,18 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
   const sceneRef = useRef<Pick<
     SurvivorsScene,
     | "setLevel" | "setPaused" | "restartFromChrome" | "startFromChrome" | "choose"
-    | "setStartWeapon" | "freezeFromChrome"
+    | "setStartWeapon" | "freezeFromChrome" | "startCareer" | "leaveCareer"
   > | null>(null);
+
+  /**
+   * WHICH GAME THIS IS RIGHT NOW: the two entrance tiles, the quick run, or the
+   * career. The QUICK RUN is today's game byte for byte - the same entrance, the
+   * same difficulty and weapon pick, the same scene - with one small "Menu" button
+   * added under its Play to get back to the tiles.
+   */
+  const [mode, setMode] = useState<"menu" | "quick" | "career">("menu");
+  /** The scene tells the career when a level ends; the career decides what that pays. */
+  const careerEndRef = useRef<((r: CareerResult, token: string) => void) | null>(null);
 
   const [level, setLevel] = useRememberedLevel(
     ctx,
@@ -136,6 +153,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
     // Built from the id list rather than typed out, so an eighth upgrade cannot
     // leave a hole here that only shows up as an empty pip row on one card.
     taken: Object.fromEntries(UPGRADE_IDS.map((id) => [id, 0])) as Record<UpgradeId, number>,
+    gold: null,
   });
   const best = ctx.score?.best(status.level) ?? 0;
 
@@ -245,6 +263,9 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         arena,
         onStatus: (s: SurvivorsStatus) => {
           if (!cancelled) setStatus(s);
+        },
+        onCareerEnd: (r: CareerResult, token: string) => {
+          if (!cancelled) careerEndRef.current?.(r, token);
         },
         onReady: (scene: SurvivorsScene) => {
           if (cancelled) return;
@@ -485,7 +506,8 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         // The same reading the grey bar's record slot carried - `best` is the
         // stored record and the live score can already have passed it, so the
         // larger of the two is what a player should see.
-        best: Math.max(best, status.score),
+        // A career level has no record to beat - the quick run's would be a lie there.
+        best: status.gold !== null ? undefined : Math.max(best, status.score),
         clock: clock(status.timeLeft),
         // Four slots, the carried weapons first and the rest dashed-empty.
         slots: Array.from({ length: SLOTS_MAX }, (_, i) => {
@@ -565,7 +587,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
          * downloads. This is drawn by the game, after it has mounted, so it
          * conflicts with neither.
          */
-        asking && !choosing
+        mode === "quick" && asking && !choosing
           ? {
               title: T.title,
               // What used to be a strip UNDER the arena WHILE playing, where it
@@ -578,6 +600,8 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
               result:
                 status.phase === "won" ? T.beat : status.phase === "over" ? T.lost : undefined,
               onAction: () => sceneRef.current?.startFromChrome(),
+              // The one addition to the quick run's entrance: back to the two tiles.
+              extra: <MenuButton label={neonCareerWords(ctx.locale).menu} onPress={() => setMode("menu")} />,
               // The starting weapon, chosen before Play because it changes what
               // Play starts (operator ruling 2026-09-14).
               pick: (
@@ -737,6 +761,22 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
             touchAction: "none",
           }}
         />
+        {mode !== "quick" && (
+          <CareerLayer
+            ctx={ctx}
+            mode={mode}
+            title={T.title}
+            phase={status.phase}
+            // Hidden while the cards are up, so it never sits on their title.
+            gold={choosing ? null : status.gold}
+            quickBest={best}
+            scene={sceneRef}
+            endRef={careerEndRef}
+            onCareer={() => setMode("career")}
+            onQuick={() => setMode("quick")}
+            onMenu={() => setMode("menu")}
+          />
+        )}
         {banner > 0 && (
           <div
             // `aria-live` so a player who cannot see it is still told. `polite`

@@ -296,6 +296,9 @@ export const shootersArmed = (s: Pick<RunState, "level" | "stage" | "t">): boole
  * and THINNED once this level's shooters are armed.
  */
 export function spawnEvery(s: RunState): number {
+  // A CAREER level carries its own curve (worlds.ts), read off the run so the
+  // row is looked up once, at the start of the level.
+  if (s.career) return Math.max(s.career.floorMs, s.career.spawnMs - (s.t / 1000) * s.career.tighten);
   const r = RULES[s.level];
   const base = Math.max(r.floorMs, r.spawnMs - (s.t / 1000) * r.tighten);
   // The multiplier goes OUTSIDE the floor, not inside it. Inside, `floorMs`
