@@ -49,6 +49,21 @@ const LEVELS = [
   { id: "hard", pairs: 10, cols: 5, he: "קשה", en: "Hard", es: "Difícil", sv: "Svår" },
 ] as const;
 
+/**
+ * THE SMALLEST A CARD MAY BE, and the gap between cards. A card's `minHeight`
+ * is also its minimum WIDTH (it is square), so on a phone this floor decides
+ * whether a row of cards fits the board at all.
+ *
+ * It was 64 from the 4-column days, and hard's 5 columns need
+ * 5 x 64 + 4 x 12 = 368px on a board that is 92vw - 322px on a 350px iPhone.
+ * The grid could not shrink, so it spilled out of its box, and in Hebrew a grid
+ * spills to the LEFT: reported 2026-09-22, "Tiles are hidden in hard mode (on
+ * the left)". 44 is the tap-target floor, and 5 x 44 + 48 = 268 fits a 320px
+ * phone's 294px board. `cards-fit-the-phone.test.ts` holds it for every level.
+ */
+const CARD_MIN = 44;
+const GAP = 12;
+
 type LevelId = (typeof LEVELS)[number]["id"];
 
 const LEVEL_OPTIONS: DifficultyOption<LevelId>[] = LEVELS.map((lv) => ({
@@ -470,12 +485,12 @@ export function Memory({ ctx }: { ctx: GameContext }) {
         style={{
           display: "grid",
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
-          gap: 12,
+          gap: GAP,
           // Phone: `min(92vw, 56vh, 460px)`, as it always was. PC: the height
           // the page has, times the grid's own shape (cols over rows), with the
           // 12px gaps declared so every level is one height - they used to make
           // a 4x3 board 3px shorter than a 4x4 one.
-          ...boardVars({ vw: 92, vh: 56, cap: 460, chrome: 111, ratio: cols / rows, space: { x: (cols - 1) * 12, y: (rows - 1) * 12 } }),
+          ...boardVars({ vw: 92, vh: 56, cap: 460, chrome: 111, ratio: cols / rows, space: { x: (cols - 1) * GAP, y: (rows - 1) * GAP } }),
         }}
       >
         {state.cards.map((card, i) => {
@@ -498,7 +513,7 @@ export function Memory({ ctx }: { ctx: GameContext }) {
               style={{
                 position: "relative",
                 aspectRatio: "1",
-                minHeight: 64,
+                minHeight: CARD_MIN,
                 minWidth: 0,
                 padding: 0,
                 border: "none",
