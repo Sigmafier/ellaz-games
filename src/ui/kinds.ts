@@ -81,6 +81,17 @@ export const KIT = {
     "tool-press", "tool-squash", "tool-clip", "tool-motion",
     ...roleSettings(),
   ],
+  /**
+   * a CORNER: on a Game table page the bar gives way to the app's buttons -
+   * home and the game's name in one top corner, the coins, language, sound and
+   * the "..." menu in the other - small, on the page's own ground, off the mat
+   * (K4, the table round's tab A). `corner-ground` is what shows behind them
+   * where the bar used to be; `corner-title-ink` is the game's name.
+   */
+  corner: [
+    "corner-ground", "corner-fill", "corner-fill-hover", "corner-ink", "corner-title-ink",
+    "corner-edge", "corner-radius", "corner-shadow",
+  ],
   /** the "..." menu and the language list that open under the bar */
   sheet: ["sheet-fill", "sheet-ink", "sheet-edge", "sheet-radius", "sheet-shadow"],
   /**
