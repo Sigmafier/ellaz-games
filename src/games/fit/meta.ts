@@ -17,6 +17,7 @@ export const meta: GameMeta = {
   orientation: "any",
   renderer: "dom",
   tier: "simple",
+  layout: "table",
   ownsChrome: true,
   // Points: cells placed, plus a super-linear bonus for lines cleared together.
   // The unit is declared HERE because only the VALUE of a record is persisted -

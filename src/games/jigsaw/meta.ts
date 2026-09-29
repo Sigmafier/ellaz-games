@@ -17,6 +17,7 @@ export const meta: GameMeta = {
   orientation: "any",
   renderer: "dom",
   tier: "simple",
+  layout: "table",
   ownsChrome: true,
   // Placements, and FEWER is better - `src/sdk/score.ts` ranks `moves` low. A
   // perfect solve is exactly one placement per piece. Only the VALUE of a
