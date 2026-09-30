@@ -128,9 +128,11 @@ export function settle(save: CareerSave, r: CareerResult, rng: () => number): Se
 /**
  * Pay a finished level ONCE. `token` names the run; the last token paid is kept
  * beside the save, so a run reported twice - a re-render, a second effect, a page
- * left and come back to - is paid once. The save is written first: a device that
- * refuses the second write costs a player a double payment it can never make,
- * never a payment it was owed.
+ * left and come back to - is paid once. The save is written first, and the run is
+ * marked paid only once the save READS BACK: `ctx.storage.set` swallows a refused
+ * write, so a full device looks like a working one, and marking the run first
+ * would lose its gold for good. A save that did not land leaves the run unpaid,
+ * and the next report pays it into the save the device really holds.
  */
 export function bankRun(store: CareerStore, token: string, r: CareerResult, rng: () => number): Settlement | null {
   let last: unknown;
@@ -141,11 +143,17 @@ export function bankRun(store: CareerStore, token: string, r: CareerResult, rng:
   }
   if (last === token) return null;
   const out = settle(readSave(store, CAREER_KEY), r, rng);
-  writeSave(store, CAREER_KEY, out.save);
+  if (!writeSave(store, CAREER_KEY, out.save) || !landed(store, out.save)) return out;
   try {
     store.set(SETTLED_KEY, token);
   } catch {
     /* a refused write is a fact about the device */
   }
   return out;
+}
+
+/** The save on the device is this one - the only proof a swallowed write can give. */
+function landed(store: CareerStore, save: CareerSave): boolean {
+  const back = readSave(store, CAREER_KEY);
+  return (["gold", "stars", "gear", "shop"] as const).every((k) => JSON.stringify(back[k]) === JSON.stringify(save[k]));
 }

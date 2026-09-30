@@ -148,6 +148,23 @@ describe("a level is paid ONCE, however often it is reported", () => {
     const b = bankRun(store, "run-2", win("city-1"), mulberry32(2))!;
     expect(readSave(store, CAREER_KEY).gold).toBe(a.gold + b.gold);
   });
+  // ctx.storage.set SWALLOWS a refused write (src/sdk/storage.ts), so a full
+  // device looks exactly like a working one from here. If the save was dropped
+  // and the run's token still landed, the gold was lost for good: every later
+  // report of that run is refused as "already paid". Found by /deep-test.
+  it("A DROPPED SAVE: the run is not marked paid, so the next report pays it", () => {
+    const store = memStore();
+    const dropsSave: CareerStore = {
+      get: store.get,
+      set: (k, v) => { if (k !== CAREER_KEY) store.set(k, v); },
+    };
+    const first = bankRun(dropsSave, "run-5", win("city-1"), mulberry32(1))!;
+    expect(first.gold).toBeGreaterThan(0);
+    expect(store.data.get(SETTLED_KEY)).toBeUndefined();
+    const again = bankRun(store, "run-5", win("city-1"), mulberry32(1));
+    expect(again).not.toBeNull();
+    expect(readSave(store, CAREER_KEY).gold).toBe(first.gold);
+  });
 });
 
 describe("today's Neon keys are never touched", () => {

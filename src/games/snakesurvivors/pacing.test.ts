@@ -46,7 +46,7 @@ import type { Arena, LevelKey } from "./types";
  * early?" - a run that ends in half a minute is the answer to a different
  * question than the one just asked. Three stages now, three wardens (hp
  * 3/4/5), each one's trigger a higher total CRUSHED (10/25/45); stage 2 and 3
- * also raise the crowd (`STAGE_CROWD` in `crowd.ts`) - a higher cap, the brute
+ * also raise the crowd (`STAGE_CROWD` in `tuning.ts`) - a higher cap, the brute
  * joining sooner, and every non-warden shape TOUGHER (2 loops a kill at stage
  * 2, 3 at stage 3), which is what actually buys the extra minutes: a denser
  * crowd that dies just as fast is a denser crowd that reaches 45 SOONER, not

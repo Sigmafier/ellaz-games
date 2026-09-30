@@ -5,7 +5,9 @@
 //
 //   types.ts                   <- you are here
 //     body.ts    cards.ts      the snake, and what the cards change
-//       crowd.ts               the shapes, their clock, the boss
+//       tuning.ts              the numbers: kinds, stage rows, the ramp
+//         chase.ts             how the shapes move, tick by tick
+//           crowd.ts           their clock and the boss (re-exports both)
 //         logic.ts             newRun + step + pickCard
 //           SnakeSurvivorsScene.ts / SnakeSurvivorsGame.tsx
 
