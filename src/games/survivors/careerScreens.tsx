@@ -329,18 +329,32 @@ export { CastArt };
 /**
  * The one question an epic piece asks before it is bought: which slot. Three big
  * pictures, each a real button, over the shop; a Back to change your mind. Nothing
- * is spent until a slot is pressed (diamondShelf.ts `buyEpic`).
+ * is spent until a slot is pressed (diamondShelf.ts `buyEpic`). A slot that
+ * already holds an epic says so, stays pressable and answers with the kit's
+ * wiggle - never `disabled` - and buyEpic refuses it anyway.
  */
-export function SlotPick(props: { title: string; slots: { id: "weapon" | "armor" | "ring"; label: string }[]; closeLabel: string; onPick: (slot: "weapon" | "armor" | "ring") => void; onClose: () => void }): ReactElement {
+export function SlotPick(props: { title: string; slots: { id: "weapon" | "armor" | "ring"; label: string; held?: boolean }[]; heldLabel: string; closeLabel: string; onPick: (slot: "weapon" | "armor" | "ring") => void; onClose: () => void }): ReactElement {
+  const [shaking, setShaking] = useState<string | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const refuse = (id: string) => {
+    window.clearTimeout(timer.current);
+    setShaking(null);
+    requestAnimationFrame(() => setShaking(id));
+    timer.current = window.setTimeout(() => setShaking(null), 450);
+  };
   return (
     <div role="dialog" aria-modal="true" aria-label={props.title} style={{ ...cover("rgba(8,10,26,0.9)", 70), position: "absolute", borderRadius: 0, gap: 22, padding: 16 }}>
       <div style={{ fontSize: 30, fontWeight: 800, textShadow: INK_SHADOW, color: "#ffd166" }}>{props.title}</div>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
         {props.slots.map((s) => (
-          <button key={s.id} type="button" aria-label={s.label} onClick={() => props.onPick(s.id)}
-            style={{ width: 108, minHeight: 132, borderRadius: 22, border: `5px solid ${K}`, boxShadow: `0 0 22px #ffd166aa, 0 5px 0 ${K}`, background: "#1c2150", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: FONT, fontSize: 17, fontWeight: 800, cursor: "pointer", touchAction: "manipulation" }}>
-            <NeonIcon name={PIECE[s.id]} size={62} color="#ffd166" />
+          <button key={s.id} type="button" aria-label={s.held ? `${s.label} - ${props.heldLabel}` : s.label}
+            className={shaking === s.id ? "career-wiggle" : undefined}
+            onClick={() => (s.held ? refuse(s.id) : props.onPick(s.id))}
+            style={{ width: 108, minHeight: 132, borderRadius: 22, border: `5px solid ${K}`, boxShadow: s.held ? `0 5px 0 ${K}` : `0 0 22px #ffd166aa, 0 5px 0 ${K}`, background: "#1c2150", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: FONT, fontSize: 17, fontWeight: 800, cursor: "pointer", touchAction: "manipulation" }}>
+            <NeonIcon name={PIECE[s.id]} size={62} color={s.held ? "#8a8f99" : "#ffd166"} />
             <span>{s.label}</span>
+            {s.held ? <span aria-hidden="true" style={{ fontSize: 14, color: "#ffd166" }}>{props.heldLabel}</span> : null}
           </button>
         ))}
       </div>

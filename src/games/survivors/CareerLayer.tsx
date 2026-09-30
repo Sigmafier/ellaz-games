@@ -37,7 +37,7 @@ import { STAT_IDS } from "../../shared/career/stats";
 import { diamonds } from "@sdk/diamonds";
 import { SLOT_IDS, type SlotId } from "../../shared/career/gear";
 import { CAREER_KEY, NEON_GEAR, NEON_SHOP, STAT_MAX, bankRun, simStats, statsOf, type Settlement } from "./careerRules";
-import { LOOKS, ROW, buyEpic, payBossDiamond, pressLook, readLooks, shelfRows, type LookId, type LooksSave } from "./diamondShelf";
+import { LOOKS, ROW, buyEpic, epicSlotsOwned, payBossDiamond, pressLook, readLooks, shelfRows, type LookId, type LooksSave } from "./diamondShelf";
 import { neonCareerWords } from "./careerWords";
 import { Chooser, GoldPill, Intro, Result, SlotPick } from "./careerScreens";
 import { RobotFill } from "./castArt";
@@ -200,7 +200,8 @@ export function CareerLayer(props: {
 
   const kw = kit?.careerWords(ctx.locale);
   const purses = [{ currency: "gold" as const, amount: save.gold }, { currency: "diamond" as const, amount: gems, label: kw?.diamonds, href: CAREER_PAGE }];
-  const shelf = shelfRows(looks, gems, { wear: kw?.wear ?? "Wear", worn: kw?.worn ?? "Wearing", ...w.looks });
+  const epicHeld = epicSlotsOwned(save);
+  const shelf = shelfRows(looks, gems, { wear: kw?.wear ?? "Wear", worn: kw?.worn ?? "Wearing", ...w.looks }, epicHeld.length);
   const afterShelf = (r: ReturnType<typeof pressLook>) => {
     setGems(diamonds.count);
     if (!r.ok) return;
@@ -263,7 +264,7 @@ export function CareerLayer(props: {
           style={{ position: "fixed", left: 0, right: 0, top: "var(--hh, 0px)", bottom: 0, zIndex: 60, overscrollBehavior: "contain" }}>
           {inner}
           {askSlot && kw ? (
-            <SlotPick title={kw.pickSlot} slots={SLOT_IDS.map((id) => ({ id, label: kw.slot[id] }))} closeLabel={kw.back}
+            <SlotPick title={kw.pickSlot} slots={SLOT_IDS.map((id) => ({ id, label: kw.slot[id], held: epicHeld.includes(id) }))} heldLabel={kw.have} closeLabel={kw.back}
               onPick={(slot: SlotId) => { setAskSlot(false); afterShelf(buyEpic(diamonds, store, slot)); }}
               onClose={() => setAskSlot(false)} />
           ) : null}

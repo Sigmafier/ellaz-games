@@ -6,7 +6,7 @@ import { createDiamonds, DIAMONDS_KEY, type DiamondStore } from "@sdk/diamonds";
 import { freshSave, readSave, writeSave, type CareerStore } from "../../shared/career/save";
 import { CAREER_KEY } from "./careerRules";
 import {
-  EPIC_PRICE, LOOKS, LOOKS_KEY, ROW, buyEpic, payBossDiamond, pressLook, readLooks, shelfRows,
+  EPIC_PRICE, LOOKS, LOOKS_KEY, ROW, buyEpic, epicSlotsOwned, payBossDiamond, pressLook, readLooks, shelfRows,
 } from "./diamondShelf";
 import type { CareerResult } from "./types";
 
@@ -112,6 +112,45 @@ describe("buying an epic piece", () => {
     const store = game();
     expect(buyEpic(d, store, "weapon").ok).toBe(false);
     expect(readSave(store, CAREER_KEY).gear.owned).toEqual([]);
+  });
+
+  // Found by /deep-test after P4 shipped: the second buy for one slot took 2
+  // diamonds and banked a duplicate that shows "x2" and changes no stat, because
+  // bankItems stacks duplicates on purpose (a random boss DROP may repeat) and
+  // only the WORN piece counts.
+  it("A SLOT THAT ALREADY HOLDS AN EPIC is refused: nothing spent, nothing written", () => {
+    const d = createDiamonds(gems(4));
+    const store = game();
+    writeSave(store, CAREER_KEY, freshSave());
+    expect(buyEpic(d, store, "armor").ok).toBe(true);
+    expect(buyEpic(d, store, "armor")).toEqual({ ok: false, why: "owned" });
+    expect(d.count).toBe(2);
+    expect(readSave(store, CAREER_KEY).gear.owned).toEqual(["armor:epic"]);
+  });
+
+  it("an epic that came from a boss DROP counts as held too", () => {
+    const d = createDiamonds(gems(2));
+    const store = game();
+    writeSave(store, CAREER_KEY, { ...freshSave(), gear: { owned: ["ring:epic"], equipped: {} } });
+    expect(buyEpic(d, store, "ring")).toEqual({ ok: false, why: "owned" });
+    expect(d.count).toBe(2);
+  });
+
+  it("THE CONTROL: holding one epic still sells the other two slots", () => {
+    const d = createDiamonds(gems(4));
+    const store = game();
+    writeSave(store, CAREER_KEY, freshSave());
+    buyEpic(d, store, "armor");
+    expect(buyEpic(d, store, "weapon").ok).toBe(true);
+    expect(epicSlotsOwned(readSave(store, CAREER_KEY))).toEqual(["weapon", "armor"]);
+    expect(d.count).toBe(0);
+  });
+
+  it("the Epic capsule reads SOLD OUT once all three slots hold one, and not before", () => {
+    const rows = (n: number) => shelfRows({ owned: [], worn: null }, 9, WORDS, n);
+    expect(rows(2)[2].maxed).toBe(false);
+    expect(rows(3)[2].maxed).toBe(true);
+    expect(shelfRows({ owned: [], worn: null }, 9, WORDS)[2].maxed).toBe(false);
   });
 });
 

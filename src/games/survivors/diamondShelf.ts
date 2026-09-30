@@ -4,7 +4,8 @@
 // beaten in any career game, spent on looks and special gear. This file owns only
 // what Neon sells for them (the operator's pick, 2026-09-30): two LOOKS that
 // recolour the robot - Gold bot and Ice bot, 3 each - and one EPIC piece of gear,
-// 2, in the slot the player picks.
+// 2, in the slot the player picks - never a slot that already holds an epic, since
+// the kit stacks a duplicate (for boss drops) and only the worn piece counts.
 //
 // WHERE A PURCHASE LIVES. A look is Neon's, so it is saved under Neon's own key
 // (`careerLooks`), never inside the kit's career save - that shape is pinned to the
@@ -21,7 +22,7 @@
 // run every path against a map.
 
 import type { Diamonds } from "@sdk/diamonds";
-import { bankItems, itemKey, type SlotId } from "../../shared/career/gear";
+import { SLOT_IDS, bankItems, itemKey, type SlotId } from "../../shared/career/gear";
 import { readSave, writeSave, type CareerSave, type CareerStore } from "../../shared/career/save";
 import { CAREER_KEY, NEON_GEAR } from "./careerRules";
 import type { CareerResult } from "./types";
@@ -95,19 +96,27 @@ export interface ShelfRow {
   tag?: string;
 }
 
-/** The three capsules. An owned look sells no more: it offers to be worn instead. */
-export function shelfRows(looks: LooksSave, diamonds: number, words: { wear: string; worn: string; gold: string; ice: string; epic: string }): ShelfRow[] {
+/** The slots that already hold an epic piece, from a purchase or a boss drop. */
+export function epicSlotsOwned(save: CareerSave): SlotId[] {
+  return SLOT_IDS.filter((slot) => save.gear.owned.includes(itemKey(slot, "epic")));
+}
+
+/**
+ * The three capsules. An owned look sells no more: it offers to be worn instead.
+ * The epic capsule is sold out once `epicHeld` (epicSlotsOwned().length) covers every slot.
+ */
+export function shelfRows(looks: LooksSave, diamonds: number, words: { wear: string; worn: string; gold: string; ice: string; epic: string }, epicHeld = 0): ShelfRow[] {
   const look = (id: LookId): ShelfRow => {
     const owned = looks.owned.includes(id);
     const tag = !owned ? undefined : looks.worn === id ? words.worn : words.wear;
     return { id: ROW[id], icon: LOOKS[id].icon, gain: words[id], cost: LOOKS[id].price, owned: owned ? 1 : 0, afford: owned || diamonds >= LOOKS[id].price, maxed: false, tag };
   };
-  return [look("gold"), look("ice"), { id: ROW.epic, icon: "crown", gain: words.epic, cost: EPIC_PRICE, owned: 0, afford: diamonds >= EPIC_PRICE, maxed: false }];
+  return [look("gold"), look("ice"), { id: ROW.epic, icon: "crown", gain: words.epic, cost: EPIC_PRICE, owned: 0, afford: diamonds >= EPIC_PRICE, maxed: epicHeld >= SLOT_IDS.length }];
 }
 
 export type ShelfResult =
   | { ok: true; looks: LooksSave; save: CareerSave; spent: number }
-  | { ok: false; why: "short" | "unsaved" | "unknown" };
+  | { ok: false; why: "short" | "unsaved" | "unknown" | "owned" };
 
 /**
  * Press a look's capsule: WEAR it if it is owned (free, toggles off if worn),
@@ -133,10 +142,14 @@ export function pressLook(d: Diamonds, store: CareerStore, id: LookId): ShelfRes
   return { ok: true, looks: next, save, spent: price };
 }
 
-/** Buy one epic piece for `slot`: banked into the career save first, then paid for. */
+/**
+ * Buy one epic piece for `slot`: banked into the career save first, then paid for.
+ * A slot that already holds one is refused before anything is read off the balance.
+ */
 export function buyEpic(d: Diamonds, store: CareerStore, slot: SlotId): ShelfResult {
-  if (d.count < EPIC_PRICE) return { ok: false, why: "short" };
   const before = readSave(store, CAREER_KEY);
+  if (epicSlotsOwned(before).includes(slot)) return { ok: false, why: "owned" };
+  if (d.count < EPIC_PRICE) return { ok: false, why: "short" };
   const key = itemKey(slot, "epic");
   const next = bankItems(NEON_GEAR, before, [key]);
   const landed = writeSave(store, CAREER_KEY, next) && readSave(store, CAREER_KEY).gear.owned.length === next.gear.owned.length;

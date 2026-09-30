@@ -40,6 +40,8 @@ export interface CareerWords {
   shortDiamonds: string;
   /** the question an epic piece asks before it is bought */
   pickSlot: string;
+  /** a slot that already holds the epic piece, on the slot picker */
+  have: string;
   slot: { weapon: string; armor: string; ring: string };
   tier: { common: string; rare: string; epic: string };
   stat: { health: string; speed: string; damage: string; magnet: string; luck: string };
@@ -50,7 +52,7 @@ const WORDS: Record<Locale, CareerWords> = {
     play: "Play", shop: "Shop", gear: "Gear", stats: "Stats", buy: "Buy", wear: "Wear",
     back: "Back", gold: "Gold", locked: "Locked", level: "Level {n}", boss: "Boss", bag: "Bag",
     worn: "Wearing", short: "Not enough gold", stars: "{n} of 3 stars", soldOut: "Sold out",
-    diamonds: "Diamonds", shortDiamonds: "Not enough diamonds", pickSlot: "Pick a slot",
+    diamonds: "Diamonds", shortDiamonds: "Not enough diamonds", pickSlot: "Pick a slot", have: "You have it",
     slot: { weapon: "Weapon", armor: "Armor", ring: "Ring" },
     tier: { common: "Common", rare: "Rare", epic: "Epic" },
     stat: { health: "Health", speed: "Speed", damage: "Damage", magnet: "Magnet", luck: "Luck" },
@@ -59,7 +61,7 @@ const WORDS: Record<Locale, CareerWords> = {
     play: "שחקו", shop: "חנות", gear: "ציוד", stats: "נתונים", buy: "קנו", wear: "לבשו",
     back: "חזרה", gold: "זהב", locked: "נעול", level: "שלב {n}", boss: "בוס", bag: "תיק",
     worn: "לבוש עכשיו", short: "אין מספיק זהב", stars: "{n} מתוך 3 כוכבים", soldOut: "אזל",
-    diamonds: "יהלומים", shortDiamonds: "אין מספיק יהלומים", pickSlot: "בחרו מקום",
+    diamonds: "יהלומים", shortDiamonds: "אין מספיק יהלומים", pickSlot: "בחרו מקום", have: "כבר יש לכם",
     slot: { weapon: "נשק", armor: "שריון", ring: "טבעת" },
     tier: { common: "רגיל", rare: "נדיר", epic: "אגדי" },
     stat: { health: "חיים", speed: "מהירות", damage: "נזק", magnet: "מגנט", luck: "מזל" },
@@ -68,7 +70,7 @@ const WORDS: Record<Locale, CareerWords> = {
     play: "Jugar", shop: "Tienda", gear: "Equipo", stats: "Datos", buy: "Comprar", wear: "Poner",
     back: "Atrás", gold: "Oro", locked: "Bloqueado", level: "Nivel {n}", boss: "Jefe", bag: "Bolsa",
     worn: "Puesto", short: "No tienes oro suficiente", stars: "{n} de 3 estrellas", soldOut: "Agotado",
-    diamonds: "Diamantes", shortDiamonds: "No tienes diamantes suficientes", pickSlot: "Elige una casilla",
+    diamonds: "Diamantes", shortDiamonds: "No tienes diamantes suficientes", pickSlot: "Elige una casilla", have: "Ya lo tienes",
     slot: { weapon: "Arma", armor: "Armadura", ring: "Anillo" },
     tier: { common: "Común", rare: "Raro", epic: "Épico" },
     stat: { health: "Vida", speed: "Velocidad", damage: "Daño", magnet: "Imán", luck: "Suerte" },
@@ -77,7 +79,7 @@ const WORDS: Record<Locale, CareerWords> = {
     play: "Spela", shop: "Butik", gear: "Prylar", stats: "Statistik", buy: "Köp", wear: "Ta på",
     back: "Tillbaka", gold: "Guld", locked: "Låst", level: "Nivå {n}", boss: "Boss", bag: "Väska",
     worn: "På dig", short: "Inte nog med guld", stars: "{n} av 3 stjärnor", soldOut: "Slutsåld",
-    diamonds: "Diamanter", shortDiamonds: "Inte nog med diamanter", pickSlot: "Välj en plats",
+    diamonds: "Diamanter", shortDiamonds: "Inte nog med diamanter", pickSlot: "Välj en plats", have: "Du har den",
     slot: { weapon: "Vapen", armor: "Rustning", ring: "Ring" },
     tier: { common: "Vanlig", rare: "Sällsynt", epic: "Episk" },
     stat: { health: "Hälsa", speed: "Fart", damage: "Skada", magnet: "Magnet", luck: "Tur" },
