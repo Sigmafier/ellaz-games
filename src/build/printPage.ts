@@ -72,10 +72,10 @@ import {
 export const PRINT_CSS = `
 .pk-cta{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:26px 0 6px}
 .pk-btn{display:inline-flex;align-items:center;justify-content:center;min-height:64px;
-  padding:0 30px;border:none;border-radius:20px;background:var(--doc-sun);color:var(--doc-ink);
+  padding:0 30px;border:none;border-radius:20px;background:var(--doc-sun);color:var(--doc-on-sun);
   text-decoration:none;font:inherit;font-family:Fredoka,Heebo,system-ui,sans-serif;
   font-size:1.15rem;font-weight:600;box-shadow:0 4px 0 var(--doc-line);cursor:pointer}
-.pk-btn.alt{background:var(--doc-card);border:1px solid var(--doc-line)}
+.pk-btn.alt{background:var(--doc-card);color:var(--doc-ink);border:1px solid var(--doc-line)}
 .pk-note{color:var(--doc-soft);font-size:.85rem;margin:0 0 8px}
 .pk-sheets{display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:20px;
   margin:18px 0 0;list-style:none;padding:0}

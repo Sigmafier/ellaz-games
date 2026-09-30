@@ -153,6 +153,13 @@ const BASE_CSS = `
   --doc-sun:var(--yellow,#fdcb6e);
   --doc-stage:var(--stage-bg,#12142b);
 }
+/* The ink ON the sun (.play, .pk-btn), and a NEUTRAL token rather than a third
+   member of the two arms above: yellow is a light fill in every style and every
+   dark side, so its label is one dark ink everywhere. It used to be --doc-ink,
+   which a dark side turns cream - 1.03 to 1.40:1 in six of eleven styles at the
+   first paint, measured 2026-09-30. theme-sheets.test.ts holds it against every
+   yellow, light and dark. */
+:root{--doc-on-sun:#241c17}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--doc-bg);color:var(--doc-ink);
   font:400 17px/1.7 Heebo,Assistant,Rubik,system-ui,-apple-system,sans-serif}
@@ -212,7 +219,7 @@ img.art{display:block;width:100%;max-width:520px;aspect-ratio:4/3;height:auto;ma
 .cta{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:26px 0 8px}
 .play{display:inline-flex;align-items:center;justify-content:center;min-height:76px;
   padding:0 40px;border:none;border-radius:22px;background:var(--doc-sun);
-  color:var(--doc-ink);text-decoration:none;font-family:Fredoka,system-ui,sans-serif;
+  color:var(--doc-on-sun);text-decoration:none;font-family:Fredoka,system-ui,sans-serif;
   font-size:1.3rem;font-weight:600;box-shadow:0 4px 0 var(--doc-line);cursor:pointer}
 .cta .note{color:var(--doc-soft);font-size:.86rem;flex:1 1 12rem}
 ol,ul.steps{padding-inline-start:1.3em}

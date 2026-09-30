@@ -253,6 +253,31 @@ describe("every palette has a dark side that clears the same floors", () => {
   });
 });
 
+describe("the pre-game Play button's ink holds on every yellow", () => {
+  // `.play` and `.pk-btn` wear --doc-on-sun on --doc-sun (= --yellow). One dark
+  // ink for all, so every style's yellow, light and dark, must carry it.
+  const layout = readFileSync(root("../build/layout.ts"), "utf8");
+  const onSun = /--doc-on-sun:(#[0-9a-f]{6})[;}]/.exec(layout)?.[1] ?? "";
+  const yellows: [string, string][] = [
+    ["market", tokens(TOKENS, "market")["--yellow"]],
+    ["night", tokens(TOKENS, "night")["--yellow"]],
+    ...SHEET_THEMES.flatMap((id) => {
+      const light = tokens(sheetOf(id), id)["--yellow"];
+      const dark = darkOf(id)?.["--yellow"];
+      return [[id, light], ...(dark ? [[`${id} dark`, dark]] : [])] as [string, string][];
+    }),
+  ].filter(([, y]) => Boolean(y)) as [string, string][];
+
+  it("reads a real ink and every yellow", () => {
+    expect(onSun).toMatch(/^#[0-9a-f]{6}$/);
+    expect(yellows.length).toBeGreaterThanOrEqual(9);
+  });
+
+  it.each(yellows)("%s", (_, y) => {
+    expect(contrastRatio(onSun, y)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe("the served files", () => {
   const { hash, files } = themeSheetFiles();
   const names = files.map((f) => f.fileName);
