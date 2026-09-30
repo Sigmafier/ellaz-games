@@ -1,7 +1,7 @@
 import type { AppLocale } from "../i18n/locales";
 import { textFor } from "../i18n/strings";
 import { themePort } from "./theme";
-import { THEMES, type Theme, type ThemeId } from "./themes";
+import { MODE_STORAGE_KEY, STYLES, THEMES, styleOf, themeById, wearOf, type Theme, type ThemeId } from "./themes";
 
 /**
  * THE THEME CHOICE - a picture per theme in the "..." menu, on every screen
@@ -61,6 +61,17 @@ const SWATCH: Record<ThemeId, Swatch> = {
 };
 
 const HEADING = { he: "ערכת נושא", en: "Theme", es: "Tema", sv: "Tema" };
+const LIGHT = { he: "בהיר", en: "Light", es: "Claro", sv: "Ljust" };
+const DARK = { he: "כהה", en: "Dark", es: "Oscuro", sv: "Mörkt" };
+
+/** The player's Light/Dark choice. A saved "night" is Day's dark side, so it reads as dark too. */
+function readDark(): boolean {
+  try {
+    return localStorage.getItem(MODE_STORAGE_KEY) === "dark" || themePort.current === "night";
+  } catch {
+    return themePort.current === "night";
+  }
+}
 
 function sheetHref(id: ThemeId): string {
   return `${import.meta.env.BASE_URL}assets/theme-${id}${__THEME_SHEET_SUFFIX__}`;
@@ -129,8 +140,24 @@ function warmSheets(): void {
  * player has asked for less motion, it changes at once. The theme is set either
  * way - the fade is how it looks, never whether it happens.
  */
-function wear(id: ThemeId): void {
-  const set = () => themePort.set(id);
+function wear(id: ThemeId, dark: boolean): void {
+  const set = () => {
+    const root = document.documentElement;
+    if (dark) root.setAttribute("data-mode", "dark");
+    else root.removeAttribute("data-mode");
+    try {
+      if (dark) localStorage.setItem(MODE_STORAGE_KEY, "dark");
+      else localStorage.removeItem(MODE_STORAGE_KEY);
+    } catch {
+      /* the choice holds for this visit; the next one starts light */
+    }
+    themePort.set(id);
+    // A mode change on the same style keeps the id, so the port does not repaint
+    // the phone's own chrome; Wood's dark side changes its brand, so do it here.
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const chrome = getComputedStyle(root).getPropertyValue("--brand").trim();
+    if (meta && chrome) meta.setAttribute("content", chrome);
+  };
   const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
   if (doc.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
     try {
@@ -166,16 +193,67 @@ export function mountThemePicker(host: HTMLElement, locale: AppLocale, close?: (
   title.textContent = textFor(HEADING, locale);
   title.style.cssText = "display:block;padding:6px 8px 4px;font-size:13px;opacity:.8";
   host.setAttribute("aria-label", title.textContent);
+  let dark = readDark();
+  const styleNow = () => styleOf(themePort.current, dark).style;
+  /** Wear a (style, dark) pick once its sheet is in; `busy` is the control that asked. */
+  const pick = (style: ThemeId, wantDark: boolean, busy: HTMLElement) => {
+    const { id } = wearOf(style, wantDark);
+    busy.setAttribute("aria-busy", "true");
+    busy.style.opacity = "0.55";
+    loadSheet(themeById(id))
+      .then(() => {
+        dark = wantDark;
+        wear(id, wantDark);
+        mark();
+      })
+      .catch(() => {
+        /* the sheet is missing: stay on the theme the player already has */
+      })
+      .finally(() => {
+        busy.removeAttribute("aria-busy");
+        busy.style.opacity = "";
+      });
+  };
+
+  // THE SWITCH, beside the style pictures: one row, two halves, 44px tall.
+  const modeRow = document.createElement("div");
+  modeRow.setAttribute("role", "group");
+  modeRow.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:0 2px 6px";
+  const modeButtons = ([false, true] as const).map((isDark) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.pickMode = isDark ? "dark" : "light";
+    b.textContent = textFor(isDark ? DARK : LIGHT, locale);
+    b.style.cssText =
+      "min-height:var(--tap,44px);border:0;border-radius:10px;cursor:pointer;font:700 14px/1 inherit;" +
+      "background:color-mix(in srgb,currentColor 8%,transparent);color:inherit;outline-offset:-2px";
+    b.addEventListener("click", () => {
+      if (isDark !== dark) pick(styleNow(), isDark, b);
+    });
+    modeRow.append(b);
+    return b;
+  });
+
   const grid = document.createElement("div");
   grid.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:0 2px 6px";
   const buttons = new Map<ThemeId, HTMLButtonElement>();
-  const mark = (current: ThemeId) => {
+  function mark(): void {
+    const style = styleNow();
     for (const [id, b] of buttons) {
-      b.setAttribute("aria-pressed", String(id === current));
-      b.style.outline = id === current ? "3px solid var(--brand-ink, currentColor)" : "none";
+      b.setAttribute("aria-pressed", String(id === style));
+      b.style.outline = id === style ? "3px solid var(--brand-ink, currentColor)" : "none";
     }
-  };
-  for (const theme of THEMES) {
+    // Arcade is dark already: the switch would do nothing, so it is not shown.
+    modeRow.hidden = style === "arcade";
+    modeRow.style.display = modeRow.hidden ? "none" : "grid";
+    for (const b of modeButtons) {
+      const on = (b.dataset.pickMode === "dark") === dark;
+      b.setAttribute("aria-pressed", String(on));
+      b.style.outline = on ? "3px solid var(--brand-ink, currentColor)" : "none";
+    }
+  }
+  for (const style of STYLES) {
+    const theme = themeById(style);
     const b = document.createElement("button");
     b.type = "button";
     b.dataset.pickTheme = theme.id;
@@ -186,26 +264,12 @@ export function mountThemePicker(host: HTMLElement, locale: AppLocale, close?: (
     const name = document.createElement("span");
     name.textContent = textFor(theme.label, locale);
     b.append(picture(SWATCH[theme.id]), name);
-    b.addEventListener("click", () => {
-      // Said with the picture, not only to a screen reader: a tap that is
-      // waiting on a download must not look like a tap that did nothing.
-      b.setAttribute("aria-busy", "true");
-      b.style.opacity = "0.55";
-      loadSheet(theme)
-        .then(() => wear(theme.id))
-        .catch(() => {
-          /* the sheet is missing: stay on the theme the player already has */
-        })
-        .finally(() => {
-          b.removeAttribute("aria-busy");
-          b.style.opacity = "";
-        });
-    });
+    b.addEventListener("click", () => pick(style, dark, b));
     buttons.set(theme.id, b);
     grid.appendChild(b);
   }
-  mark(themePort.current);
-  themePort.onChange(mark);
-  host.append(title, grid);
+  mark();
+  themePort.onChange(() => mark());
+  host.append(title, modeRow, grid);
   warmSheets();
 }

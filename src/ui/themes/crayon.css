@@ -251,3 +251,32 @@
    one thing every shared button, tab and chip here has in common. */
 :root[data-theme="crayon"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
 :root[data-theme="crayon"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
+
+/* ---- the dark side (the Light/Dark switch, operator 2026-09-30: "Yes, ship dark") --
+   A chalkboard: crayon colours on slate, the boxes still drawn by hand.
+   VALUES ONLY: the same tokens and kit settings, keyed on [data-mode="dark"], which the
+   boot script sets before the first paint. Every rule above still applies. */
+
+:root[data-theme="crayon"][data-mode="dark"] {
+  --bg: #1f2a24; --bg-soft: #1a231f; --surface: #2b3831; --surface-2: #26322c;
+  --text: #f4f1e8; --text-dim: #cbc7b9; --line: #45544b; --stage-bg: #1a231f;
+  --stage-cover: rgba(12, 18, 15, 0.88);
+  --brand-ink: #ff9a95; --brand-2-ink: #ff9a95; --teal-ink: #7fe0c4; --yellow-ink: #ffd76a;
+  --red-ink: #ff9a95; --green-ink: #8fe3b3; --pink-ink: #f7b3c2; --orange-ink: #ffbf7a;
+  --page-bg: repeating-linear-gradient(#1f2a24 0 31px, #2c3a33 31px 32px);
+  --shadow-1: 0 3px 0 rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 5px 0 rgba(0, 0, 0, 0.35);
+  --badge-fill: rgba(8, 12, 10, 0.8);
+  --art-veil: rgba(12, 18, 15, 0.25);
+  --crayon-line: 2px solid #f4f1e8;
+  --board-bg: rgba(255, 255, 255, 0.06); --board-frame: 3px solid #f4f1e8; --board-line: 1px dashed #5d6b63;
+  --board-rule: 2.5px solid #f4f1e8; --board-ink: #f4f1e8; --board-you: #8cc4ff; --board-bad: #ff9a95;
+  --board-sel: #3a4a41; --board-same: #3a3f2a;
+  --key-ink: #2b2b2b;
+}
+:root[data-theme="crayon"][data-mode="dark"] body {
+  --lid-fill: #2b3831; --lid-fill-hover: #34433b; --lid-ink: #f4f1e8;
+  --tool-fill: #2b3831; --tool-ink: #f4f1e8;
+  --sheet-fill: #2b3831;
+  --tray-key-ink: #2b2b2b;
+}

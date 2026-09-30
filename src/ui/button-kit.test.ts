@@ -64,9 +64,12 @@ export function rulesOf(css: string): Rule[] {
   return out;
 }
 
-/** A rule is VALUES ONLY when it sits on the theme's root or body and sets custom properties. */
+/**
+ * A rule is VALUES ONLY when it sits on the theme's root or body - in either mode,
+ * light or dark (the switch, 2026-09-30) - and sets custom properties.
+ */
 export function isValuesOnly(r: Rule): boolean {
-  const onRoot = r.sel.split(",").every((s) => /^:root\[data-theme="[a-z]+"\]( body)?$/.test(s.trim()));
+  const onRoot = r.sel.split(",").every((s) => /^:root\[data-theme="[a-z]+"\](\[data-mode="dark"\])?( body)?$/.test(s.trim()));
   const decls = r.body.split(";").map((d) => d.trim()).filter(Boolean);
   return onRoot && decls.every((d) => d.startsWith("--"));
 }

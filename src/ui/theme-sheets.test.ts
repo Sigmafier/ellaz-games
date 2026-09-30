@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { THEMES, themeBootScript } from "./themes";
+import { DARK_ARM, MODE_STORAGE_KEY, STYLES as PICKER_STYLES, THEMES, THEME_STORAGE_KEY as THEME_KEY, styleOf, themeBootScript, wearOf } from "./themes";
 import { KEY_CSS } from "./Key";
 import { SETTINGS } from "./kinds";
 import { isValuesOnly, rulesOf } from "./button-kit.test";
@@ -205,17 +205,51 @@ describe.each(STYLES)("the %s style", (id) => {
   const theme = THEMES.find((x) => x.id === id)!;
   const day = tokens(TOKENS, "market");
 
-  it("is kit settings on the theme's body and nothing else - no token, no selector", () => {
+  const light = `:root[data-theme="${id}"]`, dark = `${light}[data-mode="dark"]`;
+
+  it("is kit settings on the theme's body and nothing else - no selector, and a token only in its dark arm", () => {
     expect(rules.length).toBeGreaterThan(0);
-    expect(rules.filter((r) => r.sel !== `:root[data-theme="${id}"] body` || !isValuesOnly(r)).map((r) => r.sel)).toEqual([]);
-    const set = [...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1].slice(2));
+    const allowed = [`${light} body`, dark, `${dark} body`];
+    expect(rules.filter((r) => !allowed.includes(r.sel) || !isValuesOnly(r)).map((r) => r.sel)).toEqual([]);
+    const set = rules
+      .filter((r) => r.sel.endsWith(" body"))
+      .flatMap((r) => [...r.body.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1].slice(2)));
     expect(set.length).toBeGreaterThan(10);
     expect(set.filter((n) => !SETTINGS.includes(n as never))).toEqual([]);
+  });
+
+  it("goes dark on Night's palette, value for value", () => {
+    const own = tokens(css.replace(/[\s\S]*?(?=:root\[data-theme="[a-z]+"\]\[data-mode="dark"\] \{)/, ""), id);
+    expect(own).toEqual(tokens(TOKENS, "night"));
   });
 
   it("wears Day's palette, so paints Day's browser chrome and splash", () => {
     expect(day["--brand"].toLowerCase()).toBe(theme.browserChrome);
     expect(day["--bg"].toLowerCase()).toBe(theme.background);
+  });
+});
+
+/**
+ * THE DARK ARMS (the Light/Dark switch, operator 2026-09-30). Each palette's dark
+ * block is laid over its light block and held to every floor the light one is:
+ * the label pairs and the board. A dark arm is values only (button-kit.test.ts).
+ */
+const darkOf = (id: string) => {
+  const css = sheetOf(id);
+  const at = strip(css).indexOf(`[data-theme="${id}"][data-mode="dark"] {`);
+  return at < 0 ? null : { ...tokens(css, id), ...tokens(strip(css).slice(at - 6), id) };
+};
+
+describe("every palette has a dark side that clears the same floors", () => {
+  it.each(PALETTES.filter((id) => id !== "arcade"))("%s", (id) => {
+    const t = darkOf(id);
+    expect(t, `${id} has no dark arm`).not.toBeNull();
+    expect(contrastFailures(t!)).toEqual([]);
+    expect(boardFailures(t!)).toEqual([]);
+  });
+
+  it("arcade is dark already and has no dark arm - its switch is hidden", () => {
+    expect(darkOf("arcade")).toBeNull();
   });
 });
 
@@ -317,6 +351,45 @@ describe("the boot script with sheets", () => {
 
   it("writes nothing at all for Day, junk or an empty store", () => {
     for (const s of ["market", "nope", "", null]) expect(run(s)).toEqual({ theme: undefined, written: [] });
+  });
+
+  // The Light/Dark switch: the mode has its own key and is worn before paint.
+  const attrsFor = (store: Record<string, string>) => {
+    const attrs: Record<string, string> = {};
+    new Function("localStorage", "document", script)(
+      { getItem: (k: string) => store[k] ?? null },
+      { documentElement: { setAttribute: (k: string, v: string) => (attrs[k] = v) }, write: () => {} },
+    );
+    return attrs;
+  };
+
+  it("wears the dark mode from its own key, beside the theme, before paint", () => {
+    expect(attrsFor({ [THEME_KEY]: "paper", [MODE_STORAGE_KEY]: "dark" })).toEqual({ "data-mode": "dark", "data-theme": "paper" });
+    expect(attrsFor({ [MODE_STORAGE_KEY]: "dark" })).toEqual({ "data-mode": "dark" });
+  });
+
+  it("wears no mode for a light player, or a junk value", () => {
+    expect(attrsFor({ [THEME_KEY]: "paper" })).toEqual({ "data-theme": "paper" });
+    expect(attrsFor({ [THEME_KEY]: "paper", [MODE_STORAGE_KEY]: "Dark" })).toEqual({ "data-theme": "paper" });
+  });
+});
+
+describe("the switch maps a style and a mode onto what is worn", () => {
+  it("Day + dark is Night, and a saved Night reads as Day + dark", () => {
+    expect(wearOf("market", true).id).toBe("night");
+    expect(wearOf("market", false).id).toBe("market");
+    expect(styleOf("night", false)).toEqual({ style: "market", dark: true });
+  });
+
+  it("a style with a dark arm keeps its id and wears the mode; Arcade has none", () => {
+    expect(wearOf("paper", true)).toEqual({ id: "paper", mode: true });
+    expect(wearOf("arcade", true)).toEqual({ id: "arcade", mode: false });
+    expect(styleOf("arcade", true)).toEqual({ style: "arcade", dark: false });
+  });
+
+  it("offers every style once, and Night is not one of them", () => {
+    expect([...PICKER_STYLES].sort()).toEqual(THEMES.map((t) => t.id).filter((id) => id !== "night").sort());
+    expect([...DARK_ARM].sort()).toEqual(SHEET_THEMES.filter((id) => darkOf(id)).sort());
   });
 });
 

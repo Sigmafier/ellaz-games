@@ -42,6 +42,8 @@
   --brand-fill: var(--brand);
   --surface-fill: var(--surface);
   --page-bg: #ffcf56;
+  --flat-dots: #f2b93b;
+  --board-you-sel: #b8302d;
   --on-brand: #ffffff;
   --brand-strong: #3d348b;
   --badge-fill: rgba(29, 27, 58, 0.82);
@@ -141,7 +143,7 @@
 }
 
 /* ---- the page: one flat yellow, a halftone fading out of one corner ------ */
-:root[data-theme="flat"] body { background: #ffcf56; }
+:root[data-theme="flat"] body { background: var(--page-bg); }
 :root[data-theme="flat"] body.screen .urow { background: transparent; }
 :root[data-theme="flat"] body::before {
   content: "";
@@ -149,7 +151,7 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(circle, #f2b93b 2px, transparent 2.6px) 0 0 / 16px 16px;
+  background: radial-gradient(circle, var(--flat-dots) 2px, transparent 2.6px) 0 0 / 16px 16px;
   -webkit-mask-image: radial-gradient(120% 90% at 100% 100%, #000 0, transparent 60%);
   mask-image: radial-gradient(120% 90% at 100% 100%, #000 0, transparent 60%);
 }
@@ -210,7 +212,7 @@
   font-weight: 800 !important;
   font-style: italic;
 }
-:root[data-theme="flat"] .ellaz-cell[data-sel] { --board-you: #b8302d; }
+:root[data-theme="flat"] .ellaz-cell[data-sel] { --board-you: var(--board-you-sel); }
 :root[data-theme="flat"] .ellaz-cell[data-bad] { box-shadow: inset 0 0 0 3px #d63a37; }
 
 /* ---- the keys: white blocks that sink when pressed ----------------------- */
@@ -254,3 +256,28 @@
    one thing every shared button, tab and chip here has in common. */
 :root[data-theme="flat"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
 :root[data-theme="flat"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
+
+/* ---- the dark side (the Light/Dark switch, operator 2026-09-30: "Yes, ship dark") --
+   The deep indigo it already uses for ink becomes the page.
+   VALUES ONLY: the same tokens and kit settings, keyed on [data-mode="dark"], which the
+   boot script sets before the first paint. Every rule above still applies. */
+
+:root[data-theme="flat"][data-mode="dark"] {
+  --bg: #1d1b3a; --bg-soft: #242150; --surface: #2c2957; --surface-2: #25224a;
+  --text: #fff8e7; --text-dim: #cfcaf2; --line: #3d3877; --stage-bg: #242150;
+  --stage-cover: rgba(14, 12, 32, 0.88);
+  --brand-ink: #b3abff; --brand-2-ink: #b3abff; --teal-ink: #7fe0d4; --yellow-ink: #ffe066;
+  --red-ink: #ff9a98; --green-ink: #8fe3b3; --pink-ink: #f7b3c2; --orange-ink: #ffbf7a;
+  --page-bg: #1d1b3a;
+  --flat-dots: #2c2957;
+  --badge-fill: rgba(8, 7, 20, 0.8);
+  --art-veil: rgba(14, 12, 32, 0.25);
+  --board-bg: #2c2957; --board-frame: 0 solid #2c2957; --board-line: 1px solid #3d3877;
+  --board-rule: 3px solid #b3abff; --board-ink: #fff8e7; --board-you: #ff9a98; --board-bad: #ff9a98;
+  --board-you-sel: #ffb3b1; --board-sel: #4a4390; --board-same: #3a356e;
+  --key-ink: #1d1b3a;
+}
+:root[data-theme="flat"][data-mode="dark"] body {
+  --sheet-fill: #2c2957; --sheet-ink: #fff8e7;
+  --tray-key-ink: #1d1b3a;
+}

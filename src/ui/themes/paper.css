@@ -275,3 +275,32 @@
    one thing every shared button, tab and chip here has in common. */
 :root[data-theme="paper"] [style*="background: var(--brand)"] { color: var(--ink-on-brand) !important; }
 :root[data-theme="paper"] [style*="background: var(--brand-fill)"] { color: var(--ink-on-fill) !important; }
+
+/* ---- the dark side (the Light/Dark switch, operator 2026-09-30: "Yes, ship dark") --
+   Kraft board by lamplight: the same cut shapes, the keys stay coloured card.
+   VALUES ONLY: the same tokens and kit settings, keyed on [data-mode="dark"], which the
+   boot script sets before the first paint. Every rule above still applies. */
+
+:root[data-theme="paper"][data-mode="dark"] {
+  --bg: #2a221b; --bg-soft: #231c16; --surface: #3a2f25; --surface-2: #33291f;
+  --text: #f6ecdb; --text-dim: #d2c1a4; --line: #5a4a3a; --stage-bg: #231c16;
+  --stage-cover: rgba(20, 15, 10, 0.88);
+  --brand-ink: #ff9b8c; --brand-2-ink: #ff9b8c; --teal-ink: #6fd3c4; --yellow-ink: #ffd166;
+  --red-ink: #ff9b8c; --green-ink: #9bd99f; --pink-ink: #f7b3c2; --orange-ink: #ffb27a;
+  --page-bg:
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.035) 0 1px, transparent 1.5px) 0 0 / 9px 9px,
+    #2a221b;
+  --shadow-1: 2px 3px 0 rgba(0, 0, 0, 0.45);
+  --shadow-2: 3px 5px 0 rgba(0, 0, 0, 0.4);
+  --badge-fill: rgba(10, 8, 6, 0.8);
+  --art-veil: rgba(20, 15, 10, 0.25);
+  --board-bg: #3a2f25; --board-frame: 8px solid #3a2f25; --board-line: 1px solid #5a4a3a;
+  --board-rule: 3px solid #d2c1a4; --board-ink: #f6ecdb; --board-you: #ff9b8c; --board-bad: #ff9b8c;
+  --board-sel: #5c4a1e; --board-same: #45391f;
+}
+:root[data-theme="paper"][data-mode="dark"] body {
+  --lid-fill: #3a2f25; --lid-fill-hover: #463a2e; --lid-ink: #f6ecdb;
+  --tool-fill: #3a2f25; --tool-fill-hover: #463a2e; --tool-ink: #ff9b8c;
+  --sheet-fill: #3a2f25;
+  --tray-key-ink: #3b2f24;
+}

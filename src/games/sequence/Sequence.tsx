@@ -270,7 +270,9 @@ export function Sequence({ ctx }: { ctx: GameContext }): ReactElement {
           border: "3px dashed var(--brand)",
           fontSize: pc ? FONT_PC.row.number : "min(7vw, 30px)",
           fontWeight: 800,
-          color: "var(--brand)",
+          // --brand-ink, the brand as INK: --brand itself is a fill colour and read
+          // 1.3 to 2.7:1 as text on a dark surface (contrast sweep, 2026-09-30).
+          color: "var(--brand-ink, var(--brand))",
         }}
       >
         {solved ? <ItemView item={round.answer} variant="row" pc={pc} /> : "?"}

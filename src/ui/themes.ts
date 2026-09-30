@@ -121,6 +121,34 @@ export const THEMES: readonly Theme[] = [
   },
 ];
 
+/**
+ * THE LIGHT/DARK SWITCH (operator 2026-09-30, "Light/Dark switch" over separate
+ * dark themes; "Yes, ship dark"). The mode is held apart from the style, under its
+ * own key, and worn as `data-mode="dark"` on <html>. A style's dark side is values
+ * only - a `[data-mode="dark"]` block in its own sheet - except Day's, which is
+ * Night: Day + dark IS the `night` theme, so a saved "night" already means dark
+ * and nothing has to migrate. Arcade is dark already, so its switch is hidden.
+ */
+export const MODE_STORAGE_KEY = "ellaz:mode";
+
+/** The styles the picker offers - Night is not one; it is Day's dark side. */
+export const STYLES: readonly ThemeId[] = ["market", "paper", "crayon", "flat", "arcade", "wood"];
+
+/** Styles whose sheet carries a dark arm. Day's dark is Night; Arcade has none. */
+export const DARK_ARM: readonly ThemeId[] = ["paper", "crayon", "flat", "wood"];
+
+/** Which style a theme id is, and whether it is dark. */
+export function styleOf(id: ThemeId, dark: boolean): { style: ThemeId; dark: boolean } {
+  if (id === "night") return { style: "market", dark: true };
+  return { style: id, dark: dark && DARK_ARM.includes(id) };
+}
+
+/** The theme id and the mode attribute a (style, dark) pick wears. */
+export function wearOf(style: ThemeId, dark: boolean): { id: ThemeId; mode: boolean } {
+  if (style === "market") return { id: dark ? "night" : "market", mode: dark };
+  return { id: style, mode: dark && DARK_ARM.includes(style) };
+}
+
 export function themeById(id: ThemeId): Theme {
   const found = THEMES.find((t) => t.id === id);
   // Unreachable through `isThemeId`, but a theme list that lost an entry
@@ -145,7 +173,7 @@ export function themeBootScript(sheet?: ThemeSheetHref): string {
   // The default is left out of the list rather than tested for separately:
   // "not in the list" already covers it, and every byte here is first visit.
   const ids = THEMES.map((t) => t.id).filter((id) => id !== DEFAULT_THEME);
-  const set = `document.documentElement.setAttribute("data-theme",t)`;
+  const set = `d.setAttribute("data-theme",t)`;
   // Only a theme with a sheet asks for one, and the test is written as the
   // SHORT side - the few ids without a sheet - because every byte here is in
   // every first visit.
@@ -160,7 +188,10 @@ export function themeBootScript(sheet?: ThemeSheetHref): string {
     ? `;${bare.join("&&")}&&document.write('<link rel=stylesheet href=${sheet.prefix}'+t+'${sheet.suffix}>')`
     : "";
   return (
-    `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});` +
+    `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)}),d=document.documentElement;` +
+    // The Light/Dark switch (operator 2026-09-30): the mode is its own key and its
+    // own attribute, set here with the theme so a dark page never paints light.
+    `if(localStorage.getItem(${JSON.stringify(MODE_STORAGE_KEY)})=="dark")d.setAttribute("data-mode","dark");` +
     `if(${JSON.stringify(ids)}.indexOf(t)>-1){${set}${link}}` +
     `}catch(e){}})()`
   );
