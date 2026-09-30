@@ -48,7 +48,7 @@ ${cycleCss}
  font-size:${K("key-size", "var(--k-size)")};clip-path:${K("key-clip", "none")};transition:${K("key-motion", "0s")};
  rotate:var(--kc-tilt4,var(--kc-tilt2,${K("key-tilt", "none")}))}
 .ellaz-key-act{--k-fill:var(--surface-2);--k-shadow:none;--k-weight:normal;font-size:${K("key-size-act", K("key-size", "var(--k-size)"))}}
-.ellaz-key-go,.ellaz-key-go:hover{background:${K("key-go-fill", "var(--brand-fill)")};color:${K("key-go-ink", "var(--on-brand)")}}
+.ellaz-key-go,.ellaz-key-go:hover{background:${K("key-go-fill", "var(--brand-strong)")};color:${K("key-go-ink", "var(--on-brand)")}}
 .ellaz-key:hover{background:${K("key-bg-hover", FILL)}}
 .ellaz-key:active{translate:${K("key-press", "none")};scale:${K("key-squash", "none")};
  box-shadow:${K("key-shadow-down", SHADOW)};color:${K("key-ink-down", INK)}}

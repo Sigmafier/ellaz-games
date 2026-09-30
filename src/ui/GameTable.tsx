@@ -66,16 +66,30 @@ const LIGHT = (n: number) => `color-mix(in srgb,var(--on-brand) ${n}%,transparen
  * `game-table-kinds.test.ts` refuses a literal look below.
  */
 const MAT = "color-mix(in oklab,var(--g) 13%,var(--bg))";
-const TRAY = "color-mix(in oklab,var(--text) 14%,var(--surface-2))";
+// 8%, not 14%: at 14% the page's quiet ink (--text-dim) read 4.27:1 on it, under
+// the 4.5 a hint needs - measured by the contrast sweep on every table game,
+// 2026-09-29. Lighter fill, same ink (a-contrast-floor-is-a-floor-not-a-target).
+const TRAY = "color-mix(in oklab,var(--text) 8%,var(--surface-2))";
 const TRAY_EDGE = `inset 0 4px 0 ${SHADE(8)}`;
 // The page's own restart and pause (`[data-restart]`, `[data-pause]`) stay in
 // the document and stay WIRED - the end-of-run strip's "Play again" goes
 // through the same slot - they are only not drawn, because the piece on the
 // mat is the one a player presses. Only settings and theme tokens below: no
 // colour literal (token-hygiene.test.ts) and no literal look (the kinds test).
+// Text lying on the mat or in the tray reads the page's quiet ink, --text-dim,
+// and a dark mat or tray (Wood's) would leave it dark on dark (1.29:1, measured
+// 2026-09-29). So the table hands its contents --text-dim from `mat-ink` and the
+// tray's from `tray-ink`, each falling back to the page's own value, captured on
+// <body> as --page-dim first so the two never read themselves. A white card
+// lying in the tray is the page again, so it gets the page's value back - or
+// Wood's cream tray ink lands on white (1.07:1, the first run of this fix).
 const CSS = `
 body[data-layout=table] [data-restart],body[data-layout=table] [data-pause]{display:none!important}
 .gc-table{position:relative;isolation:isolate}
+body{--page-dim:var(--text-dim)}
+.gc-table{--text-dim:${K("mat-ink", "var(--page-dim)")}}
+.gc-table>.ellaz-game-footer,.gc-table>.ellaz-game-side{--text-dim:${K("tray-ink", "var(--page-dim)")}}
+.gc-table>:is(.ellaz-game-footer,.ellaz-game-side) [style*="background: var(--surface)"]{--text-dim:var(--page-dim)}
 .gc-table::before{content:"";position:absolute;z-index:-1;inset:2px 3px 6px;border-radius:${K("mat-radius", "26px")};
  background:${K("mat-fill", MAT)};box-shadow:${K("mat-edge", `inset 0 0 0 3px ${SHADE(6)}`)}}
 .gc-table>.gc-head{padding:5px 12px 0!important}

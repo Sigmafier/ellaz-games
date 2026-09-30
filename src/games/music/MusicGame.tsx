@@ -543,8 +543,10 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
               style={{
                 ...controlStyle,
                 flex: "1 1 120px",
-                background: playing ? "var(--brand)" : "var(--brand-fill)",
-                color: "#FFF7EC",
+                // --brand-strong: white on Day's --brand is 3.14:1 and on
+                // Night's --brand-fill gradient 2.28 (contrast sweep 2026-09-29).
+                background: "var(--brand-strong)",
+                color: "var(--on-brand)",
                 fontSize: 30,
               }}
             >

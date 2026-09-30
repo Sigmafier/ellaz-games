@@ -356,7 +356,7 @@ export function Coloring({ ctx }: { ctx: GameContext }) {
               style={{
                 ...btnBase,
                 flex: "1 1 0",
-                background: tool === "fill" ? "var(--brand)" : "var(--surface)",
+                background: tool === "fill" ? "var(--brand-strong)" : "var(--surface)",
                 color: tool === "fill" ? "#fff" : "var(--text)",
               }}
             >
@@ -372,7 +372,7 @@ export function Coloring({ ctx }: { ctx: GameContext }) {
               style={{
                 ...btnBase,
                 flex: "1 1 0",
-                background: tool === "brush" ? "var(--brand)" : "var(--surface)",
+                background: tool === "brush" ? "var(--brand-strong)" : "var(--surface)",
                 color: tool === "brush" ? "#fff" : "var(--text)",
               }}
             >

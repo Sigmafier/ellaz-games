@@ -36,8 +36,11 @@ function roleSettings(): ToolRoleSetting[] {
 }
 
 export const KIT = {
-  /** the mat under a table board */
-  mat: ["mat-fill", "mat-edge", "mat-radius", "mat-radius-pc"],
+  /**
+   * the mat under a table board. `mat-ink` is the quiet ink of text lying on the
+   * mat itself (a clue, a hint), which the table hands its contents as --text-dim
+   */
+  mat: ["mat-fill", "mat-edge", "mat-radius", "mat-radius-pc", "mat-ink"],
   /** the level disc on the table, and the dots that say which level */
   disc: [
     "disc-size", "disc-size-pc", "disc-radius", "disc-tilt", "disc-fill", "disc-ink", "disc-shadow", "disc-font", "disc-text-pc",
@@ -122,7 +125,7 @@ export type Setting = (typeof KIT)[Kind][number] | ToolRoleSetting;
  */
 export const KIT_WIRING = [
   "--lr-tilt", "--tf", "--ts", "--tr-fill", "--tr-ink", "--tr-tilt", "--tr-shadow", "--tr-down",
-  "--k-size", "--k-fill", "--k-shadow", "--k-weight", "--kc-bg4", "--kc-bg3", "--kc-tilt4", "--kc-tilt2",
+  "--k-size", "--k-fill", "--k-shadow", "--k-weight", "--kc-bg4", "--kc-bg3", "--kc-tilt4", "--kc-tilt2", "--page-dim",
 ] as const;
 
 /** Every setting, in kit order. */

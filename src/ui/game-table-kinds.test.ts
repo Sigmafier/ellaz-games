@@ -25,11 +25,11 @@ const SRC = readFileSync(join(UI, "GameTable.tsx"), "utf8");
 
 /**
  * The table's kinds and their settings, from the kit (./kinds.ts) - a new
- * setting is added there and read here. `tray-ink` is the tray's too, but the
- * words in a tray belong to the game, so the games read it (button-kit.test.ts
- * holds that every setting has a reader).
+ * setting is added there and read here. The table also hands `mat-ink` and
+ * `tray-ink` to the words lying on the mat and in the tray, as their --text-dim
+ * (the contrast sweep, 2026-09-29), so every table setting is read here now.
  */
-export const KIND_SETTINGS: readonly string[] = [...KIT.mat, ...KIT.disc, ...KIT.card, ...KIT.token, ...KIT.tray].filter((s) => s !== "tray-ink");
+export const KIND_SETTINGS: readonly string[] = [...KIT.mat, ...KIT.disc, ...KIT.card, ...KIT.token, ...KIT.tray];
 
 /** The table's CSS, as written in the source - the template between `const CSS = \`` and the closing tick. */
 function tableCss(src: string): string {

@@ -16,6 +16,7 @@
   /* the table top: planks, a dark rim, a little shade toward the player */
   --mat-fill: repeating-linear-gradient(91deg, #c58e57 0 22px, #bd8650 22px 24px, #cc9862 24px 47px, #c28b54 47px 49px);
   --mat-edge: inset 0 0 0 3px rgba(80, 44, 14, .25), inset 0 -12px 34px rgba(80, 44, 14, .28);
+  --mat-ink: #3a220d;
 
   /* the level: a turned wooden disc, flat on the table */
   --disc-fill: #ecc995;

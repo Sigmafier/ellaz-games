@@ -517,7 +517,7 @@ export function NonogramGame({ ctx }: { ctx: GameContext }) {
                     fontSize: 15,
                     fontWeight: 700,
                     cursor: "pointer",
-                    color: on ? "var(--on-brand, #fff)" : "var(--text)",
+                    color: on ? "var(--on-brand, #fff)" : "var(--tray-ink, var(--text))",
                     background: on ? "var(--brand-strong)" : "rgba(255,255,255,0.08)",
                   }}
                 >
