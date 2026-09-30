@@ -4,6 +4,7 @@ import type { GameContext } from "@sdk/index";
 import type { CastItem } from "@shared/cast";
 import { GameChrome } from "@ui/GameChrome";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { type DifficultyOption } from "@ui/DifficultySelector";
 import { IconButton } from "@ui/index";
 import { haptic, shake } from "@juice/index";
@@ -30,6 +31,15 @@ const LANG_KEY = "lang";
 interface Challenge extends Round {
   item: CastItem;
 }
+
+/** The most letters any level deals - the PC board is this many cells wide. */
+const MAX_CHOICES = Math.max(...LEVELS.map((l) => l.choices));
+/** On a PC a cell is this wide for its height on the biggest level; smaller levels' cells are as wide as tall at most. */
+const PC_CELL_ASPECT = 0.8;
+/** One cell's height on a PC, as a length of the board (percent of its width, less the biggest level's gaps). */
+const PC_CELL_H = `calc((100% - ${(MAX_CHOICES - 1) * 12}px) / ${MAX_CHOICES * PC_CELL_ASPECT})`;
+/** The same length in `cqw`, for the cell itself (a child reads its container). */
+const PC_CELL_H_CQW = `calc((100cqw - ${(MAX_CHOICES - 1) * 12}px) / ${MAX_CHOICES * PC_CELL_ASPECT})`;
 
 const LEVEL_LABELS: Record<LevelId, Record<Locale, string>> = {
   easy: { he: "קל", en: "Easy", es: "Fácil", sv: "Lätt" },
@@ -312,17 +322,29 @@ export function Letters({ ctx }: { ctx: GameContext }): ReactElement {
           letters themselves render correctly in either script regardless. */}
       <div
         dir="ltr"
+        data-own-chrome=""
         className={`ellaz-play-surface ${BOARD_CLASS}`}
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${challenge.options.length}, 1fr)`,
+          // PC: the board is always the size of the BIGGEST level (four letters), and
+          // every level's cells are as TALL as that level's cells: a level with
+          // fewer letters just has fewer, up to as wide as they are tall, centred.
+          // The board used to be as wide as its own row of letters, so on the Game
+          // table - where a laptop window binds four letters by WIDTH and two by
+          // HEIGHT - the frame moved 495 -> 457px on Hard (assert:difficulty,
+          // 2026-09-29). Hard's cells are PC_CELL_ASPECT wide for their height,
+          // so that a big window does not shrink them to a quarter of the width.
+          gridTemplateColumns: pc
+            ? `repeat(${challenge.options.length}, min(${PC_CELL_H}, calc((100% - ${(challenge.options.length - 1) * 12}px) / ${challenge.options.length})))`
+            : `repeat(${challenge.options.length}, 1fr)`,
+          justifyContent: "center",
           gap: 12,
           // No vh term, as it always was: this row's own height is one cell
           // tall (aspectRatio 1 below), so its shape is `options.length`
           // columns over 1 row. chrome 345: the head row, the Prompt chip and the
           // picture-and-speaker card above this row. measured 2026-09-14 by repro-board-fills-the-window.mjs at every PC arm.
           // `space`: the 12px gaps, so a level with more letters is not shorter.
-          ...boardVars({ vw: 90, cap: 400, chrome: 345, ratio: challenge.options.length, space: { x: (challenge.options.length - 1) * 12, y: 0 } }),
+          ...boardVars({ vw: 90, cap: 400, chrome: (isTablePage() ? TABLE_CHROME : 111) + 234, ratio: pc ? MAX_CHOICES * PC_CELL_ASPECT : challenge.options.length, space: { x: ((pc ? MAX_CHOICES : challenge.options.length) - 1) * 12, y: 0 } }),
           ...(pc ? { containerType: "inline-size" as const } : {}),
           touchAction: "none",
         }}
@@ -343,7 +365,7 @@ export function Letters({ ctx }: { ctx: GameContext }): ReactElement {
                 }
               }}
               style={{
-                aspectRatio: "1",
+                ...(pc ? { height: PC_CELL_H_CQW } : { aspectRatio: "1" }),
                 minHeight: 72,
                 border: "none",
                 borderRadius: 20,
@@ -354,7 +376,7 @@ export function Letters({ ctx }: { ctx: GameContext }): ReactElement {
                 // On a PC the letter follows the CELL (a share of the grid's
                 // width per column), or a big board holds a small glyph.
                 fontSize: pc
-                  ? `calc(${64 / challenge.options.length}cqw)`
+                  ? `calc(${64 / MAX_CHOICES}cqw)`
                   : "clamp(36px, 12vw, 64px)",
                 lineHeight: 1,
                 display: "grid",

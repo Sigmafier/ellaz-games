@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GameContext, RewardTier, SessionSpec } from "@sdk/index";
 import type { Locale } from "@i18n/index";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { GameChrome } from "@ui/GameChrome";
 import { DirectionPad } from "@ui/DirectionPad";
 import { BoardStick } from "@ui/BoardStick";
@@ -424,7 +425,7 @@ export function MazeGame({ ctx }: { ctx: GameContext }) {
       onLevel={startLevel}
       onRestart={restart}
       footer={
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: isTablePage() ? 7 : 10 }}>
           <div
             style={{
               background: "var(--surface)",
@@ -503,6 +504,7 @@ export function MazeGame({ ctx }: { ctx: GameContext }) {
       <BoardStick active={controlMode === "board"} onDir={move} repeatMs={MOVE_REPEAT_MS}>
         <div
           ref={gridRef}
+          data-own-chrome=""
           className={pc ? `ellaz-play-surface ${BOARD_CLASS}` : "ellaz-play-surface"}
           // LTR, always. The app is Hebrew RTL by default, so an RTL grid lays
           // column 0 out on the visual RIGHT - and a maze whose walls mirror is a
@@ -521,7 +523,7 @@ export function MazeGame({ ctx }: { ctx: GameContext }) {
                   // `.ellaz-board` sets does not include it). The picker, the
                   // crumbs and the pad are in the footer column, not above or
                   // below the board.
-                  ...boardVars({ vw: 88, vh: 52, cap: 64 * size, chrome: 115, ratio: 1 }),
+                  ...boardVars({ vw: 88, vh: 52, cap: 64 * size, chrome: (isTablePage() ? TABLE_CHROME : 111) + 4, ratio: 1 }),
                   aspectRatio: "1",
                   containerType: "inline-size" as const,
                 }

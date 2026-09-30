@@ -4,6 +4,7 @@ import type { GameContext } from "@sdk/index";
 import { GameChrome } from "@ui/GameChrome";
 import { type DifficultyOption } from "@ui/DifficultySelector";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { Button, IconButton } from "@ui/index";
 import { burst, haptic, popEl, shake } from "@juice/index";
 import { Prompt, winMoment, useRememberedLevel } from "@shared/index";
@@ -561,9 +562,10 @@ export function Spell({ ctx }: { ctx: GameContext }): ReactElement {
 
       {pc ? (
         <div
+          data-own-chrome=""
           className={BOARD_CLASS}
           style={{
-            ...boardVars({ vw: 94, vh: 60, cap: 560, chrome: PC_CHROME, ratio: PC_RATIO }),
+            ...boardVars({ vw: 94, vh: 60, cap: 560, chrome: (isTablePage() ? TABLE_CHROME : 111) + (PC_CHROME - 111), ratio: PC_RATIO }),
             containerType: "inline-size",
             display: "flex",
             flexDirection: "column",

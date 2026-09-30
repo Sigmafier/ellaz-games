@@ -9,6 +9,7 @@ import {
 import type { GameContext } from "@sdk/index";
 import { type DifficultyOption } from "@ui/index";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { GameChrome } from "@ui/GameChrome";
 import { burst, haptic, shake } from "@juice/index";
 import { Prompt, winMoment, useRememberedLevel } from "@shared/index";
@@ -46,15 +47,22 @@ const PLATE_GLYPH = "max(96px, min(42vw, 20vh, 190px))";
  * for three - so no picture is ever stranded on a line of its own.
  *
  *   four   plate 49, gap 2, tiles 2 x 23.5 with a 2 gap  -> 100 wide, 49 tall
- *   three  plate 74, gap 3, tiles 1 x 22.5, 3 x 22.5 + 2 x 3 = 73.5 tall
- *                                                    -> 99.5 wide, 74 tall
+ *   three  plate 49, gap 2, one column of 3 x 15 with 2 gaps -> 66 wide, 49 tall,
+ *          centred in the same 100-wide board
+ *
+ * BOTH LEVELS ARE THE SAME 100 x 49 BOARD. They were 100 x 49 and 99.5 x 74,
+ * and on the Game table a laptop window binds the wide one by its WIDTH and
+ * the tall one by its HEIGHT, so a difficulty change moved the frame 495 ->
+ * 470px (assert:difficulty, 2026-09-29). One box shape means one height
+ * whichever bound applies; the three-choice tiles are 15/23.5 of the four's,
+ * which is still 112px on a 1536px window.
  *
  * The glyphs keep the phone's proportions to their box: 60/108 of a tile and
  * 190/300 of the plate.
  */
 const PC_LAYOUT = {
   4: { plate: 49, gap: 2, tile: 23.5, tileGap: 2, cols: 2, tileGlyph: 13, plateGlyph: 31 },
-  3: { plate: 74, gap: 3, tile: 22.5, tileGap: 3, cols: 1, tileGlyph: 12.5, plateGlyph: 47 },
+  3: { plate: 49, gap: 2, tile: 15, tileGap: 2, cols: 1, tileGlyph: 8.3, plateGlyph: 31 },
 } as const;
 
 export function Shadows({ ctx }: { ctx: GameContext }) {
@@ -313,13 +321,14 @@ export function Shadows({ ctx }: { ctx: GameContext }) {
         // prompt (72) and its 12px gap, and the 60px caption card plus the
         // footer's 14.
         <div
+          data-own-chrome=""
           className={BOARD_CLASS}
           style={{
             ...boardVars({
               vw: 92,
               vh: 60,
               cap: 560,
-              chrome: 169,
+              chrome: (isTablePage() ? TABLE_CHROME : 111) + 58,
               // 100 over the plate, not the row's own width over the plate: every
               // length is a share of the board's 100cqw, and the three-choice row
               // is 99.5 of it, which left that level 2px shorter than the

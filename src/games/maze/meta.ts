@@ -25,6 +25,7 @@ export const meta: GameMeta = {
   orientation: "any",
   renderer: "dom",
   tier: "simple",
+  layout: "table",
   ownsChrome: true,
   // Points: perfect mazes finished in a row. NOT fewest steps - every maze is
   // dealt fresh, so a step count would measure which maze a player was handed
