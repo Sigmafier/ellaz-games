@@ -376,6 +376,15 @@ describe("every page renders", () => {
     expect(page).toContain('data-locale="en"');
   });
 
+  it("stamps a Game-table game's layout on the body, and no other game's", () => {
+    // The corner kind keys on it from the first paint (src/build/kitCss.ts).
+    const onTable = renderRoute(ROUTES.find((r) => r.kind === "game" && r.id === "2048" && r.locale === "en")!, "/");
+    expect(onTable).toMatch(/<body[^>]*data-layout="table"/);
+    const off = GAMES.find((m) => !m.layout)!;
+    const plain = renderRoute(ROUTES.find((r) => r.kind === "game" && r.id === off.id && r.locale === "en")!, "/");
+    expect(plain).not.toMatch(/<body[^>]*data-layout=/);
+  });
+
   it("marks the Pages duplicate noindex and the primary host indexable", () => {
     const onPages = allEmittedFiles("/ellaz/").filter((f) => f.fileName.endsWith(".html"));
     for (const f of onPages) expect(f.source, f.fileName).toContain('content="noindex');

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { KIT, KIT_WIRING, SETTINGS } from "./kinds";
 import { KEY_CSS } from "./Key";
 // A test may reach into src/build (no-app-imports.test.ts exempts `.test.ts`).
-import { KIT_CSS, TABLE_GAMES } from "../build/kitCss";
+import { KIT_CSS } from "../build/kitCss";
 
 /**
  * A STYLE IS VALUES ONLY (games-doctrine G8, operator rulings 2026-09-28:
@@ -140,27 +140,29 @@ describe("the kit", () => {
 });
 
 describe("the corners (K4)", () => {
-  // The games on the table are pinned in ONE place, layout-is-declared.test.ts;
-  // this reads that list rather than keeping a second, so a game joining the
-  // table reds here only if the kit did not pick it up from its meta.
+  // The games on the table are pinned in ONE place, layout-is-declared.test.ts.
   const pinned = readFileSync(here("../games/layout-is-declared.test.ts"), "utf8");
   const list = /const ON_THE_TABLE = \[([^\]]*)\]/.exec(pinned)?.[1] ?? "";
   const onTable = [...list.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  // The layout gate's control is a game that is NOT on the table (that test holds it).
-  const control = /export const CONTROL = "([^"]+)"/.exec(readFileSync(here("../lab/layout/gate.ts"), "utf8"))?.[1] ?? "";
+  const namedIn = (css: string) => onTable.filter((id) => new RegExp(`["=(,]${id}["\\],)]`).test(css));
 
-  it("puts every table game, and only those, in the corners", () => {
-    expect(onTable.length).toBeGreaterThanOrEqual(6);
-    expect([...TABLE_GAMES].sort()).toEqual([...onTable].sort());
-    for (const id of TABLE_GAMES) expect(KIT_CSS).toContain(`[data-game="${id}"]`);
-    expect(control).toBeTruthy();
-    expect(KIT_CSS).not.toContain(`[data-game="${control}"]`);
+  it("keys on the layout the emitted page carries, so the corners are there at first paint", () => {
+    expect(KIT_CSS).toContain('.screen[data-page="game"][data-layout="table"] .top');
   });
 
-  it("keys on what the emitted page carries, so the corners are there at first paint", () => {
-    // data-layout is set by GameHost when the game's chunk loads - too late.
-    expect(KIT_CSS).not.toMatch(/data-layout/);
-    expect(KIT_CSS).toContain('.screen[data-page="game"]:is(');
+  // THE O(1) GATE. The corner rules ship in every game page's stylesheet, so
+  // they must cost the same at 25 table games as at 250: they name no game, and
+  // moving a game onto the table adds nothing to them. They used to name every
+  // one, nine times - 446 B gz per document at 34 games (measured 2026-09-30).
+  it("names no game, so adding one to the table adds no bytes to any page", () => {
+    expect(onTable.length).toBeGreaterThanOrEqual(6);
+    expect(KIT_CSS).not.toMatch(/data-game/);
+    expect(namedIn(KIT_CSS)).toEqual([]);
+  });
+
+  it("the gate can fail: a rule naming a game is caught", () => {
+    const planted = `${KIT_CSS}\n:root .screen:is([data-game="${onTable[0]}"],[data-game="${onTable[1]}"]) .top{color:red}`;
+    expect(namedIn(planted)).toEqual([onTable[0], onTable[1]]);
   });
 });
 

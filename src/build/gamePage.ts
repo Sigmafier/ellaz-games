@@ -615,7 +615,10 @@ export function gamePage(opts: GamePageOptions): string {
     // one the runtime reads off `data-game`, so the preload and the fetch can
     // never name different chunks.
     preloads: lazyPreloadTags(opts.headAssets, base, meta.id),
-    bodyData: { page: "game", game: meta.id, locale },
+    // `data-layout` from the meta, so a Game-table page wears its layout from the
+    // first paint: the corner kind (src/build/kitCss.ts) keys on it, and GameHost
+    // sets the same value again when the game mounts.
+    bodyData: { page: "game", game: meta.id, locale, ...(meta.layout ? { layout: meta.layout } : {}) },
     headerSlot: html`<span id="wallet-slot"></span>`,
     // The header's own chrome. `ground` is the same colour the key art paints
     // behind this game, so the bar is a deep tone of what the page already

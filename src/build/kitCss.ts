@@ -1,6 +1,3 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { K, TOOL_ROLES, type Setting } from "../ui/kinds";
 
 /**
@@ -104,45 +101,34 @@ body.screen .moresheet{border-radius:${K("sheet-radius", "var(--urad,14px)")};co
 .langsheet{border-radius:${K("sheet-radius", "var(--urad)")};color:${K("sheet-ink", "inherit")}}`;
 
 /**
- * THE GAMES ON THE TABLE, read from the metas that say `layout: "table"` - the
- * line layout-is-declared.test.ts pins - so a game joining the table gets its
- * corners in the same change, and nobody keeps a second list. Read from disk
- * because this module is NODE ONLY (the document emitter and the tests), and
- * the page already carries `data-game`, so the corners are there from the first
- * paint rather than after the game's chunk sets `data-layout`.
- */
-const GAMES = join(dirname(fileURLToPath(import.meta.url)), "..", "games");
-export const TABLE_GAMES: readonly string[] = readdirSync(GAMES, { withFileTypes: true })
-  .filter((e) => e.isDirectory() && existsSync(join(GAMES, e.name, "meta.ts")))
-  .map((e) => readFileSync(join(GAMES, e.name, "meta.ts"), "utf8"))
-  .filter((src) => /^ {2}layout: "table",$/m.test(src))
-  .map((src) => /\bid: *"([^"]+)"/.exec(src)?.[1] ?? "")
-  .filter(Boolean)
-  .sort();
-
-/**
  * THE CORNERS (K4; the table round's tab A, tablePhone / tablePc). On a table
  * game the bar's ground goes and its buttons sit as small plaques on the page,
  * home and the name in one corner, coins, language, sound and "..." in the
  * other - off the mat, which starts under them. The bar keeps its height, so the
  * board below is exactly as big as it was; only what is drawn in it changes.
  *
- * `:root .screen[data-page=game]:is(...)` is (0,5,0), one class more than a
- * theme sheet's own rule for the bar (`:root[data-theme=x] body.screen .top`),
- * so it wins on these pages only; everywhere else that rule still paints the
- * bar. A theme reaches the corners through the corner settings, never a
- * selector. The prefix is written as few times as the rules allow: it ships
- * in every screen document.
+ * KEYED ON ONE ATTRIBUTE, `data-layout="table"`, which the page emitter puts on
+ * <body> from the game's own meta (src/build/gamePage.ts) - so the corners are
+ * there from the first paint, and these rules are the same bytes however many
+ * games are on the table. They used to name every table game's id, nine times
+ * over: 6,361 B raw and 446 B gz in EVERY game page's stylesheet at 34 games,
+ * growing with each game moved (maze's document, two arms, 2026-09-30).
+ * button-kit.test.ts holds the rules free of any game id.
+ *
+ * `:root .screen[data-page=game][data-layout=table]` is (0,5,0), one class more
+ * than a theme sheet's own rule for the bar (`:root[data-theme=x] body.screen
+ * .top`), so it wins on these pages only; everywhere else that rule still paints
+ * the bar. A theme reaches the corners through the corner settings, never a
+ * selector.
  *
  * A PHONE already moves the coins and the language behind "..." (phoneBar.ts).
  * Here they are not drawn in the bar at all before that move, so the corner is
  * right at the first paint instead of shedding two buttons when the script runs.
  */
-const ON_TABLE = `:root .screen[data-page="game"]:is(${TABLE_GAMES.map((id) => `[data-game="${id}"]`).join(",")}) .top`;
+const ON_TABLE = ':root .screen[data-page="game"][data-layout="table"] .top';
 const PLAQUE = `${ON_TABLE} :is(.hbtn:not(.moresheet *),.wallet-wrap:not(.moresheet *),.in>.ubtn)`;
 
-const cornerCss = TABLE_GAMES.length
-  ? `
+const cornerCss = `
 ${ON_TABLE}{background:${K("corner-ground", "transparent")};box-shadow:none}
 ${ON_TABLE}::after{content:none}
 ${ON_TABLE} .gname{color:${K("corner-title-ink", "var(--text)")}}
@@ -151,8 +137,7 @@ ${PLAQUE}{background:${K("corner-fill", "color-mix(in srgb,var(--text) 6%,transp
 ${PLAQUE}:is(:hover,:active){background:${K("corner-fill-hover", "color-mix(in srgb,var(--text) 11%,transparent)")}}
 ${ON_TABLE} .in>.wallet-wrap #wallet-slot>*{color:inherit}
 @media (min-width:720px){${ON_TABLE} .wallet-wrap{order:1}${ON_TABLE} :is(.lang,[data-sound],.more){order:2}}
-@media (max-width:719px){${ON_TABLE} .in>:is(.lang,.wallet-wrap){display:none}}`
-  : "";
+@media (max-width:719px){${ON_TABLE} .in>:is(.lang,.wallet-wrap){display:none}}`;
 
 /** Motion is the player's call before it is a style's: reduced motion drops every kind's. */
 const stillCss = `
