@@ -3,6 +3,7 @@ import type { GameContext, RewardTier, SessionSpec } from "@sdk/index";
 import type { Locale } from "@i18n/index";
 import { GameChrome, type ChromeLevel } from "@ui/GameChrome";
 import { BOARD_CLASS, boardVars } from "@ui/boardSize";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { burst, haptic, popEl } from "@juice/index";
 import { Prompt, useGameSession, useRememberedLevel, winMoment } from "@shared/index";
 import { PetArt } from "./PetArt";
@@ -382,6 +383,7 @@ export function PetGame({ ctx }: { ctx: GameContext }) {
       <button
         ref={stageRef}
         type="button"
+        data-own-chrome=""
         className={`ellaz-play-surface ${BOARD_CLASS}`}
         aria-label={T.cuddleAria(pet.name[ctx.locale])}
         onClick={(e) => onCare("cuddle", e.currentTarget)}
@@ -389,7 +391,7 @@ export function PetGame({ ctx }: { ctx: GameContext }) {
           position: "relative",
           // chrome 193: the head row, the Prompt chip and the growth bar -
           // the care row is the footer, and the footer sits beside the board on a PC, so it costs no height. measured 2026-09-14 by repro-board-fills-the-window.mjs at every PC arm.
-          ...boardVars({ vw: 88, vh: 44, cap: 380, chrome: 193 }),
+          ...boardVars({ vw: 88, vh: 44, cap: 380, chrome: (isTablePage() ? TABLE_CHROME : 111) + 82 }),
           aspectRatio: "1",
           boxSizing: "border-box",
           border: "none",

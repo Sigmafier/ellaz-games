@@ -11,6 +11,7 @@ import {
 import type { GameContext, RewardTier, SessionSpec } from "@sdk/index";
 import { Button } from "@ui/components";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { TABLE_CHROME, isTablePage } from "@ui/GameTable";
 import { GameChrome, type ChromeLevel } from "@ui/GameChrome";
 import { burst, haptic, shake } from "@juice/index";
 import { useGameSession, useRememberedLevel, winMoment } from "@shared/index";
@@ -794,6 +795,7 @@ export function BlocksGame({ ctx }: { ctx: GameContext }) {
 
       <div
         ref={boardRef}
+        data-own-chrome=""
         className={pc ? `ellaz-play-surface ${BOARD_CLASS}` : "ellaz-play-surface"}
         // The board is spatial and its controls are directional, so it is
         // pinned LTR inside the Hebrew app - otherwise column 0 draws on the
@@ -820,7 +822,7 @@ export function BlocksGame({ ctx }: { ctx: GameContext }) {
                   vw: 88,
                   vh: Math.round(((52 * L.cols) / L.rows) * 100) / 100,
                   cap: 30 * L.cols,
-                  chrome: 159,
+                  chrome: (isTablePage() ? TABLE_CHROME : 111) + 48,
                   ratio: L.cols / L.rows,
                 }),
                 aspectRatio: `${L.cols} / ${L.rows}`,

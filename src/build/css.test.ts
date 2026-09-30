@@ -60,6 +60,12 @@ describe("stripCssComments", () => {
     // check that a rule was not eaten along with a comment.
     const braces = (s: string) => (s.match(/\{/g) ?? []).length;
     expect(braces(out)).toBe(braces(DOCUMENT_CSS.replace(/\/\*[\s\S]*?\*\//g, "")));
-    expect(out.length).toBeLessThan(DOCUMENT_CSS.length * 0.5);
+    // What it removed is the comments' own mass, however many rules there are.
+    // This used to be `out.length < half of DOCUMENT_CSS`, which is a claim about
+    // the RULES too: every game that joins the Game table adds its id to the
+    // corner selectors, so that half went stale once 30 games were on the table
+    // (27125 of 53862 chars, 2026-09-30) with the stripper unchanged.
+    const commentChars = [...DOCUMENT_CSS.matchAll(/\/\*[\s\S]*?\*\//g)].reduce((n, m) => n + m[0].length, 0);
+    expect(DOCUMENT_CSS.length - out.length).toBeGreaterThan(commentChars * 0.9);
   });
 });

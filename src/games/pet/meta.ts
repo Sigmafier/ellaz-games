@@ -12,6 +12,7 @@ export const meta: GameMeta = {
   orientation: "any",
   renderer: "dom",
   tier: "simple",
+  layout: "table",
   ownsChrome: true,
   // The biggest this creature has ever grown. A number that can only go up and
   // can never be taken away - see `scoreReport` in logic.ts, which is the one
