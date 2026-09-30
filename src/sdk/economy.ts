@@ -201,3 +201,32 @@ export function starsFor(g: RewardGrant): number {
   // people sharing one profile. See VERSUS_MATCH_COINS.
   return g.reason === "milestone" || g.reason === "versus_complete" ? 0 : 1;
 }
+
+/**
+ * The reasons a DIAMOND is paid for. Diamonds are the site-wide second
+ * currency the operator ruled on 2026-09-29 (G13, games-doctrine): each career
+ * game keeps its own gold, while diamonds are earned in ANY career game and
+ * spent on special things (looks, special gear) in any career game. Site coins
+ * stay exactly as they are, for the World room.
+ *
+ * DELIBERATELY NOT A `RewardReason`. Adding it to that union would put it one
+ * step from `GAME_REASONS` and `KNOWN_REASONS`, and a boss is not a coin
+ * payout: a career game that could report `boss_defeated` through
+ * `ctx.rewards` would be minting SITE coins for career bosses. The two
+ * currencies share this file - the one place amounts are decided - and nothing
+ * else. `economy.test.ts` pins `coinsFor` and `starsFor` at 0 for it.
+ */
+export type DiamondReason = "boss_defeated";
+
+/** One diamond per boss beaten, in any career game (G13). Tune here, never at a call site. */
+export const BOSS_DIAMONDS = 1;
+
+/**
+ * What a diamond grant is worth. An unknown reason pays ZERO, for the same
+ * reason `coinsFor` fails closed: honouring a typo is how an economy is born.
+ * The caller passes a reason and never an amount - `sdk/diamonds.ts` reads it
+ * from here.
+ */
+export function diamondsFor(reason: string): number {
+  return reason === "boss_defeated" ? BOSS_DIAMONDS : 0;
+}

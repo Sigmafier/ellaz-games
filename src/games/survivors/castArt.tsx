@@ -29,5 +29,8 @@ export function CastArt({ who, width = "100%", height = "100%", style }: { who: 
   );
 }
 
-/** The robot filling whatever box it is put in - what the kit's screens call `hero`. */
-export const RobotFill = (): ReactElement => <CastArt who="robot" />;
+/**
+ * The robot filling whatever box it is put in - what the kit's screens call `hero`.
+ * `filter` is a worn look's CSS (diamondShelf.ts LOOKS), a hue turn on the same sheet.
+ */
+export const RobotFill = ({ filter }: { filter?: string } = {}): ReactElement => <CastArt who="robot" style={filter ? { filter } : undefined} />;

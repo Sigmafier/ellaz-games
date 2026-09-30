@@ -282,6 +282,8 @@ export function ogCardText(route: Route, meta?: GameMeta): { title: string; sub:
       ? site.worldPage.h1
       : route.kind === "boards"
         ? site.boardsPage.h1
+        : route.kind === "career"
+          ? site.careerPage.h1
         : route.kind === "guideIndex"
           ? GUIDE_CHROME[route.locale].indexH1
           : undefined;

@@ -669,7 +669,11 @@ export function bootContentPage(ctx: PageContext): void {
     // The boards are a short column that never fills a screen and never needs
     // this, and their stage carries no full-height rule to fight with.
     const box = frame.closest<HTMLElement>(".stage .box");
-    if (box && ctx.kind !== "boards") fitStage(frame, box);
+    if (box && ctx.kind !== "boards" && ctx.kind !== "career") fitStage(frame, box);
+
+    // The Career page (P4) is fetched only here, in the lazy `career` chunk, so its
+    // words, the kit rules and the diamond balance reach no other page's visit.
+    const Career = ctx.kind === "career" ? (await import("./career/Career")).Career : null;
 
     const root = createRoot(frame);
     root.render(
@@ -677,6 +681,8 @@ export function bootContentPage(ctx: PageContext): void {
         <World locale={locale} />
       ) : ctx.kind === "boards" ? (
         <Boards locale={locale} />
+      ) : Career ? (
+        <Career locale={locale} />
       ) : embed ? (
         // The embed variant: this frame has no emitted header, so the host's
         // own bar is the only chrome there is - and it draws MUTE alone. No

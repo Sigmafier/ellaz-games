@@ -218,3 +218,19 @@ describe("personal bests are part of what gets backed up", () => {
     expect(await pushNow()).toBe(true);
   });
 });
+
+describe("a diamond change is never skipped as already sent", () => {
+  // Diamonds live outside the profile, so the only thing that makes a push after
+  // a boss differ from the push before it is the balance in the records walk.
+  // `sdk/diamonds.ts` calls `pushNow` on every landed change; if the dedupe
+  // fingerprint ignored records, that push would be dropped as "already sent".
+  it("pushes again when only the diamond balance moved", async () => {
+    const { pushNow } = await freshSync();
+    fake.records = { "ellaz:diamonds:score:balance": 1 };
+    expect(await pushNow()).toBe(true);
+    fake.records = { "ellaz:diamonds:score:balance": 2 };
+    expect(await pushNow()).toBe(true);
+    expect(fake.pushed).toHaveLength(2);
+    expect(fake.pushed[1].records).toEqual({ "ellaz:diamonds:score:balance": 2 });
+  });
+});

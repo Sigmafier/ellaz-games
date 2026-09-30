@@ -50,6 +50,20 @@ export const MAX_RECORDS = 200;
  */
 const RECORD_KEY = /^ellaz:[A-Za-z0-9-]+:score:[A-Za-z0-9_-]+$/;
 
+// ONE KEY OF THIS SHAPE IS NOT A PERSONAL BEST: `ellaz:diamonds:score:balance`,
+// the site-wide diamond balance (`sdk/diamonds.ts`). It takes this shape on
+// purpose. A restore applies exactly two things - the profile and this walk -
+// and the balance lives under its own key rather than on the profile, so it
+// rides the walk: read into a backup, written back by a restore, put back by
+// its undo. Being restorable is the point, exactly as the coins in the profile
+// are. Choosing the shape instead of teaching this file a second key costs the
+// first visit NOTHING; the one-key exception cost 56 B gz on a shell with 25 B
+// of headroom (two builds, one tree, 2026-09-30 - see the diamonds.ts header).
+//
+// No board ever shows it: `boardsView.myGames` only surfaces games in the
+// catalogue, and `records.test.ts` pins that no game has the id "diamonds".
+// The one place it shows is Backup's tally, which counts it as a record.
+
 export function isRecordKey(key: string): boolean {
   return typeof key === "string" && RECORD_KEY.test(key);
 }

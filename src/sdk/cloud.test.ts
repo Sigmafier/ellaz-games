@@ -3,6 +3,8 @@ import { createCloud, CLOUD_KEY, type CloudStore, type FetchLike } from "./cloud
 import { emptyProfile, migrateProfile } from "./profile";
 import { normalizeBackupCode } from "./backupCode";
 import { mulberry32 } from "@shared/rng";
+import { adoptRecords, readRecords, type RecordStore } from "./records";
+import { createDiamonds, type DiamondStore } from "./diamonds";
 
 function memStore(seed?: Record<string, string>): CloudStore {
   const map = new Map(Object.entries(seed ?? {}));
@@ -399,5 +401,52 @@ describe("reading every score row (scores)", () => {
       store: memStore(),
     });
     expect(await cloud.scores()).toBeNull();
+  });
+});
+
+describe("a restore brings the diamond balance back", () => {
+  /** One map seen as both a record store and a diamond store - one device's localStorage. */
+  function device(seed: Record<string, string> = {}): RecordStore & DiamondStore {
+    const all = new Map(Object.entries(seed));
+    return {
+      keys: () => [...all.keys()],
+      get: (k) => all.get(k) ?? null,
+      set: (k, v) => (all.set(k, v), true),
+      read: (k) => all.get(k) ?? null,
+      write: (k, v) => (all.set(k, v), true),
+    };
+  }
+
+  it("earned on one device, backed up, restored onto a fresh one: same balance", async () => {
+    const backend = fakeBackend();
+    const phone = device();
+    const d = createDiamonds(phone);
+    d.grant("boss_defeated", "survivors:run-1");
+    d.grant("boss_defeated", "survivors:run-2");
+    d.grant("boss_defeated", "survivors:run-3");
+    d.spend(1);
+    expect(d.count).toBe(2);
+
+    // The phone pushes exactly what cloudSync would: the profile and its records walk.
+    const donor = createCloud({ fetchImpl: backend.fetchImpl, store: memStore(), rng: mulberry32(2) });
+    expect(await donor.push({ profile: { ...emptyProfile(), coins: 3 }, records: readRecords(phone) })).toBe(true);
+
+    // A new tablet types the code, and Backup applies the records step.
+    const tablet = device();
+    const restored = await createCloud({ fetchImpl: backend.fetchImpl, store: memStore() }).restore(donor.identity()!.code);
+    expect(restored).not.toBeNull();
+    adoptRecords(restored!.records, tablet);
+
+    expect(createDiamonds(tablet).count).toBe(2);
+  });
+
+  it("a document from before diamonds existed restores cleanly to none", async () => {
+    const backend = fakeBackend();
+    const donor = createCloud({ fetchImpl: backend.fetchImpl, store: memStore(), rng: mulberry32(2) });
+    await donor.push({ profile: { ...emptyProfile(), coins: 3 }, records: { "ellaz:snake:score:default": 10 } });
+    const tablet = device();
+    const restored = await createCloud({ fetchImpl: backend.fetchImpl, store: memStore() }).restore(donor.identity()!.code);
+    adoptRecords(restored!.records, tablet);
+    expect(createDiamonds(tablet).count).toBe(0);
   });
 });

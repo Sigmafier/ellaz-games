@@ -11,6 +11,10 @@ import {
   undoRecords,
   type RecordStore,
 } from "./records";
+import { DIAMONDS_KEY } from "./diamonds";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** An in-memory store, since the node test env has no localStorage. */
 function fakeStore(seed: Record<string, string> = {}): RecordStore & { all: Map<string, string> } {
@@ -237,5 +241,38 @@ describe("building a record key", () => {
     expect(recordKey("snake", "hard:y")).toBeNull();
     expect(recordKey("", "hard")).toBeNull();
     expect(recordKey("snake", "")).toBeNull();
+  });
+});
+
+describe("the diamond balance travels with the records", () => {
+  // Diamonds live under their own key, not on the profile (sdk/diamonds.ts has
+  // the measurement). A restore applies exactly the profile and this walk, so the
+  // balance takes the record SHAPE and rides it - with zero bytes added here.
+  it("has the record shape, so the walk carries it with no change to this file", () => {
+    expect(isRecordKey(DIAMONDS_KEY)).toBe(true);
+    expect(parseRecordKey(DIAMONDS_KEY)).toEqual({ game: "diamonds", board: "balance" });
+  });
+
+  it("is read into a backup, as the number it is", () => {
+    const store = fakeStore({ [DIAMONDS_KEY]: "7", "ellaz:snake:score:default": "4200" });
+    expect(readRecords(store)).toEqual({ [DIAMONDS_KEY]: 7, "ellaz:snake:score:default": 4200 });
+  });
+
+  it("is written back by a restore, and put back by its undo", () => {
+    const store = fakeStore({ [DIAMONDS_KEY]: "2" });
+    expect(adoptRecords({ [DIAMONDS_KEY]: 9 }, store)).toBe(1);
+    expect(store.all.get(DIAMONDS_KEY)).toBe("9");
+    expect(undoRecords(store)).toBe(true);
+    expect(store.all.get(DIAMONDS_KEY)).toBe("2");
+  });
+
+  it("no game may ever take the id \"diamonds\" - its score keys would BE the balance", () => {
+    // Persisted ids are forever, so this is checked against every meta.ts on disk.
+    const games = join(dirname(fileURLToPath(import.meta.url)), "..", "games");
+    const metas = readdirSync(games)
+      .map((d) => join(games, d, "meta.ts"))
+      .filter((p) => existsSync(p));
+    expect(metas.length).toBeGreaterThan(30); // the population, so an empty walk cannot pass
+    for (const p of metas) expect(readFileSync(p, "utf8"), p).not.toMatch(/\bid:\s*["']diamonds["']/);
   });
 });

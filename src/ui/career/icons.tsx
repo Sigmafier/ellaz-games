@@ -113,7 +113,31 @@ const DRAW = {
     </g>
   ),
   box: () => <rect x="-14" y="-14" width="28" height="28" rx="6" fill="#dfe6e9" {...s} />,
+  // P4: the site-wide diamond, and a small robot a look recolours (the shelf's capsules).
+  gem: () => (
+    <g>
+      <path d="M-9 -7 H9 L13 -1 L0 13 L-13 -1 Z" fill="#7fd4ff" stroke="#0b1a33" strokeWidth={2.5} strokeLinejoin="round" />
+      <path d="M-13 -1 H13 M-4 -7 L0 13 L4 -7" fill="none" stroke="#0b1a33" strokeWidth={1.4} opacity={0.55} />
+    </g>
+  ),
+  bot: (c = "#e84343") => (
+    <g stroke={INK} strokeWidth={2.5}>
+      <path d="M0 -20 V-14" />
+      <rect x="-11" y="-14" width="22" height="14" rx="2" fill={c} />
+      <rect x="-6" y="-10" width="4" height="4" fill="#241c17" strokeWidth={0} />
+      <rect x="2" y="-10" width="4" height="4" fill="#241c17" strokeWidth={0} />
+      <rect x="-13" y="0" width="26" height="14" rx="2" fill={c} />
+      <rect x="-9" y="14" width="6" height="6" fill={c} />
+      <rect x="3" y="14" width="6" height="6" fill={c} />
+    </g>
+  ),
+  botGold: () => DRAW_BOT("#ffd166"),
+  botIce: () => DRAW_BOT("#bdefff"),
 } satisfies Record<string, (c?: string) => ReactElement>;
+
+function DRAW_BOT(c: string): ReactElement {
+  return DRAW.bot(c);
+}
 
 export type CareerIconName = keyof typeof DRAW;
 

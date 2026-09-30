@@ -34,19 +34,31 @@ import { nodeStates, totalStars } from "../../shared/career/progress";
 import { readSave, writeSave, type CareerSave, type CareerStore } from "../../shared/career/save";
 import { buy, shopView } from "../../shared/career/shop";
 import { STAT_IDS } from "../../shared/career/stats";
+import { diamonds } from "@sdk/diamonds";
+import { SLOT_IDS, type SlotId } from "../../shared/career/gear";
 import { CAREER_KEY, NEON_GEAR, NEON_SHOP, STAT_MAX, bankRun, simStats, statsOf, type Settlement } from "./careerRules";
+import { LOOKS, ROW, buyEpic, payBossDiamond, pressLook, readLooks, shelfRows, type LookId, type LooksSave } from "./diamondShelf";
 import { neonCareerWords } from "./careerWords";
-import { Chooser, GoldPill, Intro, Result } from "./careerScreens";
+import { Chooser, GoldPill, Intro, Result, SlotPick } from "./careerScreens";
 import { RobotFill } from "./castArt";
 import type { CareerResult, CareerStats } from "./types";
 import { levelRow, NEON_CAMPAIGN } from "./worlds";
 
 type Kit = Awaited<ReturnType<typeof loadCareerKit>>;
+
+/**
+ * The site's Career page, from this game's page. RELATIVE, because a game may not
+ * import the portal's path helpers (games talk only to GameContext): the game page
+ * is `<base>[<locale>/]games/survivors/`, so two levels up is the same base and
+ * locale the Career page lives under, on either host.
+ */
+const CAREER_PAGE = "../../career/";
 type Screen = "lobby" | "shop" | "gear" | "intro" | "run" | "result";
 
 /** The half of the scene this layer drives. */
 export interface CareerSceneApi {
-  startCareer(levelId: string, stats: CareerStats): void;
+  /** `look` is the worn diamond look, or null for the plain red robot. */
+  startCareer(levelId: string, stats: CareerStats, look: LookId | null): void;
   leaveCareer(): void;
   startFromChrome(): void;
   restartFromChrome(): void;
@@ -110,6 +122,12 @@ export function CareerLayer(props: {
   const [level, setLevel] = useState<string | null>(null);
   const [paid, setPaid] = useState<Settlement | null>(null);
   const [gearBadge, setGearBadge] = useState(false);
+  // P4: the site's diamonds (read fresh after every change), Neon's looks, the
+  // diamond the last level paid, and the slot question an epic piece asks.
+  const [gems, setGems] = useState(() => diamonds.count);
+  const [looks, setLooks] = useState<LooksSave>(() => readLooks(store));
+  const [paidGem, setPaidGem] = useState(0);
+  const [askSlot, setAskSlot] = useState(false);
 
   useEffect(() => {
     if (props.mode !== "career" || kit) return;
@@ -126,6 +144,11 @@ export function CareerLayer(props: {
   // is what makes "once" true even if it were called again.
   props.endRef.current = (r: CareerResult, token: string) => {
     const out = bankRun(store, token, r, Math.random);
+    // The boss diamond rides the SAME token as the gold, and `grant` keeps its own
+    // list of paid tokens, so a run reported twice pays one diamond.
+    const gem = payBossDiamond(diamonds, r, token);
+    setPaidGem(gem);
+    setGems(diamonds.count);
     if (out) {
       setSave(out.save);
       setPaid(out);
@@ -160,7 +183,7 @@ export function CareerLayer(props: {
   const play = (id: string) => {
     setLevel(id);
     setPaid(null);
-    props.scene.current?.startCareer(id, simStats(save));
+    props.scene.current?.startCareer(id, simStats(save), looks.worn);
     setScreen("intro");
   };
   const toMap = () => {
@@ -175,16 +198,39 @@ export function CareerLayer(props: {
     );
   }
 
-  const purses = [{ currency: "gold" as const, amount: save.gold }];
+  const kw = kit?.careerWords(ctx.locale);
+  const purses = [{ currency: "gold" as const, amount: save.gold }, { currency: "diamond" as const, amount: gems, label: kw?.diamonds, href: CAREER_PAGE }];
+  const shelf = shelfRows(looks, gems, { wear: kw?.wear ?? "Wear", worn: kw?.worn ?? "Wearing", ...w.looks });
+  const afterShelf = (r: ReturnType<typeof pressLook>) => {
+    setGems(diamonds.count);
+    if (!r.ok) return;
+    setLooks(r.looks);
+    setSave(r.save);
+    ctx.audio.play(r.spent > 0 ? "coin" : "pop");
+  };
+  const onShelf = (id: string): boolean => {
+    if (id === ROW.gold || id === ROW.ice) {
+      afterShelf(pressLook(diamonds, store, id === ROW.gold ? "gold" : "ice"));
+      return true;
+    }
+    // The shop only hands BUY back for a capsule the balance covers (it wiggles
+    // otherwise), so the epic piece goes straight to its one question: which slot.
+    if (id === ROW.epic) {
+      setAskSlot(true);
+      return true;
+    }
+    return false;
+  };
   const worldNames = { city: w.world.city, frost: w.world.frost, lava: w.world.lava };
-  const hero = <RobotFill />;
+  const hero = <RobotFill filter={looks.worn ? LOOKS[looks.worn].css : undefined} />;
   if (screen === "lobby" || screen === "shop" || screen === "gear") {
     const inner = !kit ? (
       <div style={{ width: "100%", height: "100%", background: "#0b0e22" }} />
     ) : screen === "shop" ? (
-      <kit.VendingShop locale={ctx.locale} shelves={[{ currency: "gold", rows: shopView(NEON_SHOP, save) }]} purses={purses} hero={hero}
+      <kit.VendingShop locale={ctx.locale} shelves={[{ currency: "gold", rows: shopView(NEON_SHOP, save) }, { currency: "diamond", rows: shelf }]} purses={purses} hero={hero}
         onBack={() => setScreen("lobby")}
         onBuy={(id) => {
+          if (onShelf(id)) return;
           const r = buy(NEON_SHOP, save, id);
           if (!r.ok) return;
           writeAndSet(r.save);
@@ -216,6 +262,11 @@ export function CareerLayer(props: {
         <div role="dialog" aria-modal="true" aria-label={`${props.title} - ${w.career}`}
           style={{ position: "fixed", left: 0, right: 0, top: "var(--hh, 0px)", bottom: 0, zIndex: 60, overscrollBehavior: "contain" }}>
           {inner}
+          {askSlot && kw ? (
+            <SlotPick title={kw.pickSlot} slots={SLOT_IDS.map((id) => ({ id, label: kw.slot[id] }))} closeLabel={kw.back}
+              onPick={(slot: SlotId) => { setAskSlot(false); afterShelf(buyEpic(diamonds, store, slot)); }}
+              onClose={() => setAskSlot(false)} />
+          ) : null}
         </div>
       </BodyLayer>
     );
@@ -233,9 +284,8 @@ export function CareerLayer(props: {
     );
   }
   if (screen === "result") {
-    const kw = kit?.careerWords(ctx.locale);
     return (
-      <Result view={{ won: paid?.won ?? props.phase === "won", stars: paid?.stars ?? 0, gold: paid?.gold ?? 0, drop: paid?.drop ?? null }} w={w}
+      <Result view={{ won: paid?.won ?? props.phase === "won", stars: paid?.stars ?? 0, gold: paid?.gold ?? 0, drop: paid?.drop ?? null, diamond: paidGem }} w={w}
         tierColor={(t) => (kit?.TIER_COLOR as Record<string, string> | undefined)?.[t] ?? "#b2bec3"}
         tierWord={(t) => (kw?.tier as Record<string, string> | undefined)?.[t] ?? t}
         onMap={toMap}

@@ -11,6 +11,7 @@ import {
   type DeviceState,
 } from "@sdk/index";
 import { Button } from "@ui/components";
+import { tallyRecords } from "./backupTally";
 import { shake } from "@juice/index";
 
 // The backup card — the one place this app talks to a grown-up.
@@ -304,13 +305,22 @@ function Tally({
   state: DeviceState;
   t: (key: string) => string;
 }) {
+  const tally = tallyRecords(state.records);
   return (
     <p style={{ fontSize: 14, margin: "0 0 4px" }}>
       <span style={{ color: "var(--text-dim)" }}>{label}</span>{" "}
       <strong>
         {state.profile.coins} {t("coinsLabel")} · {state.profile.stars} {t("starsEarned")} ·{" "}
-        {state.profile.owned.length} {t("itemsLabel")} · {Object.keys(state.records).length}{" "}
-        {t("recordsLabel")}
+        {state.profile.owned.length} {t("itemsLabel")} · {tally.records} {t("recordsLabel")} ·{" "}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "middle" }}>
+          {/* A gem, drawn in the text's own colour. No word beside it: a label would
+              be one more key in the shell's dictionaries (the operator dropped the
+              Home gem button, 2026-09-30, to keep the first visit at +62 B). */}
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+            <path d="M7.2 5h9.6l3.6 5L12 20 3.6 10zM3.6 10h16.8M9.8 5 12 20l2.2-15" />
+          </svg>
+          {tally.diamonds}
+        </span>
       </strong>
     </p>
   );

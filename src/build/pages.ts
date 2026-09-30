@@ -37,6 +37,7 @@ import { toyboxPage } from "./toyboxPage";
 import { toyboxArtFiles } from "./toyboxArt";
 import {
   boardsPage,
+  careerPage,
   categoryPage,
   homePage,
   homeShellBody,
@@ -96,6 +97,9 @@ export function renderRoute(route: Route, base: string, headAssets?: HeadAssets)
   }
   if (route.kind === "boards") {
     return boardsPage({ locale: route.locale, games: GAMES, base, indexable, headAssets });
+  }
+  if (route.kind === "career") {
+    return careerPage({ locale: route.locale, games: GAMES, base, indexable, headAssets });
   }
   // A category page is an ARTICLE about a group, not a screen in the app, so
   // it never sets `renderDocument`'s own `headAssets` and boots nothing -

@@ -417,6 +417,9 @@ export default defineConfig({
           "games/**",
           "world/**",
           "boards/**",
+          // P4: the Career page, at `/career/` in the canonical locale. The gate
+          // named it the first time it was emitted (career/index.html, 2026-09-30).
+          "career/**",
           // THE GUIDES NEED NO ENTRY OF THEIR OWN EITHER, and the argument is
           // the print packs' one directly above. They are emitted at
           // `/he/guides/...` and `/fr/guides/...`, so the DERIVED locale line at
@@ -591,6 +594,19 @@ export default defineConfig({
           // And not the `src/ui/` catch-all either, which would put it in the shell.
           if (/\/src\/ui\/career\/load\.ts$/.test(path)) return undefined;
           if (/\/src\/(shared|ui)\/career\//.test(path)) return "career";
+          // P4 (2026-09-30): the site's DIAMONDS and Neon's level list ride here too.
+          // `src/sdk/diamonds.ts` lives under src/sdk/, so the catch-all below would
+          // pin it to the SHELL the moment a career game imports it (+472 B gz on
+          // the first visit, measured - see its header). `worlds.ts` is pure data
+          // the site's Career page reads to say "Frost - level 2 of 4"; left to the
+          // game rule it would sit in `game-survivors`, and the Career page would
+          // fetch the whole game to read twelve ids. Neon already imports the
+          // career chunk statically (its rules), so neither costs a Neon visit.
+          if (/\/src\/sdk\/diamonds\.ts$/.test(path)) return "career";
+          if (/\/src\/games\/survivors\/(worlds|careerWords)\.ts$/.test(path)) return "career";
+          // The Career PAGE itself: fetched by PageApp's dynamic import on /career/
+          // only. Left to the `src/portal/` rules it would join the shell.
+          if (/\/src\/portal\/career\//.test(path)) return "career";
 
           // `meta.ts` is imported STATICALLY by the portal catalog so the home grid
           // can render without any game code. It must never land in a lazy game
@@ -725,6 +741,7 @@ export default defineConfig({
 
           if (/\/src\/portal\/(PageApp|GameHost|Boards)\.tsx$/.test(path)) return "page";
           if (/\/src\/portal\/world\/(World|Backup)\.tsx$/.test(path)) return "page";
+          if (/\/src\/portal\/world\/backupTally\.ts$/.test(path)) return "page";
           // `selectionDismiss.ts` clears a stray highlight off a game board and
           // is imported by `GameHost` alone. It is named HERE rather than left
           // to the catch-all below, which claims everything under src/portal/

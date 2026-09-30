@@ -32,6 +32,9 @@ export interface NeonCareerWords {
   stars: string;
   newGear: string;
   start: string;
+  /** P4 - the diamond shelf's three capsules, and the result screen's diamond line. */
+  looks: { gold: string; ice: string; epic: string };
+  diamond: string;
 }
 
 const WORDS: Record<Locale, NeonCareerWords> = {
@@ -42,6 +45,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     level: "Level {n}", boss: "Boss", clear: "Level clear!", lost: "Out of hearts",
     map: "Back to map", retry: "Retry", gold: "Gold", best: "Best", stars: "Stars",
     newGear: "New gear", start: "Start",
+    looks: { gold: "Gold bot", ice: "Ice bot", epic: "Epic gear" }, diamond: "Diamond",
   },
   he: {
     career: "קריירה", quick: "ריצה מהירה", menu: "תפריט",
@@ -50,6 +54,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     level: "שלב {n}", boss: "בוס", clear: "השלב עבר!", lost: "נגמרו הלבבות",
     map: "חזרה למפה", retry: "שוב", gold: "זהב", best: "שיא", stars: "כוכבים",
     newGear: "ציוד חדש", start: "התחלה",
+    looks: { gold: "רובוט זהב", ice: "רובוט קרח", epic: "ציוד אגדי" }, diamond: "יהלום",
   },
   es: {
     career: "Carrera", quick: "Partida rápida", menu: "Menú",
@@ -58,6 +63,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     level: "Nivel {n}", boss: "Jefe", clear: "¡Nivel superado!", lost: "Sin corazones",
     map: "Volver al mapa", retry: "Otra vez", gold: "Oro", best: "Récord", stars: "Estrellas",
     newGear: "Equipo nuevo", start: "Empezar",
+    looks: { gold: "Robot de oro", ice: "Robot de hielo", epic: "Equipo épico" }, diamond: "Diamante",
   },
   sv: {
     career: "Karriär", quick: "Snabbspel", menu: "Meny",
@@ -66,6 +72,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     level: "Nivå {n}", boss: "Boss", clear: "Nivån klar!", lost: "Inga hjärtan kvar",
     map: "Till kartan", retry: "Igen", gold: "Guld", best: "Rekord", stars: "Stjärnor",
     newGear: "Ny utrustning", start: "Starta",
+    looks: { gold: "Guldrobot", ice: "Isrobot", epic: "Episk utrustning" }, diamond: "Diamant",
   },
 };
 

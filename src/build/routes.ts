@@ -28,6 +28,8 @@ export type PageKind =
   | "category"
   | "world"
   | "boards"
+  /** The player's own Career page (P4): emitted per locale, never indexed - it shows a save. */
+  | "career"
   | "embed"
   | "print"
   /** One article, at `/<locale>/guides/<slug>/`. */
@@ -194,6 +196,10 @@ export function worldPath(locale: Locale): string {
 
 export function boardsPath(locale: Locale): string {
   return `${localePrefix(locale)}/boards/`;
+}
+
+export function careerPath(locale: Locale): string {
+  return `${localePrefix(locale)}/career/`;
 }
 
 /**
@@ -389,6 +395,18 @@ export const ROUTES: Route[] = [
       file: fileFor(boardsPath(locale)),
       emit: true,
       indexable: true,
+    }),
+  ),
+  // The Career page. NOINDEX and out of the sitemap: everything on it is read
+  // from the visitor's own device, so a crawler would index an empty shelf.
+  ...LOCALES.map(
+    (locale): Route => ({
+      kind: "career",
+      locale,
+      path: careerPath(locale),
+      file: fileFor(careerPath(locale)),
+      emit: true,
+      indexable: false,
     }),
   ),
   // ONE PER GAME, NOT ONE PER LOCALE - see `embedPath`. Emitted in the

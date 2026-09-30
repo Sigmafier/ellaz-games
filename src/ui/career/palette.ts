@@ -60,5 +60,10 @@ export const P = {
   mintDark: "#1f7a5c",
   glass27: "#ffffff44",
   shade67: "#000000aa",
+  // P4 - the diamond shelf: a blue machine part, its glow, and a price the ink of the gem.
+  gemDeep: "#1f3f86",
+  gemLit: "#3a7bd5",
+  gemGlow: "#7fd4ff",
+  gemInk: "#1d4e9e",
   inkVeil: "#241c17d9",
 } as const;

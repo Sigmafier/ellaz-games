@@ -130,6 +130,12 @@ const shapes: Record<string, (c?: string) => ReactNode> = {
       <circle cy="6" r="13" fill="none" stroke={c} strokeWidth={5} />
       <path d="M0 -20 L9 -10 L0 -2 L-9 -10 Z" fill="#ff5ce1" stroke={K} strokeWidth={2.5} />
     </g>
+  ),  // P4: the site's diamond - one per boss beaten (src/sdk/diamonds.ts).
+  gem: () => (
+    <g>
+      <path d="M-14 -10 H14 L20 -1 L0 20 L-20 -1 Z" fill="#7fd4ff" stroke={K} strokeWidth={3} strokeLinejoin="round" />
+      <path d="M-20 -1 H20 M-6 -10 L0 20 L6 -10" fill="none" stroke={K} strokeWidth={1.8} opacity={0.5} />
+    </g>
   ),
 };
 

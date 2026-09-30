@@ -218,6 +218,8 @@ export interface ResultView {
   gold: number;
   /** "armor:rare" or null. */
   drop: string | null;
+  /** Diamonds this level paid: 1 for a boss beaten the first time this run was reported, else 0. */
+  diamond: number;
 }
 
 /**
@@ -273,6 +275,11 @@ export function Result(props: { view: ResultView; w: NeonCareerWords; tierColor:
             <div role="img" aria-label={`+${view.gold} ${w.gold}`} style={{ display: "flex", alignItems: "center", gap: 10 * u, fontSize: 40 * u, fontWeight: 800, direction: "ltr", textShadow: INK_SHADOW }}>
               <NeonIcon name="gold" size={46 * u} />+{view.gold}
             </div>
+            {view.diamond > 0 ? (
+              <div role="img" aria-label={`+${view.diamond} ${w.diamond}`} style={{ display: "flex", alignItems: "center", gap: 10 * u, fontSize: 40 * u, fontWeight: 800, direction: "ltr", textShadow: INK_SHADOW, filter: "drop-shadow(0 0 12px #7fd4ff)" }}>
+                <NeonIcon name="gem" size={44 * u} />+{view.diamond}
+              </div>
+            ) : null}
             {slot && tier ? (
               <div role="img" aria-label={`${w.newGear}: ${props.tierWord(tier)}`} style={{ position: "relative", width: 104 * u, height: 104 * u, borderRadius: 20 * u, background: "#1c2150", border: `5px solid ${K}`, boxShadow: `0 0 26px ${props.tierColor(tier)}aa`, display: "grid", placeItems: "center" }}>
                 <div style={{ position: "absolute", inset: 5 * u, border: `${6 * u}px solid ${props.tierColor(tier)}`, borderRadius: 14 * u }} />
@@ -318,3 +325,29 @@ export function MenuButton({ label, onPress }: { label: string; onPress: () => v
 
 /** For the tiles' little robot: re-exported so the host has one import for the cast. */
 export { CastArt };
+
+/**
+ * The one question an epic piece asks before it is bought: which slot. Three big
+ * pictures, each a real button, over the shop; a Back to change your mind. Nothing
+ * is spent until a slot is pressed (diamondShelf.ts `buyEpic`).
+ */
+export function SlotPick(props: { title: string; slots: { id: "weapon" | "armor" | "ring"; label: string }[]; closeLabel: string; onPick: (slot: "weapon" | "armor" | "ring") => void; onClose: () => void }): ReactElement {
+  return (
+    <div role="dialog" aria-modal="true" aria-label={props.title} style={{ ...cover("rgba(8,10,26,0.9)", 70), position: "absolute", borderRadius: 0, gap: 22, padding: 16 }}>
+      <div style={{ fontSize: 30, fontWeight: 800, textShadow: INK_SHADOW, color: "#ffd166" }}>{props.title}</div>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
+        {props.slots.map((s) => (
+          <button key={s.id} type="button" aria-label={s.label} onClick={() => props.onPick(s.id)}
+            style={{ width: 108, minHeight: 132, borderRadius: 22, border: `5px solid ${K}`, boxShadow: `0 0 22px #ffd166aa, 0 5px 0 ${K}`, background: "#1c2150", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: FONT, fontSize: 17, fontWeight: 800, cursor: "pointer", touchAction: "manipulation" }}>
+            <NeonIcon name={PIECE[s.id]} size={62} color="#ffd166" />
+            <span>{s.label}</span>
+          </button>
+        ))}
+      </div>
+      <button type="button" onClick={props.onClose}
+        style={{ minHeight: 52, padding: "0 26px", borderRadius: 20, border: `4px solid ${K}`, boxShadow: `0 5px 0 ${K}`, background: "#fff", color: K, fontFamily: FONT, fontSize: 20, fontWeight: 800, cursor: "pointer" }}>
+        {props.closeLabel}
+      </button>
+    </div>
+  );
+}

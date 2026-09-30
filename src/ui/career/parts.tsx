@@ -33,15 +33,20 @@ export function useBox<T extends HTMLElement>(): [RefObject<T>, BoxSize] {
 }
 
 /**
- * The currencies a screen can show. Only the game's own GOLD today.
- * P4 widens this union with the site-wide second currency, and every screen
- * that takes a `Purse` draws it with no other change - that is the typed slot.
+ * The currencies a screen can show: the game's own GOLD, and since P4 the
+ * site-wide DIAMONDS (src/sdk/diamonds.ts, operator ruling G13). Every screen
+ * that takes a `Purse` draws either with no other change.
  */
-export type Currency = "gold";
+export type Currency = "gold" | "diamond";
 
-export interface Purse { currency: Currency; amount: number }
+/**
+ * `label` names the purse for a screen reader; absent, the screen's gold word is used.
+ * `href` makes the pill a LINK - the diamond pill opens the site's Career page, the
+ * one way in since the operator kept it off the Home header (2026-09-30).
+ */
+export interface Purse { currency: Currency; amount: number; label?: string; href?: string }
 
-const CURRENCY_ICON: Record<Currency, string> = { gold: "gold" };
+export const CURRENCY_ICON: Record<Currency, string> = { gold: "gold", diamond: "gem" };
 
 /** a press that is refused: the element shakes and nothing else happens (never `disabled`) */
 export function useWiggle(): [string | null, (id: string) => void] {
@@ -96,11 +101,13 @@ export function Btn3d(props: { label: string; onPress: () => void; style: CSSPro
 
 /** a gold (or later, another currency) pill: icon and number */
 export function PursePill({ purse, label, compact }: { purse: Purse; label: string; compact?: boolean }): ReactElement {
-  return (
-    <div role="img" aria-label={`${label}: ${purse.amount}`} style={{ height: 44, borderRadius: 22, padding: compact ? "0 12px 0 6px" : "0 16px 0 8px", display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 22, background: P.shade67, border: `2px solid ${P.glass27}`, color: P.white, direction: "ltr" }}>
-      <CareerIcon name={CURRENCY_ICON[purse.currency]} size={30} />
-      <span>{purse.amount}</span>
-    </div>
+  const name = `${purse.label ?? label}: ${purse.amount}`;
+  const style = { height: 44, borderRadius: 22, padding: compact ? "0 12px 0 6px" : "0 16px 0 8px", display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 22, background: P.shade67, border: `2px solid ${P.glass27}`, color: P.white, direction: "ltr", textDecoration: "none" } as const;
+  const inner = <><CareerIcon name={CURRENCY_ICON[purse.currency]} size={30} /><span>{purse.amount}</span></>;
+  return purse.href ? (
+    <a href={purse.href} aria-label={name} style={{ ...style, pointerEvents: "auto" }}>{inner}</a>
+  ) : (
+    <div role="img" aria-label={name} style={style}>{inner}</div>
   );
 }
 

@@ -119,6 +119,8 @@ export interface SiteCopy {
   homePage: { title: string; description: string; h1: string; lede: string; body: string[] };
   worldPage: { title: string; description: string; h1: string; lede: string; body: string[] };
   boardsPage: { title: string; description: string; h1: string; lede: string; body: string[] };
+  /** The Career page (P4): every career game's progress, and the diamonds. Noindex - it is the player's own save. */
+  careerPage: { title: string; description: string; h1: string; lede: string; body: string[] };
   notFound: { title: string; h1: string; body: string; back: string };
   /**
    * The embed lane: the section on a game page that hands a stranger the
@@ -239,6 +241,17 @@ const he: SiteCopy = {
       "מה שהלוח לא עושה: הכול נשמר על המכשיר עצמו, אז מחיקה של נתוני הדפדפן מוחקת גם את השיאים. בחדר יש קוד גיבוי, וכדאי לרשום אותו על פתק לפני היום שבו הוא נחוץ.",
     ],
   },
+  careerPage: {
+    title: "הקריירה - Ellaz",
+    description:
+      "כל משחקי הקריירה של Ellaz במקום אחד: איפה אתם בכל משחק, כמה זהב וציוד אספתם, וכמה יהלומים יש לכם.",
+    h1: "הקריירה שלכם",
+    lede: "כל משחק קריירה, איפה אתם בו, והיהלומים שלכם.",
+    body: [
+      "על כל בוס שמנצחים במשחק קריירה מקבלים יהלום אחד. את היהלומים אפשר להוציא בכל משחק קריירה, על מראות מיוחדים ועל ציוד אגדי.",
+      "הכול נשמר על המכשיר הזה. בחדר יש קוד גיבוי שמחזיר גם את היהלומים.",
+    ],
+  },
   notFound: {
     title: "הדף לא נמצא - Ellaz",
     h1: "אין כאן כלום",
@@ -334,6 +347,17 @@ const en: SiteCopy = {
       "The board does not rank everybody, and that is deliberate. Near the top you get a place. Below that you get a percentile, for as long as reading one is still a pleasant thing to do. Everybody else sees their own record and nothing about position at all. No child is ever shown as last.",
       "Names come from a fixed list: one adjective, one animal. Nobody types one, so nothing on the board identifies a child.",
       "What it does not do: all of this lives on the device, so clearing your browser data clears the records with it. There is a backup code in the room, and it is worth writing down before the day you need it.",
+    ],
+  },
+  careerPage: {
+    title: "Your career - Ellaz",
+    description:
+      "Every Ellaz career game in one place: where you are in each, the gold and gear you have found, and your diamonds.",
+    h1: "Your career",
+    lede: "Every career game, where you are in it, and your diamonds.",
+    body: [
+      "Every boss you beat in a career game pays one diamond. Diamonds are spent in any career game, on special looks and epic gear.",
+      "Everything is saved on this device. The backup code in your room brings your diamonds back too.",
     ],
   },
   notFound: {
@@ -452,6 +476,17 @@ const es: SiteCopy = {
       "Lo que la tabla no hace: todo esto vive en el aparato, así que borrar los datos del navegador borra también los récords. En la habitación hay un código de copia, y merece la pena apuntarlo antes del día en que haga falta.",
     ],
   },
+  careerPage: {
+    title: "Tu carrera - Ellaz",
+    description:
+      "Todos los juegos de carrera de Ellaz en un solo lugar: dónde vas en cada uno, el oro y el equipo que encontraste, y tus diamantes.",
+    h1: "Tu carrera",
+    lede: "Cada juego de carrera, dónde vas en él, y tus diamantes.",
+    body: [
+      "Cada jefe que vences en un juego de carrera te da un diamante. Los diamantes se gastan en cualquier juego de carrera, en aspectos especiales y equipo épico.",
+      "Todo se guarda en este dispositivo. El código de copia de tu habitación también recupera tus diamantes.",
+    ],
+  },
   notFound: {
     title: "Página no encontrada - Ellaz",
     h1: "Aquí no hay nada",
@@ -555,6 +590,17 @@ const fr: SiteCopy = {
       "Le tableau ne classe pas tout le monde, et c'est délibéré. Près de la tête, vous voyez votre place exacte. En dessous, un pourcentage, tant qu'il reste agréable à lire. Les autres voient leur propre marque et rien sur leur position. Aucun enfant n'apprendra ici qu'il est dernier.",
       "Les noms viennent d'une liste fermée : un adjectif et un animal. Personne n'écrit le sien, donc rien dans ce tableau n'identifie un enfant.",
       "Ce que le tableau ne fait pas : tout cela vit sur l'appareil, donc effacer les données du navigateur efface aussi les records. Un code de sauvegarde attend dans la chambre, et il vaut mieux le noter avant le jour où il servira.",
+    ],
+  },
+  careerPage: {
+    title: "Ta carrière - Ellaz",
+    description:
+      "Tous les jeux de carrière d’Ellaz au même endroit : où tu en es dans chacun, l’or et l’équipement trouvés, et tes diamants.",
+    h1: "Ta carrière",
+    lede: "Chaque jeu de carrière, où tu en es, et tes diamants.",
+    body: [
+      "Chaque boss battu dans un jeu de carrière rapporte un diamant. Les diamants se dépensent dans n’importe quel jeu de carrière, pour des looks spéciaux et de l’équipement épique.",
+      "Tout est enregistré sur cet appareil. Le code de sauvegarde de ta chambre rapporte aussi tes diamants.",
     ],
   },
   notFound: {
@@ -668,6 +714,17 @@ const sv: SiteCopy = {
       "Listan rangordnar inte alla, och det är med flit. Nära toppen ser du din exakta plats. Längre ner en procentsats, så länge den är trevlig att läsa. Övriga ser sitt eget resultat och ingenting om sin placering. Inget barn får veta här att det kom sist.",
       "Namnen kommer ur en stängd lista: ett adjektiv och ett djur. Ingen skriver sitt eget, så ingenting i listan pekar ut ett barn.",
       "Det listan inte gör: allt det här bor på enheten, så att rensa webbläsarens data rensar också rekorden. En säkerhetskod väntar i rummet, och den är värd att skriva ner innan den dagen kommer då den behövs.",
+    ],
+  },
+  careerPage: {
+    title: "Din karriär - Ellaz",
+    description:
+      "Alla karriärspel på Ellaz på ett ställe: var du är i varje, guldet och prylarna du hittat, och dina diamanter.",
+    h1: "Din karriär",
+    lede: "Varje karriärspel, var du är i det, och dina diamanter.",
+    body: [
+      "Varje boss du besegrar i ett karriärspel ger en diamant. Diamanter spenderas i vilket karriärspel som helst, på speciella utseenden och episk utrustning.",
+      "Allt sparas på den här enheten. Säkerhetskoden i ditt rum tar tillbaka dina diamanter också.",
     ],
   },
   notFound: {

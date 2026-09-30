@@ -33,6 +33,7 @@ import { applyCard, offerCards, type Card } from "./cards";
 // THE CAREER (P3): a level is built by `newCareerRun`, and each world looks the way
 // `groundArt.ts` draws it - this file only calls in, so it does not grow a world.
 import { PLAIN_STATS, careerResult, newCareerRun } from "./careerRun";
+import { LOOKS, type LookId } from "./diamondShelf";
 import { drawCoins, drawDark, drawPools, drawWeather, drawWorldGround, tintFor } from "./groundArt";
 import { inDark } from "./twists";
 import type { CareerResult, CareerStats } from "./types";
@@ -388,6 +389,8 @@ export class SurvivorsScene extends Phaser.Scene {
   private careerLevel: string | null = null;
   private careerStats: CareerStats = PLAIN_STATS;
   private careerToken = "";
+  /** The worn look's colour matrix on the robot, made once and switched on and off. */
+  private lookFilter: Phaser.Filters.ColorMatrix | null = null;
   private runCount = 0;
   /** Which floor the ground Graphics holds, so a level change redraws it and a retry does not. */
   private groundFor = "";
@@ -658,16 +661,45 @@ export class SurvivorsScene extends Phaser.Scene {
    * A career level, from the map. The stats are the save's, reduced by
    * `careerRules.simStats`; the run starts at "ready" behind the level banner.
    */
-  startCareer(levelId: string, stats: CareerStats) {
+  startCareer(levelId: string, stats: CareerStats, look: LookId | null = null) {
     this.careerLevel = levelId;
     this.careerStats = stats;
+    this.wearLook(look);
     this.restart();
+  }
+
+  /**
+   * A diamond look (P4): a hue turn on the robot's own sheet through Phaser 4's
+   * colour matrix, never a second robot. It touches no scale, origin or size -
+   * the birth values `spriteFor` set stay the robot's own. WebGL only: on a
+   * canvas renderer there are no filters, and the plain robot is the honest answer.
+   */
+  private wearLook(look: LookId | null) {
+    if (!this.ship) return;
+    try {
+      if (!look) {
+        if (this.lookFilter) this.lookFilter.active = false;
+        return;
+      }
+      if (!this.lookFilter) {
+        this.ship.enableFilters();
+        this.lookFilter = this.ship.filters?.internal.addColorMatrix() ?? null;
+      }
+      if (!this.lookFilter) return;
+      this.lookFilter.colorMatrix.reset();
+      this.lookFilter.colorMatrix.hue(LOOKS[look].hue);
+      this.lookFilter.colorMatrix.brightness(LOOKS[look].bright, true);
+      this.lookFilter.active = true;
+    } catch {
+      /* no filters on this renderer: the plain robot */
+    }
   }
 
   /** Back to the quick run: its own floor, its own rules, untouched. */
   leaveCareer() {
     if (this.careerLevel === null) return;
     this.careerLevel = null;
+    this.wearLook(null);
     this.restart();
   }
 

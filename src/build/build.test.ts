@@ -240,7 +240,7 @@ describe("every page renders", () => {
       const kind = KIND_OF.get(f.fileName);
       expect(kind, `${f.fileName} is not in the route table`).toBeDefined();
       const boots =
-        shell || kind === "game" || kind === "world" || kind === "boards" || kind === "embed";
+        shell || kind === "game" || kind === "world" || kind === "boards" || kind === "career" || kind === "embed";
       expect(f.source.includes("/assets/index-abc.js"), f.fileName).toBe(boots);
       if (!boots) continue;
       if (shell) {
@@ -262,7 +262,7 @@ describe("every page renders", () => {
       // runtime cannot identify. Written as a union of the BOOTING kinds rather
       // than a literal list, so a new booting kind fails here loudly instead of
       // shipping with a body the runtime silently treats as an app shell.
-      expect(f.source, f.fileName).toMatch(/<body[^>]+data-page="(game|world|boards|embed)"/);
+      expect(f.source, f.fileName).toMatch(/<body[^>]+data-page="(game|world|boards|career|embed)"/);
     }
   });
 
@@ -394,8 +394,10 @@ describe("every page renders", () => {
     // is a chrome-free copy of a game page that would compete with it. Named
     // from the route table rather than by filename - a path predicate has
     // answered confidently about an unfamiliar kind three times in this file.
+    // The Career page (P4) is the third: everything on it is read from the
+    // visitor's own device, so a crawler would index an empty shelf.
     const NOINDEX_ON_PRIMARY = new Set(
-      ROUTES.filter((r) => r.kind === "notFound" || r.kind === "embed").map((r) => r.file),
+      ROUTES.filter((r) => r.kind === "notFound" || r.kind === "embed" || r.kind === "career").map((r) => r.file),
     );
     expect(NOINDEX_ON_PRIMARY.size, "no noindex kinds - the exemption is vacuous").toBeGreaterThan(10);
     const onPrimary = allEmittedFiles("/").filter(
@@ -724,14 +726,14 @@ describe("the lazy chunks a page preloads", () => {
     let checked = 0;
     for (const f of allEmittedFiles(base, assets).filter((x) => x.fileName.endsWith(".html"))) {
       const route = routeFor.get(f.fileName)!;
-      if (route.kind !== "world" && route.kind !== "boards") continue;
+      if (route.kind !== "world" && route.kind !== "boards" && route.kind !== "career") continue;
       const hrefs = preloadHrefs(f.source);
       expect(hrefs, f.fileName).toContain(`${base}${assets.lazy!.page}`);
       expect(hrefs.filter((h) => h.includes("/game-")), f.fileName).toEqual([]);
       checked += 1;
     }
-    // Two page kinds - the room and the boards - once per page language.
-    expect(checked).toBe(2 * LOCALES.length);
+    // Three page kinds - the room, the boards and the Career page - once per page language.
+    expect(checked).toBe(3 * LOCALES.length);
   });
 
   it.each(BASES)("base %s: every preload href carries the base", (base) => {

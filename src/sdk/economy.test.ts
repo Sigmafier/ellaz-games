@@ -4,7 +4,9 @@ import {
   SESSION_COIN_CAP,
   STREAK_COINS,
   TIER_COINS,
+  BOSS_DIAMONDS,
   coinsFor,
+  diamondsFor,
   starsFor,
 } from "./economy";
 import type { RewardReason, RewardTier } from "./economy";
@@ -128,5 +130,26 @@ describe("streak — the daily-puzzle payoff", () => {
     // somebody would delete it, and then a game could mint the real amount the
     // day this number moved back.
     expect(coinsFor({ reason: "streak" })).toBeGreaterThan(0);
+  });
+});
+
+describe("diamonds - the second currency, priced here like the first", () => {
+  it("a boss beaten in a career game is worth exactly one diamond (G13)", () => {
+    expect(BOSS_DIAMONDS).toBe(1);
+    expect(diamondsFor("boss_defeated")).toBe(1);
+  });
+
+  it("pays no diamond for anything else, including every coin reason", () => {
+    for (const r of ["level_complete", "milestone", "personal_best", "streak", "versus_complete", "", "boss"]) {
+      expect(diamondsFor(r), r).toBe(0);
+    }
+  });
+
+  it("a boss is not a COIN reason: ctx.rewards cannot be asked for it and pays nothing", () => {
+    // Diamonds and coins are separate currencies. If `boss_defeated` leaked into
+    // the coin table a career game could mint site coins by reporting bosses.
+    expect(GAME_REASONS.has("boss_defeated")).toBe(false);
+    expect(coinsFor({ reason: "boss_defeated" as never })).toBe(0);
+    expect(starsFor({ reason: "boss_defeated" as never })).toBe(0);
   });
 });

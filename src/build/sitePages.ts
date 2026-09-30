@@ -21,6 +21,7 @@ import {
   PRINTABLE_KINDS,
   PRINT_LOCALE,
   boardsPath,
+  careerPath,
   categoryPath,
   gamePath,
   guidePath,
@@ -660,6 +661,58 @@ export function boardsPage(opts: SitePageOptions): string {
     },
     // Same call as the room: the boards screen carries the wallet in its own
     // header, and two chips in one viewport reads as a bug.
+  });
+}
+
+/**
+ * The Career page (P4, operator-approved 2026-09-30): every career game - where the
+ * player is in it, its gold and gear - and the site's diamonds.
+ *
+ * Emitted like the boards, and NOINDEX (routes.ts): everything it shows is read
+ * from the visitor's own device at runtime, so the document holds only the honest
+ * half - what a career is and what diamonds do - for a visitor with no JavaScript.
+ */
+export function careerPage(opts: SitePageOptions): string {
+  const { locale, base } = opts;
+  const site = SITE[locale];
+  const copy = site.careerPage;
+
+  const body = html`
+    ${utilityRow(
+      html`<nav class="bc">
+        <a href="${href(homePath(locale), base)}">${site.home}</a> › ${copy.h1}
+      </nav>`,
+      { fullLabel: site.chrome.fullScreen, reportLabel: site.chrome.report },
+    )}
+    ${stage("", site, "boards")}
+    <h1>${copy.h1}</h1>
+    <p class="lede">${copy.lede}</p>
+    ${copy.body.map((p) => html`<p>${p}</p>`)}
+    <p><a href="${href(boardsPath(locale), base)}">${site.boardsPage.h1}</a></p>
+  `;
+
+  return renderDocument({
+    locale,
+    title: copy.title,
+    description: copy.description,
+    path: careerPath(locale),
+    alternates: LOCALES.map((l) => ({ locale: l, path: careerPath(l) })),
+    schema: worldGraph(locale, copy),
+    body,
+    base,
+    indexable: opts.indexable,
+    headAssets: opts.headAssets,
+    preloads: lazyPreloadTags(opts.headAssets, base),
+    bodyData: { page: "career", locale },
+    headerSlot: html`<span id="wallet-slot"></span>`,
+    headerChrome: {
+      ground: PAL.lagoon,
+      title: copy.h1,
+      backLabel: site.chrome.back,
+      soundLabel: site.chrome.sound,
+      moreLabel: site.chrome.more,
+      fullLabel: site.chrome.fullScreen,
+    },
   });
 }
 
