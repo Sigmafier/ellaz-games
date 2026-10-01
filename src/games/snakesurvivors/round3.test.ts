@@ -449,6 +449,7 @@ describe("the chrome shows the round-three rules", () => {
   const strip = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
   const GAME = strip(readFileSync(new URL("./SnakeSurvivorsGame.tsx", import.meta.url), "utf8"));
   const SCENE = strip(readFileSync(new URL("./SnakeSurvivorsScene.ts", import.meta.url), "utf8"));
+  const HUDTS = strip(readFileSync(new URL("./hud.ts", import.meta.url), "utf8"));
 
   it("the picker reads every offered card through cardOffer: an owned card says 'from -> to'", () => {
     expect(GAME).toContain("const o = cardOffer(status.taken, id);");
@@ -459,15 +460,19 @@ describe("the chrome shows the round-three rules", () => {
   });
 
   it("there is no clock; the boss meter reads the CURRENT stage's own trigger and the larger fraction", () => {
-    expect(GAME).toMatch(/clock: "",/);
-    expect(GAME).toContain("bossProgress({ ...status.meter, level: status.level })");
+    // C3 (2026-10-01): the game draws its own HUD, so it hands the shared one
+    // nothing - no clock among it - and the meter's numbers come from hud.ts.
+    expect(GAME).toMatch(/hud=\{null\}/);
+    expect(GAME).not.toContain("clock:");
+    expect(GAME).toContain("bossRow(status.level, status.meter, status.boss)");
+    expect(HUDTS).toContain("bossProgress({ ...meter, level })");
     // ROUND FOUR: the meter no longer quotes a fixed BOSS_AT - it looks up
-    // whichever stage `status.meter.stage` says, on this level, since stage 2
-    // and 3 have their own (higher) triggers.
-    expect(GAME).toContain("stageGoal(status.level, status.meter.stage)");
-    expect(GAME).toContain("${meterAt.len}");
-    expect(GAME).toContain("${meterAt.crushed}");
-    expect(GAME).not.toContain("BOSS_AT");
+    // whichever stage `meter.stage` says, on this level, since stage 2 and 3
+    // have their own (higher) triggers.
+    expect(HUDTS).toContain("stageGoal(level, meter.stage)");
+    expect(HUDTS).toContain("${at.len}");
+    expect(HUDTS).toContain("${at.crushed}");
+    expect(GAME + HUDTS).not.toContain("BOSS_AT");
   });
 
   it("a warden falling opens the next stage with its own banner, never the old single-boss win", () => {

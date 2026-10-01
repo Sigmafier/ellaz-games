@@ -41,6 +41,8 @@ export function Board(props: {
   onSwipe: (dir: Dir) => void;
   onTry: () => void;
   onNext: () => void;
+  /** Opens the level picker - offered on the solved card, so a won level can be replayed. */
+  onLevels: () => void;
   onUndo: () => void;
   onStartOver: () => void;
   stuck: boolean;
@@ -75,7 +77,7 @@ export function Board(props: {
       {hint && <Hint text={hint} rows={state.level.height} />}
       {props.stuck && !props.card && <StuckStrip T={T} onUndo={props.onUndo} onStartOver={props.onStartOver} />}
       {props.card && (
-        <Solved card={props.card} id={props.id} par={props.par} T={T} last={props.last} onTry={props.onTry} onNext={props.onNext} />
+        <Solved card={props.card} id={props.id} par={props.par} T={T} last={props.last} onTry={props.onTry} onNext={props.onNext} onLevels={props.onLevels} />
       )}
     </div>
   );
@@ -363,7 +365,15 @@ const cardBtn: CSSProperties = {
   touchAction: "manipulation",
 };
 
-function Solved(p: { card: SolvedCard; id: string; par: number; T: Words; last: boolean; onTry: () => void; onNext: () => void }) {
+/**
+ * The solved card. NePo, forum post #13: "There should be a menu option to
+ * replay levels you have already won" - the picker existed, behind the footer's
+ * Levels button, and a player who had just won did not find it. So the card
+ * offers it too: Next level stays the primary button, and All levels sits under
+ * it as a secondary one. On the last level there is no next, and All levels
+ * takes the primary place instead of appearing twice.
+ */
+function Solved(p: { card: SolvedCard; id: string; par: number; T: Words; last: boolean; onTry: () => void; onNext: () => void; onLevels: () => void }) {
   const { card, T } = p;
   return (
     <section
@@ -397,10 +407,19 @@ function Solved(p: { card: SolvedCard; id: string; par: number; T: Words; last: 
           <button type="button" onClick={p.onTry} style={{ ...cardBtn, background: "#fff", color: "#241c17", minHeight: 52 }}>
             {T.tryAgain}
           </button>
-          <button type="button" onClick={p.onNext} style={{ ...cardBtn, background: "var(--brand-strong)", color: "var(--on-brand)", minHeight: 52 }}>
+          <button type="button" onClick={p.last ? p.onLevels : p.onNext} style={{ ...cardBtn, background: "var(--brand-strong)", color: "var(--on-brand)", minHeight: 52 }}>
             {p.last ? T.allLevels : T.nextLevel}
           </button>
         </div>
+        {!p.last && (
+          <button
+            type="button"
+            onClick={p.onLevels}
+            style={{ ...cardBtn, marginTop: 10, background: "transparent", color: INK.text, border: `2px solid ${INK.rim}` }}
+          >
+            ▦ {T.allLevels}
+          </button>
+        )}
       </div>
     </section>
   );

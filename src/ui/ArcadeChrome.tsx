@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { GameContext } from "@sdk/index";
+import { textFor } from "@i18n/index";
 import { DifficultySelector, type DifficultyOption } from "./DifficultySelector";
+import { ArcadeTitle, type ArcadeTitleProps } from "./ArcadeTitle";
 import { notifyRunStart, pageOwnsRestart, setPause, setRestart } from "./gameTools";
 
 /**
@@ -79,7 +81,7 @@ export type ArcadeHud = {
 
 /**
  * The entrance screen: what a showcase game shows INSTEAD of a row of buttons
- * under its arena.
+ * under its arena - its title before a run, and its game-over card after one.
  *
  * The operator, 2026-09-13: *"maybe the buttons instead of being down should be
  * on some kind of load screen or entrance to the game"* - then picked this shape
@@ -88,45 +90,28 @@ export type ArcadeHud = {
  * height its chrome leaves it, so deleting them measured **234px -> 326px of
  * arena, +39%**, on their own 1536x639 window.
  *
+ * ONE CARD, IN THE TITLE'S STYLE (operator, 2026-10-01, the "one-screen start,
+ * all four" mock). It used to be a plain dark card the game reached AFTER its
+ * title, and the same plain card for game over. Now it IS the title card
+ * (`ArcadeTitle`): the game hands in its art, heading, words and inks, and this
+ * chrome adds the difficulty chips (from `levels`) and tells the platform a run
+ * started when PLAY is pressed. So the shape is `ArcadeTitleProps` without the
+ * chips, which are this file's to draw.
+ *
  * WHY THE HUD GOES AWAY WHILE THIS IS UP. The arcade HUD already owns all four
- * corners - hearts, score, pips, clock - so an entrance card has nowhere to put
- * a control without landing on a number; that collision is what sank the
- * alternative in its first render. And every one of those numbers is
- * meaningless before a run starts: zero score, full hearts, a clock at its
- * start. Hiding them is what makes this read as a title screen rather than as a
- * pause cover.
+ * corners - hearts, score, pips, clock - so a card has nowhere to put a control
+ * without landing on a number; and every one of those numbers is meaningless
+ * before a run starts. Hiding them is what makes this read as a title screen
+ * rather than as a pause cover.
  *
  * IT ACCEPTS POINTERS, WHICH IS THE OPPOSITE OF THE HUD. The HUD refuses them
  * because the arena underneath is steered by touch. This is the one surface
  * here a player must actually press, and it only exists while nothing is being
  * steered - so the two never contend.
  */
-export type ArcadeEntrance = {
-  /** The game's name, already localised. Drawn large. */
-  title: string;
-  /** One quiet line under the title. */
-  tagline?: string;
-  /**
-   * The button's word - "Play" on a first visit, "Play again" once a run has
-   * ended. The GAME chooses it, because only the game knows which it is, and a
-   * component that guessed would be a component that has to know what a run is.
-   */
-  action: string;
-  /** What just happened, drawn above the button. Absent before the first run. */
-  result?: string;
-  onAction: () => void;
-  /**
-   * The game's own extra control, drawn small under the button - survivors puts
-   * its stick choice here. A `ReactNode` rather than a shape, so this file
-   * never learns what a stick is.
-   */
-  extra?: ReactNode;
-  /**
-   * A choice the player makes BEFORE pressing the button, drawn between the
-   * difficulty and the button - survivors' weapon pick. Above the button rather
-   * than under it, because it changes what the button starts.
-   */
-  pick?: ReactNode;
+export type ArcadeEntrance = Omit<ArcadeTitleProps, "chips"> & {
+  /** Leave the difficulty off this card. Default: drawn whenever `levels` is given. */
+  noLevels?: boolean;
 };
 
 /**
@@ -171,6 +156,7 @@ export function ArcadeChrome<T extends string>({
   hud,
   power,
   entrance,
+  span = "arena",
   levels,
   level,
   onLevel,
@@ -181,7 +167,14 @@ export function ArcadeChrome<T extends string>({
   children,
 }: {
   ctx: GameContext;
-  hud: ArcadeHud;
+  /**
+   * What the shared HUD draws - or null for a game that draws its OWN HUD on
+   * its arena (Snake Survivors' "C3", approved 2026-10-01). Null draws no
+   * overlay at all; everything else here - the entrance, the power button, the
+   * page's restart and pause - is unchanged. Opt-in: a game passing a hud gets
+   * exactly what it always got.
+   */
+  hud: ArcadeHud | null;
   /** The one action a player can press on the arena mid-run, or absent. */
   power?: ArcadePower | null;
   /**
@@ -190,6 +183,14 @@ export function ArcadeChrome<T extends string>({
    * empty and the board gets that height back.
    */
   entrance?: ArcadeEntrance | null;
+  /**
+   * What the entrance covers: the arena (default), or the whole game panel -
+   * Hold the Line on a phone, whose lane is a short strip: its card would spill
+   * out of the board, so it takes the panel and the lane, moved to the top of
+   * it, becomes the card's art strip (the approved mock). The run still plays in
+   * that strip.
+   */
+  span?: "arena" | "panel";
   levels?: readonly DifficultyOption<T>[];
   level?: T;
   onLevel?: (next: T) => void;
@@ -225,17 +226,32 @@ export function ArcadeChrome<T extends string>({
     return () => setPause(null);
   }, [hasPause, paused]);
 
+  // The arena box's bottom edge inside the panel: the strip a panel-wide
+  // entrance keeps clear for the live lane. Layout numbers, never a rect.
+  const arenaRef = useRef<HTMLDivElement>(null);
+  const [strip, setStrip] = useState(0);
+  useEffect(() => {
+    const el = arenaRef.current;
+    if (span !== "panel" || !el) return;
+    const read = () => setStrip(el.offsetTop + el.offsetHeight);
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [span]);
+
   // Read once at mount, like GameChrome: a standalone bundle has no emitted
   // utility row, so nobody would draw restart at all unless this does.
   const [ownRestart] = useState(() => !pageOwnsRestart());
 
   // `hud.scale` multiplies all three terms of every HUD clamp; at 1 each
   // string is exactly the literal it replaced.
-  const k = hud.scale ?? 1;
+  const k = hud?.scale ?? 1;
   const m = (n: number) => Math.round(n * k * 100) / 100;
   const sz = (min: number, cqw: number, max: number) => `clamp(${m(min)}px, ${m(cqw)}cqw, ${m(max)}px)`;
 
-  const bossLeft = hud.boss && hud.boss.max > 0
+  const bossLeft = hud?.boss && hud.boss.max > 0
     ? Math.max(0, Math.min(1, hud.boss.now / hud.boss.max))
     : 0;
 
@@ -295,7 +311,7 @@ export function ArcadeChrome<T extends string>({
   const hearts = (now: number, max: number) => (
     <div
       role="img"
-      aria-label={`${hud.labels.hearts}: ${now} / ${max}`}
+      aria-label={`${hud?.labels.hearts}: ${now} / ${max}`}
       style={{ display: "flex", gap: "0.25em", alignItems: "center", fontSize: sz(11, 2.6, 18) }}
     >
       {Array.from({ length: Math.max(0, max) }, (_, i) => {
@@ -323,6 +339,41 @@ export function ArcadeChrome<T extends string>({
     </div>
   );
 
+  /* THE ENTRANCE CARD. It ACCEPTS pointers, unlike the HUD - this is the one
+     surface here a player presses, and it exists only while nothing is being
+     steered, so the two never contend for a touch.
+
+     The difficulty is drawn ON it (the chips), never under the arena: a row
+     under the arena reserves height on every frame of the run, and this costs
+     height on no frame at all. It is the house level row's job done on the
+     card - one value, `onLevel`, the same aria names the gates read - drawn in
+     the card's own inks, which the operator approved, rather than the light
+     page buttons `DifficultySelector` draws. */
+  const card = entrance ? (
+    <ArcadeTitle
+      {...entrance}
+      head={span === "panel" ? strip : entrance.head}
+      chips={
+        levels && level && onLevel && !entrance.noLevels
+          ? {
+              options: levels.map((o) => ({ id: o.id, text: textFor(o.label, ctx.locale), aria: `difficulty ${o.id}` })),
+              value: level,
+              onChange: (id) => onLevel(id as T),
+            }
+          : undefined
+      }
+      // AND THE PLATFORM HEARS IT. This is the other button that starts a run -
+      // the win strip's own "Play again" is the first - and without the
+      // announcement `GameHost`'s end-of-run strip stayed up under the run this
+      // press begins. Announced here rather than by the game, because a game
+      // talks to `GameContext` and nothing else; this is chrome telling chrome.
+      onAction={() => {
+        notifyRunStart();
+        entrance.onAction();
+      }}
+    />
+  ) : null;
+
   return (
     <div
       /* One panel class for every game since 2026-09-14: the 700px reading
@@ -340,14 +391,17 @@ export function ArcadeChrome<T extends string>({
         padding: "8px 0",
         // No ground of its own - the same ruling as GameChrome's panel.
         alignItems: "center",
-        justifyContent: "center",
+        // A panel-wide entrance draws the lane as its art strip at the top, and
+        // the run plays where the strip was - so the lane sits at the top.
+        justifyContent: span === "panel" ? "flex-start" : "center",
+        position: span === "panel" ? "relative" : undefined,
         gap: 10,
       }}
     >
       {/* The arena, and the HUD drawn ON it. `position: relative` is what makes
           every absolutely-placed reading below belong to the ARENA rather than
           to the page. */}
-      <div style={{ position: "relative", display: "flex", minHeight: 0 }}>
+      <div ref={arenaRef} style={{ position: "relative", display: "flex", minHeight: 0 }}>
         {children}
 
         {/* pointerEvents: none, and it is load-bearing rather than tidy. This
@@ -355,137 +409,139 @@ export function ArcadeChrome<T extends string>({
             thumb lands - so a HUD that accepted a pointer would swallow the
             first touch of every drag that began under a number. The overlay is
             a picture, never a control. */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            // Out of the way while the entrance is up. Not tidiness: this HUD
-            // owns all four corners, so a card drawn over it collides with a
-            // number wherever it puts a control - and every number here is
-            // meaningless before a run starts anyway.
-            display: entrance ? "none" : undefined,
-            color: INK,
-            fontWeight: 800,
-            containerType: "inline-size",
-          }}
-        >
-          {/* HEARTS on the leading side, SCORE on the trailing side. Logical
-              insets, so the Hebrew app mirrors them rather than stranding the
-              score under the hearts. */}
+        {hud && (
           <div
+            aria-hidden="true"
             style={{
               position: "absolute",
-              insetInlineStart: "3.5%",
-              insetInlineEnd: "3.5%",
-              top: "3.5%",
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "4%",
+              inset: 0,
+              pointerEvents: "none",
+              // Out of the way while the entrance is up. Not tidiness: this HUD
+              // owns all four corners, so a card drawn over it collides with a
+              // number wherever it puts a control - and every number here is
+              // meaningless before a run starts anyway.
+              display: entrance ? "none" : undefined,
+              color: INK,
+              fontWeight: 800,
+              containerType: "inline-size",
             }}
           >
-            <div style={{ width: "38%" }}>
-              {label(hud.labels.hearts)}
-              {hearts(hud.hearts.now, hud.hearts.max)}
-              {hud.chip && (
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.4em",
-                    marginTop: "0.6em",
-                    padding: "0.2em 0.7em 0.2em 0.35em",
-                    borderRadius: "var(--radius-pill)",
-                    background: "var(--stage-cover)",
-                    fontSize: sz(10, 2.3, 15),
-                    whiteSpace: "nowrap",
-                    opacity: hud.chip.ready ? 1 : DIM,
-                  }}
-                >
-                  <span style={{ display: "flex", width: "1.5em", height: "1.5em" }}>{hud.chip.art}</span>
-                  {hud.chip.text}
-                </div>
-              )}
-            </div>
-            <div style={{ marginInlineStart: "auto", textAlign: "end" }}>
-              {label(hud.labels.score)}
-              <div
-                dir="ltr"
-                style={{ fontSize: sz(18, 6, 40), lineHeight: 1, color: "var(--yellow)" }}
-              >
-                {hud.score}
+            {/* HEARTS on the leading side, SCORE on the trailing side. Logical
+                insets, so the Hebrew app mirrors them rather than stranding the
+                score under the hearts. */}
+            <div
+              style={{
+                position: "absolute",
+                insetInlineStart: "3.5%",
+                insetInlineEnd: "3.5%",
+                top: "3.5%",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "4%",
+              }}
+            >
+              <div style={{ width: "38%" }}>
+                {label(hud.labels.hearts)}
+                {hearts(hud.hearts.now, hud.hearts.max)}
+                {hud.chip && (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.4em",
+                      marginTop: "0.6em",
+                      padding: "0.2em 0.7em 0.2em 0.35em",
+                      borderRadius: "var(--radius-pill)",
+                      background: "var(--stage-cover)",
+                      fontSize: sz(10, 2.3, 15),
+                      whiteSpace: "nowrap",
+                      opacity: hud.chip.ready ? 1 : DIM,
+                    }}
+                  >
+                    <span style={{ display: "flex", width: "1.5em", height: "1.5em" }}>{hud.chip.art}</span>
+                    {hud.chip.text}
+                  </div>
+                )}
               </div>
-              {hud.best !== undefined && (
+              <div style={{ marginInlineStart: "auto", textAlign: "end" }}>
+                {label(hud.labels.score)}
                 <div
                   dir="ltr"
-                  style={{ fontSize: sz(9, 2, 14), opacity: DIM, marginTop: "0.3em" }}
+                  style={{ fontSize: sz(18, 6, 40), lineHeight: 1, color: "var(--yellow)" }}
                 >
-                  {ctx.t("best")} {hud.best}
+                  {hud.score}
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* THE SLOTS: one box per slot, each holding the drawing of what it
-              carries, the empty ones dashed. Countable at a glance - "two of
-              four" reads without a number - which is the same reason the pips
-              they replaced were picked over four corner numbers. */}
-          <div
-            style={{
-              position: "absolute",
-              insetInlineStart: "3.5%",
-              bottom: "3.5%",
-              display: "flex",
-              gap: sz(4, 1, 8),
-              padding: sz(3, 0.8, 6),
-              borderRadius: "var(--radius-2)",
-              background: "var(--stage-cover)",
-            }}
-          >
-            {hud.slots.map((slot, i) => (
-              <div
-                key={`${i}-${slot.id}`}
-                style={{
-                  width: sz(26, 6.2, 44),
-                  height: sz(26, 6.2, 44),
-                  boxSizing: "border-box",
-                  borderRadius: "var(--radius-1)",
-                  border: slot.art ? "2px solid var(--line)" : "2px dashed var(--line)",
-                  display: "grid",
-                  placeItems: "center",
-                  // No percentage padding: a percentage resolves against the
-                  // ROW's width, not this box's, and pushed every drawing out
-                  // through the corner of its slot on the first render.
-                  overflow: "hidden",
-                }}
-              >
-                {slot.art}
+                {hud.best !== undefined && (
+                  <div
+                    dir="ltr"
+                    style={{ fontSize: sz(9, 2, 14), opacity: DIM, marginTop: "0.3em" }}
+                  >
+                    {ctx.t("best")} {hud.best}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-
-          <div
-            dir="ltr"
-            style={{
-              position: "absolute",
-              insetInlineEnd: "3.5%",
-              bottom: "3.5%",
-              fontSize: sz(13, 4.2, 28),
-            }}
-          >
-            {hud.clock}
-          </div>
-
-          {/* The boss bar spans the middle and is absent, not empty, until there
-              is a boss - an empty bar reads as a boss at zero health. */}
-          {hud.boss && (
-            <div style={{ position: "absolute", insetInline: "16%", bottom: "3.8%" }}>
-              <div style={{ textAlign: "center" }}>{label(hud.boss.label)}</div>
-              {bar(bossLeft, "var(--brand-2)", sz(4, 1.1, 9))}
             </div>
-          )}
-        </div>
+
+            {/* THE SLOTS: one box per slot, each holding the drawing of what it
+                carries, the empty ones dashed. Countable at a glance - "two of
+                four" reads without a number - which is the same reason the pips
+                they replaced were picked over four corner numbers. */}
+            <div
+              style={{
+                position: "absolute",
+                insetInlineStart: "3.5%",
+                bottom: "3.5%",
+                display: "flex",
+                gap: sz(4, 1, 8),
+                padding: sz(3, 0.8, 6),
+                borderRadius: "var(--radius-2)",
+                background: "var(--stage-cover)",
+              }}
+            >
+              {hud.slots.map((slot, i) => (
+                <div
+                  key={`${i}-${slot.id}`}
+                  style={{
+                    width: sz(26, 6.2, 44),
+                    height: sz(26, 6.2, 44),
+                    boxSizing: "border-box",
+                    borderRadius: "var(--radius-1)",
+                    border: slot.art ? "2px solid var(--line)" : "2px dashed var(--line)",
+                    display: "grid",
+                    placeItems: "center",
+                    // No percentage padding: a percentage resolves against the
+                    // ROW's width, not this box's, and pushed every drawing out
+                    // through the corner of its slot on the first render.
+                    overflow: "hidden",
+                  }}
+                >
+                  {slot.art}
+                </div>
+              ))}
+            </div>
+
+            <div
+              dir="ltr"
+              style={{
+                position: "absolute",
+                insetInlineEnd: "3.5%",
+                bottom: "3.5%",
+                fontSize: sz(13, 4.2, 28),
+              }}
+            >
+              {hud.clock}
+            </div>
+
+            {/* The boss bar spans the middle and is absent, not empty, until there
+                is a boss - an empty bar reads as a boss at zero health. */}
+            {hud.boss && (
+              <div style={{ position: "absolute", insetInline: "16%", bottom: "3.8%" }}>
+                <div style={{ textAlign: "center" }}>{label(hud.boss.label)}</div>
+                {bar(bossLeft, "var(--brand-2)", sz(4, 1.1, 9))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* THE POWER BUTTON, outside the HUD for the two reasons `ArcadePower`
             gives: it must accept a pointer and it must be announced. Bottom
@@ -535,102 +591,12 @@ export function ArcadeChrome<T extends string>({
           </button>
         )}
 
-        {/* THE ENTRANCE. It ACCEPTS pointers, unlike the HUD above it - this is
-            the one surface here a player presses, and it exists only while
-            nothing is being steered, so the two never contend for a touch.
-
-            The difficulty is drawn INSIDE it rather than under the arena, which
-            is the whole of the change: a row under the arena reserves height on
-            every frame of the run, and this costs height on no frame at all. */}
-        {entrance && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "var(--space-3)",
-              padding: "var(--space-4)",
-              borderRadius: 14,
-              background: "var(--stage-cover)",
-              color: INK,
-              textAlign: "center",
-              containerType: "inline-size",
-            }}
-          >
-            <div style={{ fontSize: "clamp(18px, 5.2cqw, 34px)", fontWeight: 800, lineHeight: 1.1 }}>
-              {entrance.title}
-            </div>
-            {entrance.tagline && (
-              <div style={{ fontSize: "clamp(11px, 2.4cqw, 15px)", opacity: DIM, lineHeight: 1.3 }}>
-                {entrance.tagline}
-              </div>
-            )}
-            {/* What just happened, in the one colour the HUD already uses for a
-                number that matters. Absent, not empty, before the first run. */}
-            {entrance.result && (
-              <div style={{ fontSize: "clamp(12px, 2.8cqw, 18px)", color: "var(--yellow)" }}>
-                {entrance.result}
-              </div>
-            )}
-
-            {/* The HOUSE component, not a second row of pills drawn here.
-                game-difficulty-and-juice-convention.md is explicit that a level
-                row is `DifficultySelector` and never a hand-rolled one, and the
-                fact that it has moved onto a dark cover does not make this the
-                place to fork it. Its contrast ON that cover is measured rather
-                than assumed - see the probe. */}
-            {levels && level && onLevel && (
-              <DifficultySelector
-                options={levels}
-                value={level}
-                onChange={onLevel}
-                locale={ctx.locale}
-              />
-            )}
-
-            {entrance.pick}
-
-            <button
-              type="button"
-              // AND THE PLATFORM HEARS IT. This is the other button that starts
-              // a run - the win strip's own "Play again" is the first - and
-              // without the announcement `GameHost`'s end-of-run strip stayed up
-              // under the run this press begins. Announced here rather than by
-              // the game, because a game talks to `GameContext` and nothing
-              // else; this is chrome telling chrome.
-              onClick={() => {
-                notifyRunStart();
-                entrance.onAction();
-              }}
-              style={{
-                border: "none",
-                borderRadius: "var(--radius-pill)",
-                // --brand-strong, never --brand-fill. The repo settled this on
-                // 2026-09-02 by measuring rendered pixels: --on-brand reads
-                // 3.14:1 on the bright pink and 5.87:1 on the raspberry, and
-                // night's --brand-fill is a GRADIENT no ink clears at all.
-                // Darken the fill, never the ink.
-                background: "var(--brand-strong)",
-                color: "var(--on-brand)",
-                font: "inherit",
-                fontWeight: 800,
-                fontSize: "clamp(15px, 3.4cqw, 21px)",
-                minHeight: 52,
-                padding: "0 var(--space-5)",
-                cursor: "pointer",
-                touchAction: "manipulation",
-              }}
-            >
-              {entrance.action}
-            </button>
-
-            {entrance.extra}
-          </div>
-        )}
+        {/* THE ENTRANCE, over the arena. */}
+        {span === "arena" && card}
       </div>
+
+      {/* THE ENTRANCE, over the whole panel (`span`). */}
+      {span === "panel" && card}
 
       {/* The difficulty is a GAME control and stays with the game - but when
           the game USES an entrance it lives ON it, and never here.

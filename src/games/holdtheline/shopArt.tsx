@@ -8,15 +8,37 @@
 // landed. See
 // `.claude/rules/a-control-that-carries-an-imperative-must-be-a-control.md`.
 
+import type { ReactElement } from "react";
 import type { Locale } from "@i18n/index";
 import type { ShopId, ShopLine } from "./types";
 
-/** What each line is for, in one glyph. Art rather than text, so it needs no locale. */
-const LINE_MARK: Record<ShopLine, string> = {
-  gun: "🔫",
-  power: "✦",
-  guard: "🛡",
-  lane: "⛏",
+/**
+ * What each line is for, in one drawing - art rather than text, so it needs no
+ * locale. SVG since 2026-10-01 (the approved title-card mock drew a wall and a
+ * spark): these were emoji, which render as a different picture on every
+ * operating system and cannot take the card's ink.
+ */
+const LINE_MARK: Record<ShopLine, ReactElement> = {
+  gun: (
+    <svg viewBox="0 0 24 24" width={26} height={26} aria-hidden="true">
+      <path d="M3 8h15l2-2h1v5h-6l-1.5 2.5h-3L9.5 18H6l1.5-5H3z" fill="#fff" />
+    </svg>
+  ),
+  power: (
+    <svg viewBox="0 0 24 24" width={26} height={26} aria-hidden="true">
+      <path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z" fill="#fff" />
+    </svg>
+  ),
+  guard: (
+    <svg viewBox="0 0 24 24" width={26} height={26} aria-hidden="true" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round">
+      <path d="M3 5h18v14H3zM3 12h18M8 5v7M16 12v7" />
+    </svg>
+  ),
+  lane: (
+    <svg viewBox="0 0 24 24" width={26} height={26} aria-hidden="true" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 20L15 10M8 5c4-2.5 9-1.5 12 2c-4-1-7 0-9.5 2" />
+    </svg>
+  ),
 };
 
 const NAMES: Record<ShopId, Record<string, string>> = {
@@ -61,28 +83,33 @@ export function ShopCard(props: {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 2,
+        justifyContent: "center",
+        gap: 5,
         // One fixed size in both states. A card that grew when it became
         // affordable would move every card beside it, which is the resize half
-        // of `a-key-a-game-could-use-never-scrolls-the-page.md`.
-        minWidth: 92,
-        minHeight: 74,
-        padding: "8px 10px",
-        borderRadius: 12,
-        border: "1px solid var(--on-brand)",
+        // of `a-key-a-game-could-use-never-scrolls-the-page.md`. The mock's
+        // 108 x 104 (2026-10-01, the title card's shop row).
+        width: 108,
+        minHeight: 104,
+        boxSizing: "border-box",
+        padding: "8px 6px",
+        borderRadius: 16,
+        border: "2px solid #ffffff",
         // The only thing affordability changes is OPACITY, never `disabled`.
         opacity: affordable ? 1 : 0.55,
-        background: "rgba(0,0,0,.28)",
-        color: "var(--on-brand)",
+        background: "rgba(14, 18, 32, 0.92)",
+        color: "#ffffff",
         font: "inherit",
+        fontFamily: "Fredoka, Heebo, sans-serif",
         cursor: "pointer",
+        touchAction: "manipulation",
       }}
     >
-      <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1 }}>
+      <span aria-hidden="true" style={{ display: "flex", lineHeight: 1 }}>
         {LINE_MARK[line]}
       </span>
-      <span style={{ fontSize: 12, fontWeight: 700, textAlign: "center" }}>{nameOf(id, locale)}</span>
-      <span style={{ fontSize: 12, opacity: 0.82 }}>
+      <span style={{ fontSize: 16, fontWeight: 700, textAlign: "center", lineHeight: 1.15 }}>{nameOf(id, locale)}</span>
+      <span style={{ fontSize: 15, fontWeight: 600, color: "#c9cde6" }}>
         ${price}
         {cap !== Infinity && cap > 1 ? ` · ${owned}/${cap}` : ""}
       </span>

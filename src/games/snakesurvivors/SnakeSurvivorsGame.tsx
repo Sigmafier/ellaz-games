@@ -1,5 +1,5 @@
 import { textFor } from "@i18n/index";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { GameContext } from "@sdk/index";
 import { ArcadeChrome } from "@ui/ArcadeChrome";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
@@ -10,12 +10,15 @@ import { phoneArena, phoneBox } from "../survivors/phoneArena";
 import { CAPS, LONG_STEP, NOVA_EVERY, WEAPONS, cardOffer, chainOf, noneTaken } from "./cards";
 import { CARD_ART } from "./cardArt";
 import { START_LEN } from "./body";
-import { bossProgress, stageGoal } from "./crowd";
-import { ARENA, ARENA_WIDE, hitsLeft } from "./logic";
+import { ARENA, ARENA_WIDE } from "./logic";
+import { bossRow, heartBlock, runStats } from "./hud";
+import { PauseCard, SnakeHud, crownIcon, crushIcon, levelIcon } from "./SnakeHud";
 import type { Arena, CardId, LevelKey, Tier } from "./types";
 import type { SnakeSurvivorsScene, SnakeSurvivorsStatus } from "./SnakeSurvivorsScene";
 import { TUTORIAL_TEXT, TutorialBanner } from "./TutorialBanner";
-import { SnakeTitle } from "./SnakeTitle";
+import { HOW_ICON, SNAKE_INKS, SnakeTitleArt, snakeLines, snakeName } from "./SnakeTitle";
+import { HINT_FADE_MS, HINT_MS, endOf, hintVisible, nextEnd, snakeScreen, type EndCard } from "./screens";
+import { balancedLines } from "@ui/ArcadeTitle";
 
 // Snake Survivors' chrome: the arcade HUD, the entrance, and the card picker,
 // all drawn by the shared showcase components over a Phaser arena. Same shape
@@ -27,47 +30,13 @@ const LEVEL_OPTIONS: DifficultyOption<LevelKey>[] = [
   { id: "wild", label: { he: "פראי", en: "Wild", es: "Salvaje", sv: "Vild" } },
 ];
 
-/** The most hearts the HUD draws; see the `hearts` line below. */
-const HEART_CAP = 8;
-
-/**
- * R4.5 (operator, playing the live game: "On screen hud should be bigger"):
- * every size the shared HUD draws, times this. 8 hearts, not 10, so the
- * bigger row still ends well short of the crushed count.
- */
-const HUD_SCALE = 1.5;
-
-/**
- * The length, as a number read at a glance - bold, 22px and up (R4.5). The
- * shared HUD's chip is a status line, too small for the number a player's
- * health IS, so the game draws it itself, under the hearts. `top` is the
- * hearts block's own height at `HUD_SCALE`: its 3.5% inset, the label line
- * (font x 1.2 line + 0.35em gap) and the heart row.
- */
-const LENGTH_TOP =
-  "calc(3.5cqh + clamp(13.5px, 3cqw, 21px) * 1.55 + clamp(16.5px, 3.9cqw, 27px) + 6px)";
-
-/** The length line's picture: a short neon snake. */
-const LENGTH_ART = (
-  <svg width="100%" height="100%" viewBox="-7 -7 14 14" aria-hidden="true">
-    <path d="M-6 4 C-6 -2 0 -2 0 2 C0 6 6 5 6 -1" fill="none" stroke="#55efc4" strokeWidth="2.6" strokeLinecap="round" />
+/** The controls line's drawing: a drag cross, in the head's mint. */
+const DRAG = (
+  <svg aria-hidden="true" width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#55efc4" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }}>
+    <circle cx="12" cy="12" r="2.2" fill="#55efc4" />
+    <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
   </svg>
 );
-
-/** The entrance's "How to play": quieter than Play, and still plainly a button. */
-const HOW_TO_STYLE = {
-  minHeight: 40,
-  padding: "0 16px",
-  borderRadius: "var(--radius-pill)",
-  border: "2px solid rgba(216, 251, 255, 0.55)",
-  background: "transparent",
-  color: "#fff",
-  font: "inherit",
-  fontWeight: 700,
-  fontSize: 14,
-  cursor: "pointer",
-  touchAction: "manipulation",
-} as const;
 
 /**
  * Round four's tiers (games doctrine: a colour AND a word, never colour alone):
@@ -89,13 +58,6 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
   const [level, setLevel] = useRememberedLevel(ctx, LEVEL_OPTIONS.map((o) => o.id), "normal");
   const levelRef = useRef(level);
   levelRef.current = level;
-  /**
-   * THE TITLE SCREEN (operator, 2026-09-30, approved off a mock): the game
-   * opens on the snake closing its loop and one Tap to start. Until it is
-   * pressed the entrance below waits behind it; after, that entrance - the
-   * difficulty, Play and How to play - is exactly what it was.
-   */
-  const [titled, setTitled] = useState(false);
 
   const [status, setStatus] = useState<SnakeSurvivorsStatus>({
     phase: "ready",
@@ -175,7 +137,8 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
     {
       he: {
         title: "נחש הישרדות",
-        tap: "הקישו כדי להתחיל",
+        youWin: "ניצחתם!",
+        ribbon: "שיא חדש",
         tagline: "הקיפו אותם. סגרו את הלולאה.",
         hint: "גררו כדי לנווט, או החצים",
         play: "שחקו",
@@ -185,17 +148,16 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         crushed: "נמחצו",
         best: "שיא",
         newBest: "שיא חדש!",
-        length: "אורך",
+        level: "דרגה",
         pick: "עלייה לדרגה - בחרו אחד",
-        warden: "שומר",
-        boss: "בוס",
         stage: "שלב",
         have: "כבר יש לך",
         tier: { common: "רגיל", rare: "נדיר", epic: "אפי" },
       },
       en: {
         title: "Snake Survivors",
-        tap: "Tap to start",
+        youWin: "You win!",
+        ribbon: "New best",
         tagline: "Circle them. Close the loop.",
         hint: "Drag to steer, or the arrow keys",
         play: "Play",
@@ -205,17 +167,16 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         crushed: "Crushed",
         best: "Best",
         newBest: "New best!",
-        length: "Length",
+        level: "Level",
         pick: "Level up - pick one",
-        warden: "Warden",
-        boss: "Boss",
         stage: "Stage",
         have: "you have it",
         tier: { common: "COMMON", rare: "RARE", epic: "EPIC" },
       },
       es: {
         title: "Serpiente superviviente",
-        tap: "Toca para empezar",
+        youWin: "¡Has ganado!",
+        ribbon: "Nuevo récord",
         tagline: "Rodéalos. Cierra el círculo.",
         hint: "Arrastra para girar, o las flechas",
         play: "Jugar",
@@ -225,17 +186,16 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         crushed: "Aplastados",
         best: "Récord",
         newBest: "¡Nuevo récord!",
-        length: "Largo",
+        level: "Nivel",
         pick: "Subes de nivel - elige una",
-        warden: "Guardián",
-        boss: "Jefe",
         stage: "Etapa",
         have: "ya la tienes",
         tier: { common: "COMÚN", rare: "RARA", epic: "ÉPICA" },
       },
       sv: {
         title: "Ormöverlevare",
-        tap: "Tryck för att börja",
+        youWin: "Du vann!",
+        ribbon: "Nytt rekord",
         tagline: "Ring in dem. Slut cirkeln.",
         hint: "Dra för att styra, eller piltangenterna",
         play: "Spela",
@@ -245,10 +205,8 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         crushed: "Krossade",
         best: "Rekord",
         newBest: "Nytt rekord!",
-        length: "Längd",
+        level: "Nivå",
         pick: "Ny nivå - välj en",
-        warden: "Väktare",
-        boss: "Boss",
         stage: "Etapp",
         have: "du har den",
         tier: { common: "VANLIG", rare: "SÄLLSYNT", epic: "EPISK" },
@@ -348,76 +306,112 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
 
   const HOW_TO = textFor(TUTORIAL_TEXT, ctx.locale).label;
   const tutoring = status.tutorial !== null && status.tutorial !== "done";
-  const asking = status.phase !== "playing";
   const choosing = status.offer.length > 0;
   const score = status.crushed;
-  const result =
-    status.phase === "won" || status.phase === "over"
-      ? `${status.phase === "won" ? T.won : T.over} · ${T.crushed} ${score}${status.newBest ? ` · ${T.newBest}` : ""}`
-      : undefined;
-  // ROUND FOUR: the meter's trigger is whichever stage it is CURRENTLY reading
-  // toward, on THIS level - `stageGoal(status.level, status.meter.stage)` -
-  // never the old fixed BOSS_AT.
-  const meterAt = status.meter ? stageGoal(status.level, status.meter.stage) : null;
+  // C3 (2026-10-01): crushed, best and level left the play screen. They are
+  // here - on the game-over card, by name - and on the pause card below.
+  const stats = runStats(score, best, status.lv);
+  const statWords = { crushed: T.crushed, best: T.best, level: T.level };
+  /**
+   * THE ONE SCREEN (operator, 2026-10-01, "one-screen start, all four"): the
+   * title holds the difficulty and one big PLAY - the plain card it used to lead
+   * to is gone - and a run that ends shows its own card in the title's style.
+   * That card is LATCHED (`nextEnd`): a difficulty tap on it restarts the scene
+   * to "ready", and read off the phase alone the card would turn back into the
+   * title under the finger.
+   */
+  const endNow = endOf(status, best);
+  const [end, setEnd] = useState<EndCard | null>(null);
+  useEffect(() => {
+    setEnd((prev) => nextEnd(prev, status.phase, endNow));
+    // The card snapshots the run as it ended; it is re-read only when the phase moves.
+  }, [status.phase]);
+  const screen = snakeScreen(status.phase, choosing, status.phase === "won" || status.phase === "over" ? endNow : end);
+  const shown = status.phase === "won" || status.phase === "over" ? endNow : end;
+
+  /**
+   * THE CONTROLS LINE, in the arena for the first 3 s of a run and then gone -
+   * where "Drag to steer, or the arrow keys" used to sit on the plain card.
+   * Keyed on a REAL run starting: the guided run has its own words.
+   */
+  const live = status.phase === "playing" && !tutoring;
+  const [runAt, setRunAt] = useState<number | null>(null);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!live) return setRunAt(null);
+    setRunAt(Date.now());
+    const t = window.setTimeout(() => tick((n) => n + 1), HINT_MS);
+    return () => window.clearTimeout(t);
+  }, [live]);
+  const hintOn = runAt !== null && hintVisible(Date.now() - runAt);
+  const wide = arena.w > arena.h;
+
+  const art = (box: { w: number; h: number; wide: boolean; rtl: boolean }): ReactElement => <SnakeTitleArt {...box} />;
+  const entrance =
+    screen === "title"
+      ? {
+          label: T.title,
+          lines: snakeName(T.title, ctx.locale),
+          tagline: T.tagline,
+          action: T.play,
+          onAction: () => sceneRef.current?.startFromChrome(),
+          // A real button: it starts the guided run (ruling R2.5).
+          secondary: { label: HOW_TO, icon: HOW_ICON, onPress: () => sceneRef.current?.startTutorial() },
+          inks: SNAKE_INKS,
+          split: true,
+          bottom: [0.034, 0.05] as [number, number],
+          children: art,
+        }
+      : screen === "over" && shown
+        ? {
+            label: shown.won ? T.youWin : T.over,
+            lines: snakeLines(balancedLines(shown.won ? T.youWin : T.over, ctx.locale)),
+            layout: "stack" as const,
+            top: [0.045, 0.03] as [number, number],
+            nameFs: [78, 62] as [number, number],
+            result: shown.won ? T.won : undefined,
+            ribbon: shown.newBest ? T.ribbon : undefined,
+            tiles: shown.stats.map((st) => ({
+              id: st.id,
+              value: st.value,
+              label: statWords[st.id],
+              icon: st.id === "crushed" ? crushIcon() : st.id === "best" ? crownIcon() : levelIcon(),
+              color: st.id === "crushed" ? "#ffd166" : st.id === "best" ? "#f5f6ff" : "#74b9ff",
+            })),
+            action: T.playAgain,
+            again: true,
+            onAction: () => sceneRef.current?.startFromChrome(),
+            inks: SNAKE_INKS,
+            split: true,
+            play: { tall: [290, 78] as [number, number], wide: [290, 60] as [number, number] },
+            scrim: "rgba(11, 13, 31, 0.66)",
+            children: art,
+          }
+        : null;
 
   return (
     <ArcadeChrome
       ctx={ctx}
-      hud={{
-        // The tail IS the health, so a heart is one HIT the tail can still
-        // take (`hitsLeft`). The row was designed for three to five lives and
-        // a 28-segment tail drew 28 hearts off the side of a phone (measured
-        // 2026-09-27), so it shows at most HEART_CAP: above that the row stays
-        // full and the exact length rides the line under it.
-        hearts: {
-          now: Math.min(HEART_CAP, hitsLeft(status.len, status.bite)),
-          max: Math.min(HEART_CAP, hitsLeft(Math.max(status.peak, START_LEN), status.bite)),
-        },
-
-        score,
-        best: Math.max(best, score),
-        // The tutorial's run has no stage clock and no weapons, and its words sit
-        // where these two would: on a phone they would cover both (2026-09-27).
-        // No clock since round three: the warden comes on a trigger, and the
-        // BOSS meter below says how near it is.
-        clock: "",
-        slots: tutoring ? [] : WEAPONS.map((id) => ({
-          id,
-          art: status.taken[id] ? <span style={{ display: "flex", transform: "scale(0.82)" }}>{CARD_ART[id]()}</span> : null,
-        })),
-        boss: status.boss ? { now: status.boss.now, max: status.boss.max, label: T.warden } : null,
-        labels: { hearts: T.length, score: T.crushed },
-        scale: HUD_SCALE,
-      }}
+      // C3: the game draws its OWN HUD on the arena (<SnakeHud> below), so the
+      // shared one is handed nothing and draws nothing. Neon Survival still
+      // passes its hud and is unchanged.
+      hud={null}
       levels={LEVEL_OPTIONS}
       level={status.level}
       onLevel={(k) => {
         setLevel(k);
         sceneRef.current?.setLevel(k);
       }}
-      onRestart={() => sceneRef.current?.restartFromChrome()}
       paused={status.phase === "playing" ? status.paused : undefined}
       onPaused={status.phase === "playing" ? (next) => sceneRef.current?.setPaused(next) : undefined}
-      entrance={
-        titled && asking && !choosing
-          ? {
-              title: T.title,
-              tagline: T.tagline,
-              action: status.phase === "ready" ? T.play : T.playAgain,
-              result,
-              onAction: () => sceneRef.current?.startFromChrome(),
-              extra: (
-                <>
-                  <span style={{ color: "#fff", opacity: 0.8, fontSize: 13 }}>{T.hint}</span>
-                  {/* A real button: it starts the guided run (ruling R2.5). */}
-                  <button type="button" onClick={() => sceneRef.current?.startTutorial()} style={HOW_TO_STYLE}>
-                    {HOW_TO}
-                  </button>
-                </>
-              ),
-            }
-          : null
-      }
+      // The title before a run and the game-over card after one: one shared
+      // card, in the title's style, with the difficulty on it.
+      entrance={entrance}
+      onRestart={() => {
+        // The page's restart is a fresh start: back to the title.
+        setEnd(null);
+        sceneRef.current?.restartFromChrome();
+      }}
     >
       <div
         className={BOARD_CLASS}
@@ -443,94 +437,61 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
             touchAction: "none",
           }}
         />
-        {!titled && (
-          <SnakeTitle
-            name={T.title}
-            tagline={T.tagline}
-            locale={ctx.locale}
-            tap={T.tap}
-            how={HOW_TO}
-            onStart={() => setTitled(true)}
-            onHow={() => {
-              setTitled(true);
-              sceneRef.current?.startTutorial();
-            }}
-          />
-        )}
-        {/* THE LENGTH, big and bold under the hearts (R4.5). A picture, never a
-            control - it takes no pointer, like the rest of the HUD. */}
-        {status.phase === "playing" && (
-          <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", containerType: "size" }}>
-            <div
-              style={{
-                position: "absolute",
-                insetInlineStart: "3.5%",
-                top: LENGTH_TOP,
-                display: "flex",
-                alignItems: "center",
-                gap: "0.3em",
-                color: "#55efc4",
-                fontFamily: "Fredoka, Heebo, sans-serif",
-                fontWeight: 800,
-                fontSize: "clamp(22px, 5.4cqw, 36px)",
-                lineHeight: 1,
-                textShadow: "0 2px 6px rgba(11, 14, 34, 0.8)",
-              }}
-            >
-              <span style={{ display: "flex", width: "0.8em", height: "0.8em" }}>{LENGTH_ART}</span>
-              <span dir="ltr">{status.len}</span>
-            </div>
-          </div>
-        )}
-        {tutoring && status.tutorial !== "done" && status.tutorial && (
-          <TutorialBanner step={status.tutorial} locale={ctx.locale} onSkip={() => sceneRef.current?.endTutorial()} />
-        )}
-        {/* THE BOSS METER, where the clock used to be: the NEXT boss's trigger
-            (round four: `status.meter.stage` says which one), and the bar is
-            the larger of its two fractions. Stage 3 has no length trigger
-            (`meterAt.len === null`), so the line reads crushed alone.
-            A picture, never a control - it takes no pointer, like the HUD. */}
-        {status.meter && meterAt && status.phase === "playing" && !tutoring && !choosing && (
+        {/* THE CONTROLS LINE: the first 3 s of a run, then it fades. A
+            picture, never a control - the arena under it is steered by touch. */}
+        {live && !choosing && (
           <div
-            aria-hidden="true"
-            style={{ position: "absolute", inset: 0, pointerEvents: "none", containerType: "inline-size" }}
+            data-hint="controls"
+            aria-hidden={!hintOn}
+            style={{
+              position: "absolute",
+              insetInline: 0,
+              top: wide ? "79%" : "74%",
+              display: "flex",
+              justifyContent: "center",
+              pointerEvents: "none",
+              zIndex: 2,
+              opacity: hintOn ? 1 : 0,
+              transition: `opacity ${HINT_FADE_MS}ms ease`,
+            }}
           >
             <div
               style={{
-                position: "absolute",
-                insetInlineEnd: "3.5%",
-                bottom: "5%",
-                // Wide enough on a phone for the numbers (they were clipped at
-                // 44% of a 360px arena, 2026-09-28), capped on a PC as the mock.
-                // 52%, not 62%: the weapon slots grew with the HUD (R4.5) and a
-                // wider meter ran into them on a 390 phone.
-                width: "min(52%, 520px)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 18px",
+                borderRadius: 999,
+                background: "rgba(11, 13, 31, 0.82)",
+                border: "2px solid #2a2f55",
                 color: "#f5f6ff",
                 fontFamily: "Fredoka, Heebo, sans-serif",
-                fontWeight: 700,
-                fontSize: "clamp(13.5px, 3.15cqw, 21px)",
+                fontWeight: 600,
+                fontSize: 17,
+                whiteSpace: "nowrap",
               }}
             >
-              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", columnGap: 8, opacity: 0.8, letterSpacing: "0.04em" }}>
-                <span>{`${T.boss} ${status.meter.stage}`}</span>
-                <span dir="auto" style={{ whiteSpace: "nowrap" }}>
-                  {meterAt.len != null
-                    ? `${T.length} ${status.meter.len}/${meterAt.len} · ${T.crushed} ${status.meter.crushed}/${meterAt.crushed}`
-                    : `${T.crushed} ${status.meter.crushed}/${meterAt.crushed}`}
-                </span>
-              </div>
-              <div style={{ marginTop: "0.4em", height: "clamp(7.5px, 1.95cqw, 15px)", borderRadius: 6, background: "rgba(255, 255, 255, 0.1)", overflow: "hidden" }}>
-                <div
-                  style={{
-                    width: `${Math.round(bossProgress({ ...status.meter, level: status.level }) * 100)}%`,
-                    height: "100%",
-                    borderRadius: 6,
-                    background: "linear-gradient(90deg, #ff7675, #ffd166)",
-                  }}
-                />
-              </div>
+              {DRAG}
+              {T.hint}
             </div>
           </div>
+        )}
+        {/* THE HUD, "C3 Big hearts, length right" (operator, 2026-10-01):
+            hearts top-left in a big 2x4 block, the length big top-right, the
+            boss row at the bottom, the weapons on the side once owned. Only
+            while a run is live - the title and the entrance own the arena
+            otherwise. The boss row steps aside for the tutorial's words and
+            the card picker, as the meter it replaces did. */}
+        {status.phase === "playing" && (
+          <SnakeHud
+            hearts={heartBlock(status.len, status.peak, status.bite)}
+            len={status.len}
+            boss={tutoring || choosing ? null : bossRow(status.level, status.meter, status.boss)}
+            cards={tutoring ? [] : WEAPONS.filter((id) => status.taken[id]).map((id) => ({ id, art: CARD_ART[id]() }))}
+          />
+        )}
+        {tutoring && status.tutorial !== "done" && status.tutorial && (
+          <TutorialBanner step={status.tutorial} locale={ctx.locale} onSkip={() => sceneRef.current?.endTutorial()} />
         )}
         {/* THE STAGE BANNER (round four): a couple of seconds of "Stage N",
             centred, the moment a warden falls and there is a next one - the
@@ -650,6 +611,10 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
               );
             })}
           </div>
+        )}
+        {/* THE PAUSE CARD: Resume, and the three numbers that left play. */}
+        {status.phase === "playing" && status.paused && (
+          <PauseCard stats={stats} words={statWords} resume={ctx.t("resume")} onResume={() => sceneRef.current?.setPaused(false)} />
         )}
       </div>
     </ArcadeChrome>

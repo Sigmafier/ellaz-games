@@ -1,8 +1,9 @@
 // The career's screens that live ON THE ARENA - the level banner (p0 `intro`)
 // and the result card - plus the gold pill a career run wears. The map, shop and
 // gear are the KIT's screens and are drawn by `CareerLayer.tsx` over the whole
-// page. The two entrance tiles that lived here (the operator's pick quickB) were
-// replaced on 2026-09-30 by the mode cards in `entrance/ModeCards.tsx`.
+// page. The entrance tiles that lived here (2026-09-30 mode cards, before that
+// the operator's pick quickB) are gone: since 2026-10-01 the title is the one
+// screen (`entrance/NeonTitle.tsx`).
 //
 // Every control is a real <button>; nothing here is ever `disabled`. Sizes come
 // from the ARENA box's layout size (`useLayoutBox`, clientWidth/clientHeight),
@@ -220,20 +221,6 @@ export function GoldPill({ gold, label }: { gold: number; label: string }): Reac
       <NeonIcon name="gold" size={24} />
       {gold}
     </div>
-  );
-}
-
-/** The small way back from the quick run's entrance to the mode cards. */
-export function MenuButton({ label, onPress }: { label: string; onPress: () => void }): ReactElement {
-  return (
-    <button
-      type="button"
-      onClick={onPress}
-      style={{ border: "2px solid rgba(255,255,255,0.4)", background: "transparent", color: "#fff", borderRadius: 999, minHeight: 40, padding: "0 16px", font: "inherit", fontFamily: FONT, fontWeight: 700, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, touchAction: "manipulation" }}
-    >
-      <span aria-hidden="true">&#8249;</span>
-      {label}
-    </button>
   );
 }
 

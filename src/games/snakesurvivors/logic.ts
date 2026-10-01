@@ -13,12 +13,12 @@ import {
   advance, centreOf, findLoop, findTailLoop, inside, maxLenOf, trimTrail,
 } from "./body";
 import {
-  CHAIN_RANGE, FROST_MS, HOLE, NOVA_EVERY, SPIT, TAIL_COOL_MS, applyCard, biteOf, chainOf, gemMult, noneTaken, offerCards,
+  CHAIN_RANGE, FROST_MS, HOLE, NOVA_EVERY, SPIT, TAIL_COOL_MS, applyCard, biteOf, chainOf, gemMult, noneTaken, nextGoldDry, offerCards,
   pullOf, regrowEvery, shieldEvery, shockOf, spikeEvery, spitEvery,
 } from "./cards";
 import { BONUS_GEM, crushFx } from "./crushFx";
 import {
-  KINDS, SAFE_START_MS, SHOT, STAGE_BREATHER_MS, biteCost, bossDue, isBoss, moveFoes, startBoss, tickMini, tickSpawns,
+  KINDS, SAFE_START_MS, SHOT, STAGE_BREATHER_MS, biteCost, isBoss, moveFoes, startBoss, tickMini, tickSpawns, wardenMayCome,
 } from "./crowd";
 import { FLOOR_GEMS, tickFloorGems } from "./floor";
 import type { Arena, CardId, Foe, LevelKey, Pt, Run, Stage, Steer } from "./types";
@@ -78,6 +78,7 @@ export function newRun(level: LevelKey, arena: Arena = ARENA, rng: () => number 
     xp: 0, need: needFor(1), lv: 1,
     choosing: null,
     taken: noneTaken(),
+    goldDry: 0,
     blink: 0, loopCool: 0, regrowAt: 0,
     shots: [], bolts: [], spitIn: 0, shieldIn: 0,
     loopsCaught: 0, vortices: [], tailCool: 0,
@@ -102,7 +103,7 @@ export function step(run: Run, dt: number, steer: Steer, rng: () => number = Mat
   run.shieldIn = Math.max(0, run.shieldIn - dt);
 
   advance(run, dt, steer);
-  if (run.phase === "stage" && bossDue(run)) startBoss(run, rng);
+  if (wardenMayCome(run)) startBoss(run, rng);
   tickMini(run, rng);
   tickSpawns(run, dt, rng);
   tickFloorGems(run, dt, rng);
@@ -437,6 +438,7 @@ function collectGems(run: Run, dt: number, rng: () => number): void {
     run.lv += 1;
     run.need = needFor(run.lv);
     const offer = offerCards(run, rng);
+    run.goldDry = nextGoldDry(run.goldDry, offer);
     run.choosing = offer.length ? offer : null;
     run.events.push({ k: "level" });
   }

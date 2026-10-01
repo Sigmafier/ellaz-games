@@ -175,6 +175,18 @@ const ring = (c: Pt, r: number, n = 18): Pt[] =>
  * snap shut on - a circular arc that leaves the head along its heading and
  * lands on the point, so it reads as "keep turning this way". `n` points, head
  * first. A point dead ahead (or behind) gets a straight line.
+ *
+ * BOUNDED (NePo, forum post #13: "the loop guide is sometimes huge"): the
+ * tangent circle's radius is d^2 / (2 * side), so a point almost straight
+ * BEHIND the head asked for a circle 718 units across at (-60,-5) and 3578 at
+ * (-60,-1), well inside the 84-unit snap reach. Every point of the guide now
+ * stays within d of the head AND of the snap point. For a point beside or
+ * ahead of the head the tangent arc already does - its sweep is at most a half
+ * turn, so its furthest point from the head IS the snap point - and is kept
+ * exactly. For a point behind, the guide is instead the half circle on the
+ * head-to-point chord, bulging to the side the heading turns: the same circle
+ * the tangent arc becomes at exactly 90 degrees, so nothing jumps as a point
+ * crosses from beside to behind.
  */
 export function guideArc(head: Pt, heading: number, at: Pt, n = 16): Pt[] {
   const fx = Math.cos(heading);
@@ -186,6 +198,19 @@ export function guideArc(head: Pt, heading: number, at: Pt, n = 16): Pt[] {
   const side = -fy * dx + fx * dy;
   if (d2 === 0) return [{ x: head.x, y: head.y }];
   if (Math.abs(side) < 1e-6) return Array.from({ length: n }, (_, i) => ({ x: head.x + (dx * i) / (n - 1), y: head.y + (dy * i) / (n - 1) }));
+  if (fx * dx + fy * dy < 0) {
+    // Behind the head: the half circle on the chord, centred on its midpoint,
+    // walked a half turn the way the heading turns (`side`'s sign).
+    const mx = head.x + dx / 2;
+    const my = head.y + dy / 2;
+    const h0 = Math.atan2(head.y - my, head.x - mx);
+    const half = side > 0 ? Math.PI : -Math.PI;
+    const hr = Math.sqrt(d2) / 2;
+    return Array.from({ length: n }, (_, i) => {
+      const a = h0 + (half * i) / (n - 1);
+      return { x: mx + Math.cos(a) * hr, y: my + Math.sin(a) * hr };
+    });
+  }
   // A circle tangent to the heading at the head and through `at`: radius d^2 / (2 * side).
   const r = d2 / (2 * side);
   const cx = head.x - fy * r;

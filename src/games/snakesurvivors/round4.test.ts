@@ -187,27 +187,30 @@ describe("sixteen cards in three tiers", () => {
     for (const id of CARD_IDS) if (TIER[id] === "epic") expect(CAPS[id], id).toBe(1);
   });
 
-  it("a slot rolls about 1 in 12 gold and 1 in 4 blue", () => {
-    expect(TIER_ODDS.epic).toBeCloseTo(1 / 12, 9);
-    expect(TIER_ODDS.rare).toBeCloseTo(1 / 4, 9);
+  // 2026-10-01, "Rare, with a promise": a FRESH run's slot rolls 1% gold and
+  // 1 in 8 blue (was 1 in 12 and 1 in 4); gold then rises with every dry offer,
+  // which `gold-is-rare-with-a-promise.test.ts` pins.
+  it("a fresh run's slot rolls 1 in 100 gold and 1 in 8 blue", () => {
+    expect(TIER_ODDS.epic).toBeCloseTo(1 / 100, 9);
+    expect(TIER_ODDS.rare).toBeCloseTo(1 / 8, 9);
     const rng = mulberry32(7);
     const seen: Record<Tier, number> = { common: 0, rare: 0, epic: 0 };
     const N = 4000;
     for (let i = 0; i < N; i++) for (const id of offerCards({ taken: noneTaken() }, rng)) seen[TIER[id]]++;
     const total = seen.common + seen.rare + seen.epic;
     expect(total).toBe(3 * N);
-    expect(seen.epic / total).toBeGreaterThan(0.07);
-    expect(seen.epic / total).toBeLessThan(0.097);
-    expect(seen.rare / total).toBeGreaterThan(0.23);
-    expect(seen.rare / total).toBeLessThan(0.27);
+    expect(seen.epic / total).toBeGreaterThan(0.006);
+    expect(seen.epic / total).toBeLessThan(0.014);
+    expect(seen.rare / total).toBeGreaterThan(0.11);
+    expect(seen.rare / total).toBeLessThan(0.14);
   });
 
   it("the roll's boundaries are where the odds say", () => {
     expect(tierFor(0)).toBe("epic");
-    expect(tierFor(1 / 12 - 1e-9)).toBe("epic");
-    expect(tierFor(1 / 12)).toBe("rare");
-    expect(tierFor(1 / 12 + 1 / 4 - 1e-9)).toBe("rare");
-    expect(tierFor(1 / 12 + 1 / 4)).toBe("common");
+    expect(tierFor(1 / 100 - 1e-9)).toBe("epic");
+    expect(tierFor(1 / 100)).toBe("rare");
+    expect(tierFor(1 / 100 + 1 / 8 - 1e-9)).toBe("rare");
+    expect(tierFor(1 / 100 + 1 / 8)).toBe("common");
   });
 
   it("never offers a card twice in one offer, and never one at its cap", () => {

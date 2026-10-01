@@ -1,8 +1,10 @@
-// Snake Survivors' TITLE: the neon snake closing its loop round a crowd, the
-// name in two glowing lines, "Circle them. Close the loop.", one Tap to start
-// and a small How to play. Approved off the mock, 2026-09-30. After Tap to
-// start, the entrance this game already had (difficulty, Play, How to play)
-// carries on unchanged.
+// Snake Survivors' TITLE ART: the neon snake closing its loop round a crowd,
+// and the inks and heading style its title card and its game-over card share.
+// Approved off the mock, 2026-09-30; on 2026-10-01 ("one-screen start, all
+// four") the title gained the difficulty chips and ONE big PLAY, the plain card
+// after it went away, and the game-over card became the same art under a veil
+// with "OUT OF / TAIL" in these two glows. The card itself is the shared
+// `ArcadeTitle`, drawn by `ArcadeChrome`'s entrance.
 //
 // On a phone the words stack over the picture; on a landscape PC box they sit
 // in the start-side column and the loop takes the other side - which side is
@@ -13,7 +15,7 @@
 // tail, and the gems in their three values' colours.
 
 import { useMemo, type ReactElement, type ReactNode } from "react";
-import { ArcadeTitle, titleLines, type TitleBox } from "@ui/ArcadeTitle";
+import { titleLines, type TitleBox, type TitleInks, type TitleLine } from "@ui/ArcadeTitle";
 import { mulberry32 } from "@shared/rng";
 import { Sprite, layer, type FrameId } from "../survivors/entrance/sprite";
 
@@ -29,15 +31,15 @@ function mix(a: number, b: number, t: number): string {
 
 /** The question mark in a circle, for How to play. */
 const HELP = (
-  <svg aria-hidden="true" width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round">
+  <svg aria-hidden="true" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="#d6fff3" strokeWidth={2.4} strokeLinecap="round">
     <circle cx="12" cy="12" r="10" />
     <path d="M9.3 9.2a2.8 2.8 0 1 1 3.9 2.6c-.8.4-1.2 1-1.2 1.8v.6" />
-    <circle cx="12" cy="17.6" r=".6" fill="#fff" />
+    <circle cx="12" cy="17.6" r=".6" fill="#d6fff3" />
   </svg>
 );
 
 /** The picture: the dark grid, the gems, the crowd inside and outside the loop, and the snake closing it. */
-function SnakeTitleArt({ w: W, h: H, wide, rtl }: TitleBox): ReactElement {
+export function SnakeTitleArt({ w: W, h: H, wide, rtl }: TitleBox): ReactElement {
   const drawn = useMemo(() => {
     // The mock's geometry, scaled by the box's shorter side so any phone gets
     // the same composition. The loop sits on the end side of a landscape box.
@@ -167,24 +169,26 @@ function SnakeTitleArt({ w: W, h: H, wide, rtl }: TitleBox): ReactElement {
   );
 }
 
-export function SnakeTitle(props: { name: string; tagline: string; locale: string; tap: string; how: string; onStart: () => void; onHow: () => void }): ReactElement {
-  const lines = titleLines(props.name, props.locale).map((text, i) =>
-    i === 0 ? { text, glow: "#55efc4", fill: "#eafff8" } : { text, glow: "#6c5ce7", fill: "#efeaff" },
-  );
-  return (
-    <ArcadeTitle
-      label={props.name}
-      lines={lines}
-      tagline={props.tagline}
-      action={props.tap}
-      onAction={props.onStart}
-      accent="#55efc4"
-      ink="#241c17"
-      light="#d6fff3"
-      secondary={{ label: props.how, onPress: props.onHow, icon: HELP }}
-      split
-    >
-      {(box) => <SnakeTitleArt {...box} />}
-    </ArcadeTitle>
-  );
+/** Snake Survivors' inks on its title card (the mock's "snake" theme). */
+export const SNAKE_INKS: TitleInks = {
+  accent: "#55efc4",
+  ink: "#241c17",
+  light: "#d6fff3",
+  chip: "rgba(20, 14, 12, 0.88)",
+  sel: "#efeaff",
+  selRing: "#6c5ce7",
+  panel: "rgba(11, 13, 31, 0.88)",
+  line: "#2a2f55",
+  gold: "#ffd166",
+};
+
+/** A heading in the title's two glows: mint on the first line, violet on the second. */
+export function snakeLines(texts: string[]): TitleLine[] {
+  return texts.map((text, i) => (i === 0 ? { text, glow: "#55efc4", fill: "#eafff8" } : { text, glow: "#6c5ce7", fill: "#efeaff" }));
 }
+
+/** The name as the approved title set it: split at its first space. */
+export const snakeName = (name: string, locale: string): TitleLine[] => snakeLines(titleLines(name, locale));
+
+/** The question mark for How to play. */
+export const HOW_ICON = HELP;

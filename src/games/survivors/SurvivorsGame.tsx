@@ -35,21 +35,23 @@ import { ARENA, ARENA_WIDE, RUN_MS, UPGRADE_CAP, UPGRADE_IDS, WEAPON_LV_MAX, typ
 } from "./logic";
 import { UPGRADE_ART } from "./upgradeArt";
 import { phoneArena, phoneBox } from "./phoneArena";
-// THE CAREER (P3, 2026-09-29). The entrance is two tiles now - Career and Quick
-// run (the operator's pick "quickB") - and everything the career draws lives in
-// its own file; this component only switches between the two.
+// THE CAREER (P3, 2026-09-29): everything the career draws lives in its own
+// file; this component only opens it, from the title's Career pill.
 import { CareerLayer } from "./CareerLayer";
-import { MenuButton } from "./careerScreens";
-// THE TITLE SCREEN (2026-09-30): the game opens on key art and one Tap to start,
-// which goes on to the mode cards (Career / Quick run, drawn by CareerLayer).
-import { NeonTitle } from "./entrance/NeonTitle";
+// THE TITLE CARD (2026-09-30, one screen since 2026-10-01): key art, the
+// difficulty, a big PLAY that starts a quick run on the last-used weapon, and
+// two pills - the weapon pick and the Career map. The game-over card wears the
+// same style.
+import { CROWN, NEON_INKS, neonArt, neonLines } from "./entrance/NeonTitle";
+import { neonView, readWeapon, rememberWeapon, type NeonMode } from "./entrance/quickStart";
+import { balancedLines, titleLines } from "@ui/ArcadeTitle";
 // THE WEAPON PICK and THE SUPER POWER CARD (operator ruling 2026-09-30, "like
 // Survivor.io"): a run starts on one MAIN weapon picked from the whole
 // collection, and a weapon's evolution arrives as a gold card of its own.
 import { WeaponPick } from "./entrance/WeaponPick";
 import { SuperCard } from "./entrance/SuperCard";
 import { weaponWords } from "./entrance/weaponWords";
-import { asMainWeapon, weaponsOpenIn } from "./weaponPool";
+import { weaponsOpenIn } from "./weaponPool";
 import type { CareerStore } from "../../shared/career/save";
 import { notifyRunStart } from "@ui/gameTools";
 import { neonCareerWords } from "./careerWords";
@@ -77,9 +79,6 @@ const LEVEL_OPTIONS: DifficultyOption<LevelKey>[] = [
 // costs a player nothing, and a one-off cleanup pass is code that runs on every
 // mount for ever to tidy something invisible. If the choice ever comes back, the
 // key is still there and still means what it meant.
-
-/** Where this device remembers the starting weapon. Persisted, so never renamed. */
-const START_KEY = "startWeapon";
 
 /** The dash chip's drawing: two chevrons, in ice. */
 const DASH_ART = (
@@ -117,14 +116,14 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
   > | null>(null);
 
   /**
-   * WHICH SCREEN THIS IS RIGHT NOW: the title, the mode cards, the quick run, or
+   * WHICH SCREEN THIS IS RIGHT NOW: the title, the weapon pick, a quick run, or
    * the career. The game opens on the TITLE (operator, 2026-09-30: *"we have to
-   * have 1 enter game screen"*); its one button goes to the mode cards. The
-   * QUICK RUN is today's game byte for byte - the same entrance, the same
-   * difficulty and weapon pick, the same scene - with one small "Menu" button
-   * under its Play to get back to the mode cards.
+   * have 1 enter game screen"*), and since 2026-10-01 the title is the ONE
+   * screen: its PLAY starts a quick run on the last-used weapon, its weapon pill
+   * opens the pick, its Career pill opens the map. The Career / Quick run cards
+   * screen that sat between them is gone.
    */
-  const [mode, setMode] = useState<"title" | "menu" | "pick" | "quick" | "career">("title");
+  const [mode, setMode] = useState<NeonMode>("title");
   /** The scene tells the career when a level ends; the career decides what that pays. */
   const careerEndRef = useRef<((r: CareerResult, token: string) => void) | null>(null);
 
@@ -142,22 +141,29 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
     () => ({ get: (key) => ctx.storage.get<unknown>(key, null), set: (key, value) => ctx.storage.set(key, value) }),
     [ctx],
   );
-  // The MAIN weapon the next run starts with, remembered on this device and
-  // validated on the way in - `asMainWeapon` reads anything this save may not
-  // pick (locked, unknown, not ours) as the bolt, which is always open.
-  const [startWeapon, setStartWeapon] = useState<WeaponId>(() => asMainWeapon(ctx.storage.get<string>(START_KEY, "bolt"), weaponsOpenIn(careerStore)));
+  // The MAIN weapon the next run starts with - the LAST-USED one, remembered on
+  // this device and validated on the way in: anything this save may not pick
+  // (locked, unknown, not ours) reads as the first weapon it owns (quickStart.ts).
+  const [startWeapon, setStartWeapon] = useState<WeaponId>(() => readWeapon(ctx.storage, weaponsOpenIn(careerStore)));
   const startRef = useRef(startWeapon);
   startRef.current = startWeapon;
   /** Pick a main weapon: remembered, and handed to the scene before the run it starts. */
   const chooseWeapon = (id: WeaponId) => {
     setStartWeapon(id);
     // From the handler, never a state updater - the house rule.
-    ctx.storage.set(START_KEY, id);
+    rememberWeapon(ctx.storage, id);
     sceneRef.current?.setStartWeapon(id);
   };
-  // PLAY pressed on the pick before Phaser finished loading: the run starts the
-  // moment the scene is ready, rather than dropping the press.
+  // PLAY pressed before Phaser finished loading: the run starts the moment the
+  // scene is ready, rather than dropping the press.
   const pendingPlay = useRef(false);
+  /** A quick run on this weapon - the title's PLAY, the pick's PLAY, and PLAY AGAIN. */
+  const startQuick = (id: WeaponId) => {
+    chooseWeapon(id);
+    setMode("quick");
+    if (sceneRef.current) sceneRef.current.startFromChrome();
+    else pendingPlay.current = true;
+  };
 
   const [status, setStatus] = useState<SurvivorsStatus>({
     score: 0,
@@ -347,6 +353,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         play: "שחקו",
         playAgain: "שחקו שוב",
         lost: "נגמרו הלבבות",
+        wonHead: "ניצחתם!",
         beat: "הגולם נפל!",
         pick: "עלייה לדרגה",
         score: "צורות",
@@ -369,6 +376,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         play: "Play",
         playAgain: "Play again",
         lost: "Out of hearts",
+        wonHead: "You win!",
         beat: "The golem is down!",
         pick: "Level up",
         score: "Shapes",
@@ -391,6 +399,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         play: "Jugar",
         playAgain: "Jugar otra vez",
         lost: "Sin corazones",
+        wonHead: "¡Has ganado!",
         beat: "¡El gólem ha caído!",
         pick: "Subes de nivel",
         score: "Formas",
@@ -413,6 +422,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         play: "Spela",
         playAgain: "Spela igen",
         lost: "Inga hjärtan kvar",
+        wonHead: "Du vann!",
         beat: "Golemen föll!",
         pick: "Du går upp i nivå",
         score: "Former",
@@ -515,8 +525,29 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
     ctx.locale,
   );
 
-  const asking = status.phase !== "playing";
   const choosing = status.offer.length > 0;
+  /**
+   * The game-over card is LATCHED: a difficulty tap on it restarts the scene to
+   * "ready", and read off the phase alone the card would turn into the title
+   * under the finger. Set when a quick run ends, cleared when one starts or the
+   * player leaves for the title, the pick or the career.
+   */
+  const [ended, setEnded] = useState(false);
+  useEffect(() => {
+    if (status.phase === "playing") setEnded(false);
+    else if (mode === "quick" && (status.phase === "won" || status.phase === "over")) setEnded(true);
+  }, [status.phase, mode]);
+  const go = (next: NeonMode) => {
+    setEnded(false);
+    setMode(next);
+  };
+  const view = neonView(mode, status.phase, choosing, ended || (mode === "quick" && (status.phase === "won" || status.phase === "over")));
+  const won = status.phase === "won";
+  const weaponPill = {
+    label: WN[startWeapon][0],
+    icon: <span style={{ color: WEAPON_INK_CSS[startWeapon], display: "flex", width: "100%", height: "100%" }}>{WEAPON_ART[startWeapon](22)}</span>,
+    onPress: () => go("pick"),
+  };
 
   return (
     <ArcadeChrome
@@ -609,42 +640,48 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
          * THE THREE ROWS THAT USED TO HANG UNDER THE ARENA, MOVED ONTO IT.
          * The operator, 2026-09-13: *"maybe the buttons instead of being down
          * should be on some kind of load screen or entrance to the game"* -
-         * then picked this shape off four rendered over the live game.
+         * then picked this shape off four rendered over the live game. Since
+         * 2026-10-01 it is the TITLE itself (one screen) and, after a quick
+         * run, the game-over card in the title's style.
          *
-         * `choosing` is in the condition and it is load-bearing: the upgrade
-         * picker is its own cover, drawn DURING a live run, and two covers on
-         * one arena would stack. The run is not "asking" then either, but the
-         * guard says so explicitly rather than relying on that.
-         *
-         * NOT A LOADING SCREEN, which is the other reading of what was asked.
-         * The taste ledger already rules out a difficulty picker on the poster
-         * before the game exists, and a spinner in an empty box while the chunk
-         * downloads. This is drawn by the game, after it has mounted, so it
-         * conflicts with neither.
+         * `choosing` is folded into `view`: the upgrade picker is its own cover,
+         * drawn DURING a live run, and two covers on one arena would stack.
          */
-        mode === "quick" && asking && !choosing
+        view === "title"
           ? {
-              title: T.title,
-              // What used to be a strip UNDER the arena WHILE playing, where it
-              // cost the board height on every frame of the run and told the
-              // player how to play at the one moment they were already playing.
-              // On the entrance it costs nothing and arrives before it is
-              // needed.
-              tagline: T.hint,
-              action: status.phase === "ready" ? T.play : T.playAgain,
-              result:
-                status.phase === "won" ? T.beat : status.phase === "over" ? T.lost : undefined,
-              onAction: () => sceneRef.current?.startFromChrome(),
-              // After a run: back to the weapon pick (the run's main weapon is
-              // chosen there now, from the whole collection), or to the mode cards.
-              extra: (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-                  <MenuButton label={weaponWords(ctx.locale).weapon} onPress={() => setMode("pick")} />
-                  <MenuButton label={neonCareerWords(ctx.locale).menu} onPress={() => setMode("menu")} />
-                </div>
-              ),
+              label: T.title,
+              lines: neonLines(titleLines(T.title, ctx.locale)),
+              action: T.play,
+              onAction: () => startQuick(startWeapon),
+              pills: [weaponPill, { label: neonCareerWords(ctx.locale).career, icon: CROWN, onPress: () => go("career") }],
+              pillsWide: "flank" as const,
+              inks: NEON_INKS,
+              bottom: [0.116, 0.035] as [number, number],
+              children: neonArt,
             }
-          : null
+          : view === "over"
+            ? {
+                label: won ? T.wonHead : T.lost,
+                lines: neonLines(balancedLines(won ? T.wonHead : T.lost, ctx.locale)),
+                result: won ? T.beat : undefined,
+                layout: "stack" as const,
+                top: [0.16, 0.083] as [number, number],
+                nameFs: [72, 56] as [number, number],
+                play: { tall: [290, 78] as [number, number], wide: [300, 60] as [number, number] },
+                action: T.playAgain,
+                again: true,
+                onAction: () => startQuick(startWeapon),
+                // Back to the weapon pick (the run's main weapon is chosen
+                // there, from the whole collection), or to the title.
+                pills: [
+                  { label: weaponWords(ctx.locale).weapon, back: true, onPress: () => go("pick") },
+                  { label: neonCareerWords(ctx.locale).menu, back: true, onPress: () => go("title") },
+                ],
+                inks: NEON_INKS,
+                scrim: "rgba(11, 13, 31, 0.7)",
+                children: neonArt,
+              }
+            : null
       }
     >
       <div
@@ -729,9 +766,6 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
             touchAction: "none",
           }}
         />
-        {mode === "title" && (
-          <NeonTitle name={T.title} locale={ctx.locale} tap={neonCareerWords(ctx.locale).tap} onStart={() => setMode("menu")} />
-        )}
         {mode === "pick" && (
           <WeaponPick
             locale={ctx.locale}
@@ -749,35 +783,27 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
             }}
             onPick={chooseWeapon}
             onPlay={(id) => {
-              chooseWeapon(id);
-              setMode("quick");
               notifyRunStart();
-              if (sceneRef.current) sceneRef.current.startFromChrome();
-              else pendingPlay.current = true;
+              startQuick(id);
             }}
-            onBack={() => setMode("menu")}
+            onBack={() => go("title")}
             backLabel={neonCareerWords(ctx.locale).back}
           />
         )}
-        {(mode === "menu" || mode === "career") && (
+        {mode === "career" && (
           <CareerLayer
             ctx={ctx}
-            mode={mode}
             title={T.title}
             phase={status.phase}
             // Hidden while the cards are up, so it never sits on their title.
             gold={choosing ? null : status.gold}
-            quickBest={best}
             scene={sceneRef}
             endRef={careerEndRef}
-            onCareer={() => setMode("career")}
-            onQuick={() => setMode("pick")}
             weapon={startWeapon}
             onWeapon={chooseWeapon}
             names={WN}
             upgrades={UP}
-            onMenu={() => setMode("menu")}
-            onTitle={() => setMode("title")}
+            onTitle={() => go("title")}
           />
         )}
         {banner > 0 && (

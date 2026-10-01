@@ -136,8 +136,14 @@ import type { Arena, LevelKey } from "./types";
  */
 
 const SEEDS = [1, 2, 3, 4, 5, 6];
-/** The careful bot's population since R4.5: twelve seeds - see the table above. */
-const SEEDS12 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+/**
+ * The careful bot's population: SIXTY seeds since 2026-10-01 (operator: "Test
+ * on 60 runs"), twelve since R4.5 before that. Twelve read the warden-waits-
+ * for-the-mini fix as wild PC 8 -> 10 wins, over a cap of 8; sixty read the same
+ * change as 40 -> 37. Every count bound below is the R4.5 bound at the SAME
+ * RATE - 8 of 12 is 40 of 60 - never loosened.
+ */
+const CAREFUL_SEEDS = Array.from({ length: 60 }, (_, i) => i + 1);
 const LEVELS_ = ["calm", "normal", "wild"] as const;
 const SHAPES = [ARENA, ARENA_WIDE] as const;
 
@@ -148,13 +154,17 @@ function runs(level: LevelKey, arena: Arena, who: "circle" | "nocard"): Outcome[
   let out = memo.get(key);
   if (!out) {
     const rules = { loops: true, weapons: true, cards: who === "circle" };
-    out = (who === "circle" ? SEEDS12 : SEEDS).map((s) => play(level, s, circle, arena, 14 * 60_000, rules));
+    out = (who === "circle" ? CAREFUL_SEEDS : SEEDS).map((s) => play(level, s, circle, arena, 14 * 60_000, rules));
     memo.set(key, out);
   }
   return out;
 }
-/** Whole runs of six to fourteen minutes each: a cell may take a while on a busy machine. */
-const WHOLE_RUNS_MS = 300_000;
+/**
+ * Whole runs of six to fourteen minutes each: a cell may take a while on a busy
+ * machine. The first cell to read a (level, shape) pays for all sixty careful
+ * runs of it, which 300 s no longer covered once the population was sixty.
+ */
+const WHOLE_RUNS_MS = 1_500_000;
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 
 describe("a run that never closes a loop", () => {
@@ -186,8 +196,12 @@ describe("round four: longer, harder, more enemies", () => {
       const os = runs("normal", arena, "circle");
       const wins = os.filter((o) => o.end === "won");
       // R4.5: 9/12 and 8/12 measured - "about 4-5 of 6": most runs, NOT every run.
-      expect(wins.length, `normal ${arena.w}`).toBeGreaterThanOrEqual(7);
-      expect(wins.length, `normal ${arena.w}`).toBeLessThanOrEqual(10);
+      // Bounds 7-10 of 12, at the same rate 35-50 of 60 - and the floor is 30,
+      // by the operator's ruling of 2026-10-01 ("Yes, floor to 30"): NePo found
+      // the game too easy, and with the warden waiting for the mini-boss and the
+      // spawns slowed while it waits, 60 seeds read 39 (phone) and 34 (PC).
+      expect(wins.length, `normal ${arena.w}`).toBeGreaterThanOrEqual(30);
+      expect(wins.length, `normal ${arena.w}`).toBeLessThanOrEqual(50);
       for (const w of wins) {
         expect(w.crushed).toBeGreaterThanOrEqual(stageGoal("normal", 3).crushed);
         // 369-566 s measured: never under 5:30.
@@ -201,8 +215,8 @@ describe("round four: longer, harder, more enemies", () => {
 
   it("calm stays winnable: at least 5 of 6 on both shapes", () => {
     for (const arena of SHAPES) {
-      // 11/12 and 10/12 measured (R4.5).
-      expect(runs("calm", arena, "circle").filter((o) => o.end === "won").length, `calm ${arena.w}`).toBeGreaterThanOrEqual(10);
+      // 11/12 and 10/12 measured (R4.5). Bound 10 of 12, at the same rate 50 of 60.
+      expect(runs("calm", arena, "circle").filter((o) => o.end === "won").length, `calm ${arena.w}`).toBeGreaterThanOrEqual(50);
     }
   }, WHOLE_RUNS_MS);
 
@@ -210,7 +224,8 @@ describe("round four: longer, harder, more enemies", () => {
     for (const arena of SHAPES) {
       const wins = runs("wild", arena, "circle").filter((o) => o.end === "won").length;
       // 7/12 and 8/12 measured (R4.5) - the operator's "at most 4 of 6".
-      expect(wins, `wild ${arena.w}`).toBeLessThanOrEqual(8);
+      // 8 of 12, at the same rate 40 of 60.
+      expect(wins, `wild ${arena.w}`).toBeLessThanOrEqual(40);
       expect(wins, `wild ${arena.w}`).toBeGreaterThan(0);
     }
   }, WHOLE_RUNS_MS);
@@ -251,6 +266,44 @@ describe("round four: longer, harder, more enemies", () => {
     expect(Math.max(...ups)).toBeGreaterThanOrEqual(12);
   }, WHOLE_RUNS_MS);
 
+  /**
+   * "Rare, with a promise" (operator, 2026-10-01): blue 1 in 8 per slot, gold
+   * from 1% rising a point per offer that showed none - on NORMAL and WILD.
+   * "Calm keeps old odds" (the same day): calm stays at a flat 1 in 12 gold and
+   * 1 in 4 blue. Measured over the 120 careful runs per level (60 seeds, both
+   * shapes), cards OFFERED per run:
+   *
+   *                          gold   runs with no gold   blue   offers
+   *   normal, before (1/12)  3.17         5.0%          9.54   12.8
+   *   normal, after          1.55        11.7%          4.41   12.7
+   *   wild, after            1.33        24.2%          4.53   11.7
+   *   calm (old odds)        2.79         5.0%          8.24   11.1
+   *
+   * Runs with no gold sit above what the odds alone predict (~6% on normal):
+   * they are mostly the short runs that die early with few offers, which is
+   * also why wild, with the most early deaths, has the most. The bands sit
+   * around each arm, and normal's exclude its own before arm on gold and blue.
+   */
+  it("gold is rare with a promise on normal and wild, and calm keeps the old odds", () => {
+    const bands: Record<LevelKey, { gold: [number, number]; none: number; blue: [number, number] }> = {
+      normal: { gold: [1.2, 1.9], none: 0.2, blue: [3.5, 5.5] },
+      wild: { gold: [1.0, 1.7], none: 0.35, blue: [3.5, 5.5] },
+      calm: { gold: [2.2, 3.4], none: 0.15, blue: [7.0, 9.5] },
+    };
+    for (const level of LEVELS_) {
+      const os = SHAPES.flatMap((a) => runs(level, a, "circle"));
+      expect(os).toHaveLength(120);
+      const per = (k: "gold" | "blue") => os.reduce((n, o) => n + o[k], 0) / os.length;
+      const none = os.filter((o) => o.gold === 0).length / os.length;
+      const b = bands[level];
+      expect(per("gold"), `${level} gold a run`).toBeGreaterThan(b.gold[0]);
+      expect(per("gold"), `${level} gold a run`).toBeLessThan(b.gold[1]);
+      expect(none, `${level} runs that never see gold`).toBeLessThan(b.none);
+      expect(per("blue"), `${level} blue a run`).toBeGreaterThan(b.blue[0]);
+      expect(per("blue"), `${level} blue a run`).toBeLessThan(b.blue[1]);
+    }
+  }, WHOLE_RUNS_MS);
+
   it("a careless bot - loops, never takes a card - dies on normal more often than not, and in stage 2 or 3", () => {
     const os = SHAPES.flatMap((a) => runs("normal", a, "nocard"));
     const dead = os.filter((o) => o.end === "dead");
@@ -268,7 +321,8 @@ describe("round four: longer, harder, more enemies", () => {
   it("when the careful bot dies, it dies in stage 2 AND in stage 3 - never all at the stage-2 opening", () => {
     const deaths = LEVELS_.flatMap((level) => SHAPES.flatMap((a) => runs(level, a, "circle"))).filter((o) => o.end === "dead");
     // 21 deaths measured across the 72 runs: 10 in stage 2, 11 in stage 3.
-    expect(deaths.length).toBeGreaterThanOrEqual(6);
+    // At least 6 of 72, at the same rate 30 of 360.
+    expect(deaths.length).toBeGreaterThanOrEqual(30);
     expect(deaths.some((d) => d.stage === 2)).toBe(true);
     expect(deaths.some((d) => d.stage === 3)).toBe(true);
     expect(deaths.filter((d) => d.stage === 3).length * 3).toBeGreaterThanOrEqual(deaths.length);

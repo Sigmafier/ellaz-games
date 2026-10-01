@@ -27,57 +27,82 @@ describe("the population is real", () => {
   });
 });
 
-describe("one enter screen, one thing to press", () => {
+describe("one card, one thing to press", () => {
   const primaries = (s: string) => (s.match(/data-primary="true"/g) ?? []).length;
   const buttons = (s: string) => (s.match(/<button\b/g) ?? []).length;
 
   it("exactly one PRIMARY control, and it is a real <button> that calls the game's own start", () => {
     expect(primaries(CODE)).toBe(1);
-    expect(CODE).toMatch(/<button\s+type="button"\s+data-primary="true"\s+onClick=\{onAction\}/);
-    expect((CODE.match(/onClick=\{onAction\}/g) ?? []).length, "one press path, never a second").toBe(1);
+    expect(CODE).toMatch(/<button\s+type="button"\s+data-primary="true"\s+onClick=\{props\.onAction\}/);
+    expect((CODE.match(/onClick=\{props\.onAction\}/g) ?? []).length, "one press path, never a second").toBe(1);
   });
 
-  it("at most one other button, and only when the game hands one over", () => {
-    expect(buttons(CODE)).toBe(2);
-    expect(CODE).toMatch(/\{secondary && \(\s*<button/);
+  /*
+   * 2026-10-01 ("one-screen start, all four"): the card gained the chips, the
+   * pills and the link as a pill, so it is no longer "at most one other
+   * button". What is held instead: every other button is one the GAME handed
+   * over - a chip per option, a pill per pill, the link - each pressing that
+   * item's own handler, and none of them is the primary.
+   */
+  it("every other button is a chip, a pill or the link, each the game's own", () => {
+    expect(buttons(CODE)).toBe(5);
+    expect(CODE).toMatch(/props\.chips\.options\.map\(\(o\) => \{[\s\S]*?<button[\s\S]*?aria-pressed=\{on\}[\s\S]*?onClick=\{\(\) => props\.chips\?\.onChange\(o\.id\)\}/);
+    expect(CODE).toMatch(/const pill = \(p: TitlePill, i: number\) => \(\s*<button key=\{i\} type="button" onClick=\{p\.onPress\}/);
+    expect(CODE).toMatch(/\{linkAsPill && link && \(\s*<button type="button" onClick=\{link\.onPress\}/);
+    expect(CODE).toMatch(/const linkButton = link && !linkAsPill && \(\s*<button type="button" onClick=\{link\.onPress\}/);
   });
 
   it("nothing on it is ever disabled", () => {
     expect(CODE).not.toMatch(/\bdisabled\b/);
   });
 
-  it("FIRES on a second primary, on a lost handler, and on a disabled button", () => {
+  it("FIRES on a second primary, on a lost handler, a disabled button, and an extra button", () => {
     const two = CODE.replace('data-primary="true"', 'data-primary="true" /><button data-primary="true"');
     expect(two).not.toBe(CODE);
     expect(primaries(two)).toBe(2);
 
-    const lost = CODE.replace("onClick={onAction}", "onClick={() => {}}");
+    const lost = CODE.replace("onClick={props.onAction}", "onClick={() => {}}");
     expect(lost).not.toBe(CODE);
-    expect(lost).not.toMatch(/<button\s+type="button"\s+data-primary="true"\s+onClick=\{onAction\}/);
+    expect(lost).not.toMatch(/<button\s+type="button"\s+data-primary="true"\s+onClick=\{props\.onAction\}/);
 
     const off = CODE.replace('data-primary="true"', 'data-primary="true" disabled');
     expect(off).toMatch(/\bdisabled\b/);
+
+    expect(buttons(CODE + "<button />")).toBe(6);
   });
 });
 
-describe("it covers the arena and never resizes it", () => {
-  // The title is drawn OVER the arena box, like the entrance it sits in front
-  // of: absolutely placed, all four insets zero. A title in flow would push the
-  // board and change the size the board gate measured.
-  const covers = (s: string) => /position: "absolute",\s*inset: 0,/.test(s);
+describe("it covers its box and never resizes it", () => {
+  // The card is drawn OVER the arena (or the panel), like the entrance it
+  // replaced: the ROOT absolutely placed, all four insets zero. A card in flow
+  // would push the board and change the size the board gate measured.
+  const covers = (s: string) => /ref=\{ref\}\s*role="group"[\s\S]{0,80}?position: "absolute",\s*inset: 0,/.test(s);
 
-  it("is an absolute cover with every inset zero", () => {
+  it("its root is an absolute cover with every inset zero", () => {
     expect(covers(CODE)).toBe(true);
   });
 
   it("FIRES when it joins the flow", () => {
-    const m = CODE.replace(/position: "absolute",(\s*)inset: 0,/, 'position: "relative",$1inset: 0,');
+    const m = CODE.replace(/(role="group"[\s\S]{0,80}?)position: "absolute",/, '$1position: "relative",');
     expect(m).not.toBe(CODE);
     expect(covers(m)).toBe(false);
   });
 
   it("accepts pointers - it is the one thing on the arena a player must press", () => {
     expect(CODE).not.toMatch(/pointerEvents:\s*"none"/);
+  });
+});
+
+describe("the difficulty chips are buttons the gates can read", () => {
+  it("each chip carries the name it was handed and says whether it is picked", () => {
+    expect(CODE).toMatch(/aria-label=\{o\.aria\}\s*aria-pressed=\{on\}/);
+  });
+});
+
+describe("no colour of its own", () => {
+  it("every ink comes from the game", () => {
+    expect(CODE).toContain("inks: TitleInks;");
+    expect(CODE).not.toMatch(/#[0-9a-fA-F]{3,8}\b|\brgba?\(/);
   });
 });
 

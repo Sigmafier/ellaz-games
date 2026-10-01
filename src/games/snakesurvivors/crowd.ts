@@ -10,7 +10,7 @@
 
 import { spawnPoint } from "../survivors/world";
 import { LUNGE } from "./chase";
-import { BOSS_HP, KINDS, LEVELS, MINI_AT, MINI_HP, STAGE_CROWD, crowdAt, isBoss, stageProgress } from "./tuning";
+import { BOSS_HP, KINDS, LEVELS, MINI_AT, MINI_HP, STAGE_CROWD, bossDue, crowdAt, isBoss, stageProgress } from "./tuning";
 import type { Sent } from "./tuning";
 import type { Foe, Kind, Run, Stage } from "./types";
 
@@ -39,13 +39,14 @@ export function kindsAt(run: Run): Sent[] {
   return out;
 }
 
-/** ms between two shapes: tightening over the stage, eased off for the boss fight,
- *  and multiplied per stage by `STAGE_CROWD.spawn` - under 1 from stage 2, so faster. */
+/** ms between two shapes: tightening over the stage, eased off for the boss fight
+ *  (and while the warden waits for the mini-boss, `wardenWaiting`), and
+ *  multiplied per stage by `STAGE_CROWD.spawn` - under 1 from stage 2, so faster. */
 export function spawnEvery(run: Run): number {
   const L = LEVELS[run.level];
   const base = L.spawnMs + (L.floorMs - L.spawnMs) * progress(run);
   const staged = base * crowdAt(run).spawn;
-  return run.phase === "boss" ? staged * 1.6 : staged;
+  return run.phase === "boss" || wardenWaiting(run) ? staged * 1.6 : staged;
 }
 
 /**
@@ -82,7 +83,34 @@ export function tickSpawns(run: Run, dt: number, rng: () => number): void {
   }
 }
 
-/** The trigger is met (`bossDue`): the warden for THIS stage comes, tougher
+/**
+ * Is it time for this stage's warden, AND is the floor clear for it? NePo,
+ * forum post #13: the mini-boss and the warden arrived together, because the
+ * warden came the moment its trigger was met whether or not the mini-boss sent
+ * halfway there was still alive (68 of 72 circling-bot runs had both on the
+ * floor at once). Now it waits for no mini-boss to be alive. While it waits the
+ * boss meter simply reads full - the trigger IS met - and the gold bar over the
+ * mini-boss's head is what is left to do. The reverse needs no guard here:
+ * `tickMini` only sends a mini-boss in the "stage" phase, and a live warden
+ * means the "boss" phase.
+ */
+export function wardenMayCome(run: Run): boolean {
+  return run.phase === "stage" && bossDue(run) && !run.foes.some((f) => f.kind === "mini");
+}
+
+/**
+ * The warden is due and held back by a live mini-boss. Its ARRIVAL is what
+ * eased the spawn clock to the boss-fight rate before the wait existed (the
+ * trigger and the arrival were one step), so the wait keeps that: without it the
+ * crowd kept coming at the full stage rate while the player fought the mini,
+ * and the one careful run of 360 that died under 45 s into stage 2 had opened
+ * it five segments shorter than the same seed without the wait.
+ */
+export function wardenWaiting(run: Run): boolean {
+  return run.phase === "stage" && bossDue(run) && run.foes.some((f) => f.kind === "mini");
+}
+
+/** The trigger is met (`wardenMayCome`): the warden for THIS stage comes, tougher
  *  than the one before it (`BOSS_HP`). */
 export function startBoss(run: Run, rng: () => number): void {
   run.phase = "boss";

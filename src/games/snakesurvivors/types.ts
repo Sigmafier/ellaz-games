@@ -183,6 +183,8 @@ export interface Run {
   /** The three cards on offer, or null while playing. */
   choosing: CardId[] | null;
   taken: Record<CardId, number>;
+  /** Level-up offers in a row that showed no gold card - each one raises gold's odds a point (`epicOdds`). */
+  goldDry: number;
   /** ms left of the safety blink after a hit. */
   blink: number;
   /** ms before another loop may crush - one closing is one crush. */

@@ -73,6 +73,8 @@ const MILESTONE_EVERY = 100;
 const TIER: Record<LevelKey, "easy" | "medium" | "hard"> = { calm: "easy", normal: "medium", wild: "hard" };
 const DEPTH = { bg: 0, fx: 5, corpse: 8, foe: 10, snake: 20, pop: 40, hud: 50 } as const;
 const LOOP_LIFE = 620;
+/** The level line's thickness in arena units: about 4px on a phone, 4.5 on a PC (the C3 mock). */
+const XP_LINE = 3.5;
 /** How long a Chain Crush zap and a Nova ring stay on screen. */
 const ZAP_LIFE = 260;
 const NOVA_LIFE = 700;
@@ -105,7 +107,6 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
   private bg!: Phaser.GameObjects.Graphics;
   private fg!: Phaser.GameObjects.Graphics;
   private hud!: Phaser.GameObjects.Graphics;
-  private lvText!: Phaser.GameObjects.Text;
   private mobs = new Map<number, Phaser.GameObjects.Sprite>();
   private corpses: Phaser.GameObjects.Sprite[] = [];
   private sparks: Spark[] = [];
@@ -173,16 +174,6 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       .setDepth(DEPTH.pop)
       .setVisible(false);
     this.hud = this.add.graphics().setDepth(DEPTH.hud).setScrollFactor(0);
-    this.lvText = this.add
-      // R4.5, "the HUD should be bigger": 12px -> 18px, riding ON the level
-      // bar (itself 5 -> 8 px) at its TRAILING end - the weapon slots grew
-      // too, and at the leading end they sat on it on a PC.
-      .text(this.arena.w - 16, this.arena.h - 10, "", {
-        fontFamily: "Fredoka, Heebo, sans-serif", fontSize: "18px", color: "#f5f6ff", fontStyle: "bold", stroke: "#0b0e22", strokeThickness: 4,
-      })
-      .setOrigin(1, 0.5)
-      .setScrollFactor(0)
-      .setDepth(DEPTH.hud);
 
     // A thumb down is born as a stick wherever it lands, in SCREEN units - the
     // lesson Neon Survival learned once its camera started to move.
@@ -534,18 +525,19 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     if (gem) drawGemArrow(g, this.run, gem, this.tut.ms);
   }
 
-  /** The level bar along the bottom edge, and the stick under the thumb. */
+  /**
+   * The level line along the bottom edge, and the stick under the thumb. C3
+   * (2026-10-01): a thin unlabelled line, edge to edge - the LV number moved to
+   * the pause and game-over cards, so play carries no level clutter.
+   */
   private drawHud() {
     const h = this.hud;
     const { w, h: vh } = this.arena;
     h.clear();
-    const x = 12;
-    const bw = w - 24;
     h.fillStyle(0x232a5c, 0.9);
-    h.fillRoundedRect(x, vh - 14, bw, 8, 4);
+    h.fillRect(0, vh - XP_LINE, w, XP_LINE);
     h.fillStyle(INK.gem, 1);
-    h.fillRoundedRect(x, vh - 14, Math.max(8, (bw * this.run.xp) / this.run.need), 8, 4);
-    this.lvText.setText(`LV ${this.run.lv}`);
+    h.fillRect(0, vh - XP_LINE, Math.max(XP_LINE, (w * this.run.xp) / this.run.need), XP_LINE);
     if (this.stick) {
       const k = knobAt(this.stick);
       h.lineStyle(2, 0xf5f6ff, 0.28);

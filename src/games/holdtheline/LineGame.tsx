@@ -38,8 +38,10 @@ import {
 import type { Arena, LevelKey, RunState, ShopId } from "./types";
 import type { LineScene, LineStatus } from "./LineScene";
 import { measureBoxUnscaled, type ScaleManagerLike } from "@shared/phaserBox";
-import { BOARD_CLASS, boardVars } from "@ui/boardSize";
+import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
+import { balancedLines, type TitleInks, type TitleLine } from "@ui/ArcadeTitle";
 import { ShopCard } from "./shopArt";
+import { lineCard, lineEnd, nextLineEnd, type LineEnd } from "./screens";
 
 // `ctx.locale` is a SHIPPED locale - en, he, es, sv - and NOT a page locale.
 // French is the fifth PAGE_LOCALES arm, so it has a content file under
@@ -53,7 +55,8 @@ const LEVELS: readonly DifficultyOption<LevelKey>[] = [
 ];
 
 const T = {
-  play: { he: "להתחיל", en: "Start", es: "Empezar", sv: "Börja" },
+  // "Play", as the approved title card has it (2026-10-01) - it was "Start" on the plain card.
+  play: { he: "שחקו", en: "Play", es: "Jugar", sv: "Spela" },
   send: { he: "לשלוח גל", en: "Send the wave", es: "Enviar la oleada", sv: "Skicka vågen" },
   again: { he: "עוד פעם", en: "Play again", es: "Otra vez", sv: "Spela igen" },
   wave: { he: "גל", en: "Wave", es: "Oleada", sv: "Våg" },
@@ -72,6 +75,48 @@ const T = {
 const say = (ctx: GameContext, k: keyof typeof T): string =>
   (T[k] as Record<string, string>)[ctx.locale] ?? T[k].en;
 
+/** The keep-fell card's three tile words. */
+const TILE = {
+  score: { he: "ניקוד", en: "Score", es: "Puntos", sv: "Poäng" },
+  wave: { he: "גל", en: "Wave", es: "Oleada", sv: "Våg" },
+  best: { he: "שיא", en: "Best", es: "Récord", sv: "Rekord" },
+} as const;
+
+/** Hold the Line's inks on its title card (the mock's warm "htl" theme). */
+const INKS: TitleInks = {
+  accent: "#ffc24b",
+  ink: "#2a1608",
+  light: "#fff1d6",
+  chip: "rgba(20, 14, 12, 0.88)",
+  sel: "#fff1d6",
+  selRing: "#ff8a3d",
+  panel: "rgba(11, 13, 31, 0.88)",
+  line: "#2a2f55",
+  gold: "#ffd166",
+};
+
+/** A heading in the card's two warm glows. */
+const warm = (texts: string[]): TitleLine[] =>
+  texts.map((text, i) => (i === 0 ? { text, glow: "#ffd27a", fill: "#f4fffd" } : { text, glow: "#ff8a3d", fill: "#fff0fb" }));
+
+/** The tiles' drawings: a face for the score, a chevron for the wave, a crown for the record. */
+const SCORE_ICON = (
+  <svg viewBox="0 0 16 16" width="100%" height="100%" aria-hidden="true">
+    <circle cx="8" cy="8" r="6.4" fill="none" stroke="#ffd166" strokeWidth="1.8" />
+    <path d="M5.2 5.9l2 2m0-2l-2 2M8.8 5.9l2 2m0-2l-2 2M5.6 11.2q2.4-1.7 4.8 0" fill="none" stroke="#ffd166" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+const WAVE_ICON = (
+  <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true" fill="none" stroke="#74b9ff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 15l7-7 7 7" />
+  </svg>
+);
+const BEST_ICON = (
+  <svg viewBox="0 0 16 16" width="100%" height="100%" aria-hidden="true">
+    <path d="M2 12.5l-.8-7 3.6 3.2L8 3.5l3.2 5.2 3.6-3.2-.8 7z" fill="#ffd166" />
+  </svg>
+);
+
 export function LineGame({ ctx }: { ctx: GameContext }) {
   const host = useRef<HTMLDivElement | null>(null);
   const scene = useRef<LineScene | null>(null);
@@ -79,6 +124,12 @@ export function LineGame({ ctx }: { ctx: GameContext }) {
   const [status, setStatus] = useState<LineStatus | null>(null);
   const [paused, setPaused] = useState(false);
   const [, force] = useState(0);
+  /**
+   * PC or phone, read once at mount - the same breakpoint the board sizes on.
+   * On a phone the lane is a short strip, so the title card takes the whole
+   * game panel (the approved mock) with the live lane as its art strip on top.
+   */
+  const [pc] = useState(isPcArena);
 
   /**
    * The lane shape, picked ONCE at mount and handed to the simulation.
@@ -243,11 +294,10 @@ export function LineGame({ ctx }: { ctx: GameContext }) {
   }, [level]);
 
   const send = useCallback(() => {
+    // PLAY AGAIN starts the new run's first wave, rather than landing on the
+    // title for a second press.
+    if (run.current.phase === "over") restart();
     const r = run.current;
-    if (r.phase === "over") {
-      restart();
-      return;
-    }
     startWave(r, runRng(r.wave * 7 + 1));
     ctx.audio.unlock();
     force((n) => n + 1);
@@ -275,7 +325,6 @@ export function LineGame({ ctx }: { ctx: GameContext }) {
 
   const r = run.current;
   const running = status?.phase === "wave";
-  const over = status?.phase === "over";
 
   const hud: ArcadeHud = {
     hearts: { now: Math.ceil((status?.house ?? r.house) / 100), max: Math.ceil(r.houseMax / 100) },
@@ -292,44 +341,100 @@ export function LineGame({ ctx }: { ctx: GameContext }) {
     },
   };
 
-  const entrance: ArcadeEntrance | null = running
-    ? null
-    : {
-        title: over
-          ? say(ctx, "fell")
-          : r.wonAt > 0 && r.wave > CAMPAIGN_WAVES
-            ? `${say(ctx, "overtime")} · ${say(ctx, "wave")} ${r.wave}`
-            : r.wave === 1
-              ? "Hold the Line"
-              : `${say(ctx, "cleared")} · +$${clearBonus(r)}`,
-        tagline: r.wave === 1 ? say(ctx, "tagline") : undefined,
-        action: over ? say(ctx, "again") : r.wave === 1 ? say(ctx, "play") : say(ctx, "send"),
-        result: r.wonAt > 0 && r.wave === CAMPAIGN_WAVES + 1 ? say(ctx, "won") : undefined,
-        onAction: send,
-        pick: over ? undefined : (
-          <div className="ellaz-strip" style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 560 }}>
-            {ITEMS.filter((i) => isOffered(r, i.id)).map((i) => (
-              <ShopCard
-                key={i.id}
-                id={i.id}
-                line={i.line}
-                price={priceOf(r, i.id)}
-                owned={ownedOf(r, i.id)}
-                cap={i.cap}
-                affordable={canBuy(r, i.id)}
-                locale={ctx.locale}
-                onBuy={purchase}
-              />
-            ))}
-          </div>
-        ),
-      };
+  /**
+   * THE CARD (operator, 2026-10-01, "one-screen start, all four"): the title
+   * before wave 1, the shop between waves, and "The keep fell" - one shared card
+   * in the title's style. The keep-fell card is LATCHED: a difficulty tap on it
+   * builds a fresh run at wave 1, and read off the phase alone the card would
+   * turn into the title under the finger.
+   */
+  const now = lineEnd(status?.score ?? r.score, status?.wave ?? r.wave, ctx.score?.best(level) ?? 0);
+  const [end, setEnd] = useState<LineEnd | null>(null);
+  const phase = status?.phase;
+  useEffect(() => {
+    setEnd((prev) => nextLineEnd(prev, phase, now));
+  }, [phase]);
+  const shown = phase === "over" ? now : end;
+  const face = lineCard(phase, r.wave, shown);
+  const name = "Hold the Line";
+  /* On a phone the lane sits at the top of the panel and is the card's art: the
+     card is clear over it (a light veil) and dark below it. */
+  const strip = (veil: number) =>
+    pc ? "transparent" : `linear-gradient(rgba(11, 13, 31, ${veil}), rgba(11, 13, 31, ${veil + 0.4}) var(--title-head), #0b0e22 var(--title-head))`;
+  const shop = (
+    <div className="ellaz-strip" style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", maxWidth: 560 }}>
+      {ITEMS.filter((i) => isOffered(r, i.id)).map((i) => (
+        <ShopCard
+          key={i.id}
+          id={i.id}
+          line={i.line}
+          price={priceOf(r, i.id)}
+          owned={ownedOf(r, i.id)}
+          cap={i.cap}
+          affordable={canBuy(r, i.id)}
+          locale={ctx.locale}
+          onBuy={purchase}
+        />
+      ))}
+    </div>
+  );
+  const common = {
+    inks: INKS,
+    layout: "stack" as const,
+    design: { tall: [390, 792] as [number, number], wide: [1026, 479] as [number, number] },
+    play: { tall: [290, 78] as [number, number], wide: [300, 64] as [number, number] },
+  };
+  const entrance: ArcadeEntrance | null =
+    face === null || running
+      ? null
+      : face === "over"
+        ? {
+            ...common,
+            label: say(ctx, "fell"),
+            lines: warm(balancedLines(say(ctx, "fell"), ctx.locale)),
+            nameFs: [42, 58],
+            top: [0.06, 0.042],
+            tiles: [
+              { id: "score", icon: SCORE_ICON, value: shown?.score ?? 0, label: TILE.score[ctx.locale], color: "#ffd166" },
+              { id: "wave", icon: WAVE_ICON, value: shown?.wave ?? 1, label: TILE.wave[ctx.locale], color: "#74b9ff" },
+              { id: "best", icon: BEST_ICON, value: shown?.best ?? 0, label: TILE.best[ctx.locale], color: "#ffffff" },
+            ],
+            action: say(ctx, "again"),
+            again: true,
+            onAction: () => {
+              setEnd(null);
+              send();
+            },
+            cover: strip(0.45),
+            scrim: pc ? "rgba(11, 13, 31, 0.62)" : undefined,
+          }
+        : {
+            ...common,
+            label: face === "title" ? name : say(ctx, "cleared"),
+            lines: warm([
+              face === "title"
+                ? name.toLocaleUpperCase()
+                : r.wonAt > 0 && r.wave > CAMPAIGN_WAVES
+                  ? `${say(ctx, "overtime")} · ${say(ctx, "wave")} ${r.wave}`
+                  : `${say(ctx, "cleared")} · +$${clearBonus(r)}`,
+            ]),
+            nameFs: face === "title" ? [44, 70] : [30, 46],
+            top: [0.06, 0.058],
+            tagline: face === "title" ? say(ctx, "tagline") : undefined,
+            result: r.wonAt > 0 && r.wave === CAMPAIGN_WAVES + 1 ? say(ctx, "won") : undefined,
+            pick: shop,
+            action: face === "title" ? say(ctx, "play") : say(ctx, "send"),
+            onAction: send,
+            cover: strip(0.15),
+            scrim: pc ? "linear-gradient(rgba(11, 13, 31, 0.5), rgba(11, 13, 31, 0.5)), linear-gradient(transparent 30%, rgba(11, 13, 31, 0.6))" : undefined,
+          };
 
   return (
     <ArcadeChrome
       ctx={ctx}
       hud={hud}
       entrance={entrance}
+      span={pc ? "arena" : "panel"}
       levels={LEVELS}
       level={level}
       onLevel={(next: LevelKey) => {
@@ -337,7 +442,10 @@ export function LineGame({ ctx }: { ctx: GameContext }) {
         run.current = newRun(next, arenaRef.current);
         scene.current?.restartFrom(run.current);
       }}
-      onRestart={restart}
+      onRestart={() => {
+        setEnd(null);
+        restart();
+      }}
       paused={paused}
       onPaused={setPaused}
     >

@@ -2,114 +2,80 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { NEON_CAREER_WORDS } from "../careerWords";
 import { SHIPPED_LOCALES } from "@i18n/index";
-import { careerCardView } from "./ModeCards";
-import { freshSave } from "../../../shared/career/save";
 
 /**
- * Neon Survival's way in (operator, 2026-09-30, approved off a mock): a TITLE
- * screen with one Tap to start, then the MODE screen - two picture cards,
- * Career and Quick run - in place of the two small tiles it opened on.
- *
- * Quick run goes to the WEAPON PICK (with Calm / Normal / Wild on it) and then
- * into the run; Career goes to today's map, and every level on it goes through
- * the same pick before it starts (operator ruling 2026-09-30, "like Survivor.io").
+ * Neon Survival's way in (operator, 2026-10-01, "one-screen start, all four",
+ * which REPLACES the 2026-09-30 title -> mode cards flow): ONE title screen
+ * with Calm / Normal / Wild and a big PLAY that starts a QUICK RUN on the
+ * last-used weapon, plus two pills - the weapon (the pick screen, unchanged)
+ * and Career (the map, unchanged). The Career / Quick run cards screen is gone.
+ * Game over is the title-style card with PLAY AGAIN and Weapon / Menu pills.
  *
  * Source assertions - nothing here can mount a Phaser game - each with the
- * mutation that must turn it red.
+ * mutation that must turn it red. The rules themselves are pure and live in
+ * quickStart.test.ts.
  */
 
 const code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ").replace(/\{\/\*[\s\S]*?\*\/\}/g, " ");
 const read = (p: string) => code(readFileSync(new URL(p, import.meta.url), "utf8"));
 const GAME = read("../SurvivorsGame.tsx");
 const LAYER = read("../CareerLayer.tsx");
-const SCREENS = read("../careerScreens.tsx");
 const TITLE = read("./NeonTitle.tsx");
-const MODE = read("./ModeCards.tsx");
 
-describe("the game opens on its title", () => {
-  const opens = (s: string) => /useState<"title" \| "menu" \| "pick" \| "quick" \| "career">\("title"\)/.test(s);
-  it("the first screen is the title, not the mode cards", () => {
+describe("the game opens on its title, and the title is the one screen", () => {
+  const opens = (s: string) => /useState<NeonMode>\("title"\)/.test(s);
+  it("the first screen is the title", () => {
     expect(opens(GAME)).toBe(true);
   });
-  it("FIRES if it opens on the menu again", () => {
-    const m = GAME.replace('("title")', '("menu")');
+  it("FIRES if it opens anywhere else", () => {
+    const m = GAME.replace('useState<NeonMode>("title")', 'useState<NeonMode>("pick")');
     expect(m).not.toBe(GAME);
     expect(opens(m)).toBe(false);
   });
 
-  it("the title is drawn only on the title, and its one button goes to the mode cards", () => {
-    expect(GAME).toMatch(/\{mode === "title" && \(\s*<NeonTitle/);
-    expect(GAME).toMatch(/onStart=\{\(\) => setMode\("menu"\)\}/);
+  const title = GAME.slice(GAME.indexOf('view === "title"'), GAME.indexOf('view === "over"'));
+  it("the title's PLAY starts a quick run on the last-used weapon", () => {
+    expect(title).toContain("onAction: () => startQuick(startWeapon)");
+    expect(GAME).toMatch(/const startQuick = \(id: WeaponId\) => \{\s*chooseWeapon\(id\);\s*setMode\("quick"\);/);
   });
 
-  it("the title is the shared shell, with the game's own art inside it", () => {
-    expect(TITLE).toContain("<ArcadeTitle");
+  it("its two pills: the weapon opens the pick, Career opens the map", () => {
+    expect(title).toContain("pills: [weaponPill, { label: neonCareerWords(ctx.locale).career, icon: CROWN, onPress: () => go(\"career\") }]");
+    expect(GAME).toMatch(/const weaponPill = \{[\s\S]*?label: WN\[startWeapon\]\[0\],[\s\S]*?onPress: \(\) => go\("pick"\),/);
+  });
+
+  it("the art module is pieces for the shared card, and draws no button", () => {
     expect(TITLE).toMatch(/from "@ui\/ArcadeTitle"/);
     expect(TITLE).not.toMatch(/<button\b/);
   });
 });
 
-describe("the mode cards replace the two tiles", () => {
-  it("the career layer draws the mode cards on the menu, and the old tiles are gone", () => {
-    expect(LAYER).toMatch(/props\.mode === "menu"[\s\S]{0,40}<ModeCards/);
-    expect(LAYER).not.toContain("<Chooser");
-    expect(SCREENS).not.toContain("export function Chooser");
+describe("the mode cards are gone, and everything they reached is still reached", () => {
+  it("no mode cards are drawn anywhere, and there is no menu mode", () => {
+    expect(LAYER).not.toContain("<ModeCards");
+    expect(GAME).not.toContain('"menu"');
   });
 
-  it("exactly two cards and one Back, all real buttons, none disabled", () => {
-    expect((MODE.match(/<button\b/g) ?? []).length).toBe(2);
-    expect(MODE).toMatch(/<ModeCard\b[\s\S]*<ModeCard\b/);
-    expect((MODE.match(/<ModeCard\b/g) ?? []).length).toBe(2);
-    expect(MODE).not.toMatch(/\bdisabled\b/);
+  it("FIRES if the cards come back", () => {
+    const m = LAYER.replace("export function CareerLayer", '<ModeCards />\nexport function CareerLayer');
+    expect(m).toContain("<ModeCards");
   });
 
-  it("Career goes to today's map and Quick run to the weapon pick", () => {
-    expect(LAYER).toMatch(/onCareer=\{\(\) => \{ setScreen\("lobby"\); props\.onCareer\(\); \}\}/);
-    expect(LAYER).toMatch(/onQuick=\{props\.onQuick\}/);
-    expect(GAME).toMatch(/onQuick=\{\(\) => setMode\("pick"\)\}/);
-    // The result screen after a run is today's entrance, still gated the way it was.
-    expect(GAME).toMatch(/mode === "quick" && asking && !choosing/);
+  it("Career opens today's map: the layer mounts on the career mode and its first screen is the lobby", () => {
+    expect(GAME).toMatch(/\{mode === "career" && \(\s*<CareerLayer/);
+    expect(LAYER).toMatch(/useState<Screen>\("lobby"\)/);
   });
 
-  it("Back from the cards is the title, and the quick entrance's Menu is the cards", () => {
-    expect(GAME).toMatch(/onTitle=\{\(\) => setMode\("title"\)\}/);
-    expect(GAME).toMatch(/onPress=\{\(\) => setMode\("menu"\)\}/);
+  it("the map's Back leaves the career and goes to the title", () => {
+    expect(LAYER).toMatch(/props\.scene\.current\?\.leaveCareer\(\);\s*props\.onTitle\(\);/);
+    expect(GAME).toMatch(/onTitle=\{\(\) => go\("title"\)\}/);
   });
 
-  it("the career layer is not mounted under the title", () => {
-    expect(GAME).toMatch(/\(mode === "menu" \|\| mode === "career"\) && \(\s*<CareerLayer/);
-  });
-});
-
-describe("the career card says where you are, from the save", () => {
-  it("a fresh save is World 1, nothing done", () => {
-    const v = careerCardView(freshSave());
-    expect(v).toEqual({ world: "city", number: 1, done: 0, of: 4 });
-  });
-
-  it("clearing World 1's boss moves the card to World 2", () => {
-    const s = freshSave();
-    for (const id of ["city-1", "city-2", "city-3", "city-boss"]) s.stars[id] = 2;
-    expect(careerCardView(s)).toEqual({ world: "frost", number: 2, done: 0, of: 4 });
-  });
-
-  it("partway through a world counts what is done in it", () => {
-    const s = freshSave();
-    s.stars["city-1"] = 3;
-    s.stars["city-2"] = 1;
-    expect(careerCardView(s)).toEqual({ world: "city", number: 1, done: 2, of: 4 });
-  });
-
-  it("a star past a gap opens nothing, the kit's own rule", () => {
-    const s = freshSave();
-    s.stars["city-3"] = 3;
-    expect(careerCardView(s).done).toBe(0);
-  });
-
-  it("everything cleared reads as the last world, full", () => {
-    const s = freshSave();
-    for (const w of ["city", "frost", "lava"]) for (const l of ["1", "2", "3", "boss"]) s.stars[`${w}-${l}`] = 3;
-    expect(careerCardView(s)).toEqual({ world: "lava", number: 3, done: 4, of: 4 });
+  it("game over: PLAY AGAIN, and Weapon / Menu pills back to the pick and the title", () => {
+    const over = GAME.slice(GAME.indexOf('view === "over"'), GAME.indexOf(": null", GAME.indexOf('view === "over"')));
+    expect(over).toContain("action: T.playAgain");
+    expect(over).toContain("onPress: () => go(\"pick\")");
+    expect(over).toContain("onPress: () => go(\"title\")");
   });
 });
 
@@ -133,8 +99,8 @@ const SUPER = read("./SuperCard.tsx");
 describe("the weapon pick", () => {
   it("is drawn on the pick, and its PLAY takes the weapon and starts the quick run", () => {
     expect(GAME).toMatch(/\{mode === "pick" && \(\s*<WeaponPick/);
-    expect(GAME).toMatch(/onPlay=\{\(id\) => \{\s*chooseWeapon\(id\);\s*setMode\("quick"\);\s*notifyRunStart\(\);/);
-    expect(GAME).toMatch(/onBack=\{\(\) => setMode\("menu"\)\}/);
+    expect(GAME).toMatch(/onPlay=\{\(id\) => \{\s*notifyRunStart\(\);\s*startQuick\(id\);/);
+    expect(GAME).toMatch(/onBack=\{\(\) => go\("title"\)\}/);
   });
 
   it("offers exactly what the save has opened - the quick run and the career read the same rule", () => {
@@ -143,7 +109,8 @@ describe("the weapon pick", () => {
   });
 
   it("a stored weapon is validated against that set, never trusted", () => {
-    expect(GAME).toMatch(/asMainWeapon\(ctx\.storage\.get<string>\(START_KEY, "bolt"\), weaponsOpenIn\(careerStore\)\)/);
+    expect(GAME).toMatch(/readWeapon\(ctx\.storage, weaponsOpenIn\(careerStore\)\)/);
+    expect(GAME).toMatch(/rememberWeapon\(ctx\.storage, id\)/);
     expect(PICK).toMatch(/const picked = asMainWeapon\(props\.weapon, props\.open\);/);
   });
 

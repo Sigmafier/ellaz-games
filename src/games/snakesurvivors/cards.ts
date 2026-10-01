@@ -4,7 +4,7 @@
 // Survival's `upgrades.ts` learned: a card, a HUD line and the simulation cannot
 // disagree about what `swift` is worth if only one function knows.
 
-import type { CardId, Run, Tier } from "./types";
+import type { CardId, LevelKey, Run, Tier } from "./types";
 
 /** How many times each card may be taken. An epic is once a run. */
 export const CAPS: Record<CardId, number> = {
@@ -53,17 +53,50 @@ export const TIER: Record<CardId, Tier> = {
 };
 
 /**
- * The odds of each tier, PER OFFERED SLOT: about one card in twelve is gold and
- * one in four blue. A slot rolls its tier first and then a card inside it, so
- * the odds do not depend on how many cards a tier holds.
+ * The odds of each tier, PER OFFERED SLOT. A slot rolls its tier first and then
+ * a card inside it, so the odds do not depend on how many cards a tier holds.
+ *
+ * "RARE, WITH A PROMISE" (operator ruling, 2026-10-01; it was a flat 1 in 12
+ * gold and 1 in 4 blue): blue is 1 in 8. Gold starts every run at 1% and rises
+ * one percentage point for each level-up offer that showed NO gold
+ * (`run.goldDry`, moved by `nextGoldDry`), back to 1% the moment one does - so
+ * gold is rare, and a long dry spell is promised an end.
+ *
+ * "CALM KEEPS OLD ODDS" (operator ruling, the same day): on calm a slot still
+ * rolls a flat 1 in 12 gold and 1 in 4 blue (`CALM_TIER_ODDS`), and the
+ * counter changes nothing there. Normal and wild use the rarity above.
  */
-export const TIER_ODDS: Record<Tier, number> = { epic: 1 / 12, rare: 1 / 4, common: 1 - 1 / 12 - 1 / 4 };
+export const RARE_ODDS = 1 / 8;
+export const EPIC_START = 0.01;
+export const EPIC_STEP = 0.01;
 
-/** Which tier one slot rolls, from one draw in [0, 1). */
-export function tierFor(roll: number): Tier {
-  if (roll < TIER_ODDS.epic) return "epic";
-  if (roll < TIER_ODDS.epic + TIER_ODDS.rare) return "rare";
+/** Gold's odds per slot after `dry` offers without gold. Capped so grey never goes negative. */
+export function epicOdds(dry: number): number {
+  return Math.min(1 - RARE_ODDS, EPIC_START + EPIC_STEP * dry);
+}
+
+/** The odds a normal or wild run STARTS with (`goldDry` 0). */
+export const TIER_ODDS: Record<Tier, number> = { epic: EPIC_START, rare: RARE_ODDS, common: 1 - EPIC_START - RARE_ODDS };
+
+/** Calm's odds, always: the flat ones every level had before 2026-10-01. */
+export const CALM_TIER_ODDS: Record<Tier, number> = { epic: 1 / 12, rare: 1 / 4, common: 1 - 1 / 12 - 1 / 4 };
+
+/**
+ * Which tier one slot rolls, from one draw in [0, 1): on calm the flat old
+ * odds; otherwise the rarity, `dry` offers since the last gold. No level
+ * given reads as normal.
+ */
+export function tierFor(roll: number, dry = 0, level?: LevelKey): Tier {
+  const epic = level === "calm" ? CALM_TIER_ODDS.epic : epicOdds(dry);
+  const rare = level === "calm" ? CALM_TIER_ODDS.rare : RARE_ODDS;
+  if (roll < epic) return "epic";
+  if (roll < epic + rare) return "rare";
   return "common";
+}
+
+/** The counter after an offer: 0 if it showed a gold card, one more if it did not. */
+export function nextGoldDry(dry: number, offer: readonly CardId[]): number {
+  return offer.some((id) => TIER[id] === "epic") ? 0 : dry + 1;
 }
 
 /**
@@ -96,15 +129,15 @@ export const noneTaken = (): Record<CardId, number> =>
 
 /**
  * Up to three different cards that are not at their cap. Each slot rolls a
- * tier (`TIER_ODDS`), falls back when that tier is empty (`FALLBACK`), and draws
+ * tier (`tierFor`, at the run's level and `goldDry`), falls back when that tier is empty (`FALLBACK`), and draws
  * a card from it - every draw from `rng`, so a seeded run replays its offers.
  * An empty list means nothing is left to take, and the run carries on.
  */
-export function offerCards(run: Pick<Run, "taken">, rng: () => number = Math.random): CardId[] {
+export function offerCards(run: Pick<Run, "taken"> & { goldDry?: number; level?: LevelKey }, rng: () => number = Math.random): CardId[] {
   const left = CARD_IDS.filter((id) => run.taken[id] < CAPS[id]);
   const out: CardId[] = [];
   for (let slot = 0; slot < 3; slot++) {
-    const want = tierFor(rng());
+    const want = tierFor(rng(), run.goldDry ?? 0, run.level);
     let pool: CardId[] = [];
     for (const tier of FALLBACK[want]) {
       pool = left.filter((id) => TIER[id] === tier && !out.includes(id));

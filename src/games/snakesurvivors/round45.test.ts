@@ -283,16 +283,22 @@ describe("the HUD reads at a glance", () => {
   const GAME = strip(readFileSync(new URL("./SnakeSurvivorsGame.tsx", import.meta.url), "utf8"));
   const SCENE = strip(readFileSync(new URL("./SnakeSurvivorsScene.ts", import.meta.url), "utf8"));
 
-  it("asks the shared HUD for 1.5x, and draws the length itself, bold and 22px and up", () => {
-    expect(GAME).toMatch(/const HUD_SCALE = 1\.5;/);
-    expect(GAME).toContain("scale: HUD_SCALE,");
-    expect(GAME).toContain('fontSize: "clamp(22px, 5.4cqw, 36px)"');
-    expect(GAME).toContain("{status.len}");
+  // C3 (2026-10-01) replaced the 1.5x shared HUD with the game's own, bigger
+  // still: the hearts at 1.75em and the length at 2.6em of a base that is 16px
+  // on a phone's arena and 18px on a PC's (snake-hud.test.ts renders it).
+  const HUD = strip(readFileSync(new URL("./SnakeHud.tsx", import.meta.url), "utf8"));
+
+  it("draws its own HUD, sized off the arena: big hearts, and the length bigger still", () => {
+    expect(HUD).toContain('fontSize: "clamp(14px, 4.47cqw, 18px)"');
+    expect(HUD).toContain('fontSize: "1.75em"');
+    expect(HUD).toContain('fontSize: "2.6em"');
+    expect(GAME).toContain("len={status.len}");
   });
 
-  it("the level bar and its LV grew too, and the scene sizes every shape through kindScale with its form", () => {
-    expect(SCENE).toContain('fontSize: "18px"');
-    expect(SCENE).toContain("fillRoundedRect(x, vh - 14, bw, 8, 4)");
+  it("the level is a thin unlabelled line, and the scene sizes every shape through kindScale with its form", () => {
+    expect(SCENE).toContain("h.fillRect(0, vh - XP_LINE, w, XP_LINE)");
+    expect(SCENE).not.toMatch(/`LV \$\{/);
+    expect(SCENE).not.toContain("lvText");
     expect(SCENE).toContain("setScale(kindScale(f.kind, f.form))");
     expect(SCENE).toContain("this.fx.mini");
   });

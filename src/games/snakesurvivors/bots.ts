@@ -2,7 +2,7 @@
 // code: nothing the game ships imports this file.
 
 import { mulberry32 } from "@shared/rng";
-import { WEAPONS } from "./cards";
+import { TIER, WEAPONS } from "./cards";
 import { ARENA, newRun, pickCard, step } from "./logic";
 import { isBoss, makeFoe } from "./crowd";
 import type { Arena, LevelKey, Run, Steer } from "./types";
@@ -18,6 +18,9 @@ export interface Outcome {
   stage: 1 | 2 | 3;
   /** Level-ups the run reached (every one, whether a card was taken or not). */
   ups: number;
+  /** Cards OFFERED over the run, by colour: gold (epic) and blue (rare). */
+  gold: number;
+  blue: number;
   /**
    * Per stage the run reached: when it opened (ms), and the non-warden shapes
    * on the floor - the average over every step of that stage, and the most.
@@ -41,9 +44,11 @@ export function play(
   const rng = mulberry32(seed);
   const run = newRun(level, arena, rng);
   let ups = 0;
+  let gold = 0;
+  let blue = 0;
   const acc: { stage: 1 | 2 | 3; at: number; sum: number; n: number; max: number }[] = [];
   const done = (end: Outcome["end"]): Outcome => ({
-    end, ms: run.t, crushed: run.crushed, stage: run.stage, ups,
+    end, ms: run.t, crushed: run.crushed, stage: run.stage, ups, gold, blue,
     stages: acc.map((a) => ({ stage: a.stage, at: a.at, avg: a.sum / a.n, max: a.max })),
   });
   while (run.t < capMs) {
@@ -51,6 +56,7 @@ export function play(
     step(run, 25, bot(run), rng);
     if (run.choosing) {
       ups += 1;
+      for (const id of run.choosing) (gold += TIER[id] === "epic" ? 1 : 0), (blue += TIER[id] === "rare" ? 1 : 0);
       const pick = rules.cards === false ? undefined : rules.weapons ? run.choosing[0] : run.choosing.find((c) => !WEAPONS.includes(c));
       if (pick) pickCard(run, pick);
       else run.choosing = null;

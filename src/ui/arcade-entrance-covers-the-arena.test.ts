@@ -99,7 +99,8 @@ describe("the cover accepts pointers and the HUD does not", () => {
   });
 
   it("its press calls the game's own handler, and says a run started", () => {
-    expect(CHROME).toMatch(/onClick=\{\(\) => \{\s*notifyRunStart\(\);\s*entrance\.onAction\(\);\s*\}\}/);
+    // Since 2026-10-01 the card is `ArcadeTitle` and the wrapper is its onAction.
+    expect(CHROME).toMatch(/onAction=\{\(\) => \{\s*notifyRunStart\(\);\s*entrance\.onAction\(\);\s*\}\}/);
   });
 
   it("and there is exactly one call of that handler - never a second start path", () => {
@@ -107,9 +108,9 @@ describe("the cover accepts pointers and the HUD does not", () => {
   });
 
   it("FIRES if the announcement is dropped, and if the handler is", () => {
-    const noTell = CHROME.replace("notifyRunStart();\n                entrance.onAction();", "entrance.onAction();");
+    const noTell = CHROME.replace(/notifyRunStart\(\);(\s*)entrance\.onAction\(\);/, "entrance.onAction();");
     expect(noTell).not.toBe(CHROME);
-    expect(noTell).not.toMatch(/onClick=\{\(\) => \{\s*notifyRunStart\(\);\s*entrance\.onAction\(\);\s*\}\}/);
+    expect(noTell).not.toMatch(/onAction=\{\(\) => \{\s*notifyRunStart\(\);\s*entrance\.onAction\(\);\s*\}\}/);
 
     const noCall = CHROME.replace("entrance.onAction();", "");
     expect(noCall).not.toBe(CHROME);
@@ -177,14 +178,18 @@ describe("the chrome still knows nothing about a game", () => {
 
   it("takes the entrance as DATA, not as a game", () => {
     expect(CHROME).toContain("export type ArcadeEntrance");
-    // The pips proved the shape works; the entrance follows it. `extra` is a
-    // ReactNode precisely so this file never learns what a stick is.
-    expect(CHROME).toMatch(/extra\?:\s*ReactNode/);
+    // Since 2026-10-01 the entrance IS the title card's props (art as a render
+    // prop, tiles and pills as data) - minus the chips, which the chrome draws
+    // from `levels`.
+    expect(CHROME).toMatch(/export type ArcadeEntrance = Omit<ArcadeTitleProps, "chips">/);
+    expect(CHROME).toMatch(/<ArcadeTitle\s+\{\.\.\.entrance\}/);
   });
 });
 
 describe("the game hands back null while a run is live", () => {
-  const guarded = (s: string) => /asking && !choosing/.test(s);
+  // Since 2026-10-01 the rule is `neonView` (quickStart.ts, tested pure): a
+  // live run OR the upgrade picker is "run", and "run" draws no entrance.
+  const guarded = (s: string) => /neonView\(mode, status\.phase, choosing,/.test(s);
 
   it("survivors gates the entrance on both", () => {
     expect(guarded(GAME)).toBe(true);
@@ -192,8 +197,8 @@ describe("the game hands back null while a run is live", () => {
   });
 
   it("fires if the upgrade-picker half is dropped", () => {
-    // Without `!choosing` the entrance can stack on top of the upgrade cover.
-    const mutated = GAME.replace("asking && !choosing", "asking");
+    // Without `choosing` the entrance can stack on top of the upgrade cover.
+    const mutated = GAME.replace("neonView(mode, status.phase, choosing,", "neonView(mode, status.phase, false,");
     expect(mutated).not.toBe(GAME);
     expect(guarded(mutated)).toBe(false);
   });

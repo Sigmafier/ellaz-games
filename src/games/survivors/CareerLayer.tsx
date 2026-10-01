@@ -1,13 +1,13 @@
-// NEON SURVIVAL'S CAREER, AS SCREENS (P3, 2026-09-29): the mode cards, the map,
-// the vending shop, the gear screen, a level's banner and its result.
+// NEON SURVIVAL'S CAREER, AS SCREENS (P3, 2026-09-29): the map, the vending
+// shop, the gear screen, a level's banner and its result.
 //
-// THE MODE CARDS (2026-09-30) replaced the entrance's two small tiles: the same
-// two choices, Career and Quick run, as the approved mock's picture cards, with
-// a Back to the game's title screen. They are drawn here rather than by the game
-// because the Career card reads the save this layer owns.
+// HOW IT IS REACHED (2026-10-01, "one-screen start, all four"): the title's
+// Career pill opens the map directly. The Career / Quick run cards screen that
+// used to sit between the title and the map is gone; the map's Back goes to the
+// title.
 //
 // WHERE EACH ONE IS DRAWN, and why:
-//   ON THE ARENA   the mode cards, the level banner, the result card, the gold pill.
+//   ON THE ARENA   the level banner, the result card, the gold pill.
 //                  They belong to the game box the way the quick run's entrance
 //                  does, and a canvas tap can never reach under them.
 //   OVER THE PAGE  the map, the shop and the gear screen - the kit's screens, which
@@ -35,7 +35,7 @@ import type { GameContext } from "@sdk/index";
 import { notifyRunStart } from "@ui/gameTools";
 import { loadCareerKit } from "../../ui/career/load";
 import { equipItem, gearView } from "../../shared/career/gear";
-import { nodeStates, totalStars } from "../../shared/career/progress";
+import { nodeStates } from "../../shared/career/progress";
 import { readSave, writeSave, type CareerSave, type CareerStore } from "../../shared/career/save";
 import { buy, shopView } from "../../shared/career/shop";
 import { STAT_IDS } from "../../shared/career/stats";
@@ -45,7 +45,6 @@ import { CAREER_KEY, NEON_GEAR, NEON_SHOP, STAT_MAX, bankRun, simStats, statsOf,
 import { LOOKS, ROW, buyEpic, epicSlotsOwned, payBossDiamond, pressLook, readLooks, shelfRows, type LookId, type LooksSave } from "./diamondShelf";
 import { neonCareerWords } from "./careerWords";
 import { GoldPill, Intro, Result, SlotPick } from "./careerScreens";
-import { ModeCards } from "./entrance/ModeCards";
 import { WeaponPick } from "./entrance/WeaponPick";
 import { weaponsOpen } from "./weaponPool";
 import { RobotFill } from "./castArt";
@@ -110,17 +109,12 @@ const storeOf = (ctx: GameContext): CareerStore => ({
 
 export function CareerLayer(props: {
   ctx: GameContext;
-  mode: "menu" | "career";
   title: string;
   phase: "ready" | "playing" | "won" | "over";
   gold: number | null;
-  quickBest: number;
   scene: RefObject<CareerSceneApi | null>;
   endRef: MutableRefObject<((r: CareerResult, token: string) => void) | null>;
-  onCareer: () => void;
-  onQuick: () => void;
-  onMenu: () => void;
-  /** Back from the mode cards to the title screen. */
+  /** Back from the map to the title screen. */
   onTitle: () => void;
   /** The main weapon, and how to pick one - the game owns both, the quick run shares them. */
   weapon: WeaponId;
@@ -145,7 +139,10 @@ export function CareerLayer(props: {
   const [askSlot, setAskSlot] = useState(false);
 
   useEffect(() => {
-    if (props.mode !== "career" || kit) return;
+    // The kit's lazily-loaded screens, fetched once. Not an input gate - nothing a
+    // restart must clear - so it is compared with null, never written in the
+    // bare-truthy shape restart-clears-the-input-gate.test.ts reads as a gate.
+    if (kit !== null) return;
     let live = true;
     void loadCareerKit().then((k) => {
       if (live) setKit(k);
@@ -153,7 +150,7 @@ export function CareerLayer(props: {
     return () => {
       live = false;
     };
-  }, [props.mode, kit]);
+  }, [kit]);
 
   // THE PAYMENT. The scene calls this from its own finish, once per run; `bankRun`
   // is what makes "once" true even if it were called again.
@@ -176,8 +173,8 @@ export function CareerLayer(props: {
   // A restart from the page's own button (or the win strip's "Play again") puts the
   // scene back at "ready" mid-career: that is a retry, so the banner comes back.
   useEffect(() => {
-    if (props.mode === "career" && props.phase === "ready" && (screen === "run" || screen === "result")) setScreen("intro");
-  }, [props.phase, props.mode, screen]);
+    if (props.phase === "ready" && (screen === "run" || screen === "result")) setScreen("intro");
+  }, [props.phase, screen]);
 
   const begin = () => {
     notifyRunStart();
@@ -185,11 +182,11 @@ export function CareerLayer(props: {
     setScreen("run");
   };
   useEffect(() => {
-    if (props.mode !== "career" || screen !== "intro") return;
+    if (screen !== "intro") return;
     const t = window.setTimeout(begin, 2600);
     return () => window.clearTimeout(t);
     // `begin` is rebuilt every render and reads only refs and setters.
-  }, [screen, props.mode]);
+  }, [screen]);
 
   const writeAndSet = (next: CareerSave) => {
     writeSave(store, CAREER_KEY, next);
@@ -212,13 +209,6 @@ export function CareerLayer(props: {
     notifyRunStart();
     setScreen("lobby");
   };
-
-  if (props.mode === "menu") {
-    return (
-      <ModeCards title={props.title} locale={ctx.locale} w={w} save={save} stars={totalStars(save)} gold={save.gold} best={props.quickBest}
-        onCareer={() => { setScreen("lobby"); props.onCareer(); }} onQuick={props.onQuick} onBack={props.onTitle} />
-    );
-  }
 
   const kw = kit?.careerWords(ctx.locale);
   const purses = [{ currency: "gold" as const, amount: save.gold }, { currency: "diamond" as const, amount: gems, label: kw?.diamonds, href: CAREER_PAGE }];
@@ -273,7 +263,7 @@ export function CareerLayer(props: {
       <kit.TrailMap locale={ctx.locale} campaign={NEON_CAMPAIGN} save={save} worldNames={worldNames} purses={purses} hero={hero} gearBadge={gearBadge}
         onBack={() => {
           props.scene.current?.leaveCareer();
-          props.onMenu();
+          props.onTitle();
         }}
         onPlay={play}
         onShop={() => setScreen("shop")}

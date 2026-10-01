@@ -9,7 +9,9 @@ import { ControlModePicker } from "@ui/ControlModePicker";
 // The MODULES, not the `@shared/index` barrel, as in the classic.
 import { useRememberedLevel } from "@shared/useRememberedLevel";
 import { useControlMode, type ControlMode } from "@shared/useControlMode";
-import { BAND_H, Band, BotsPanel, FinalCard, OutCard, RankPanel, StartCard } from "./ArenaCards";
+import { ArcadeTitle, balancedLines, type ArcadeTitleProps } from "@ui/ArcadeTitle";
+import { ARENA_INKS, BAND_H, Band, BotsPanel, RankCard, RankPanel, arenaCover, arenaLines } from "./ArenaCards";
+import { cardText } from "./cardText";
 import { INK } from "./ink";
 import { BOT_COUNTS, PC_SHAPE, PHONE_SHAPE, type BotCount, type Dir, type Shape } from "./logic";
 import type { ArenaStatus } from "./result";
@@ -74,6 +76,9 @@ function Footer(p: { pc: boolean; s: ArenaStatus; w: Words; ctx: GameContext; mo
   );
 }
 
+/** The card sizes are the approved mock's, drawn on the band-and-board box at these sizes. */
+const DESIGN = { tall: [321, 485] as [number, number], wide: [598, 445] as [number, number] };
+
 /** The board: the band on top, the canvas's host, and whichever card the phase calls for. */
 function ArenaBoard(p: {
   ctx: GameContext;
@@ -88,8 +93,61 @@ function ArenaBoard(p: {
 }) {
   const { s, w, shape } = p;
   const again = () => p.scene.current?.startFromChrome();
+  /**
+   * THE CARD, in the title's style (operator, 2026-10-01, "one-screen start,
+   * all four"): the start card became a title - the name in neon, the bots as
+   * chips, one big PLAY - and the round-over cards wear the same style with the
+   * ranking, PLAY AGAIN, and on the out card Watch. It covers the band AND the
+   * board; the Controls row, the pad and the PC's side panels are page chrome
+   * and stay where they are.
+   */
+  const title = textFor(meta.title, p.ctx.locale);
+  const ended = s.phase === "out" || s.phase === "over" ? cardText(w, { phase: s.phase, place: s.place, count: s.count, peak: s.peak, winner: s.winner }) : null;
+  const card: ArcadeTitleProps | null =
+    s.phase === "ready"
+      ? {
+          label: title,
+          lines: arenaLines(balancedLines(title, p.ctx.locale)),
+          tagline: w.rule,
+          chips: {
+            label: w.bots,
+            square: true,
+            options: BOT_COUNTS.map((n) => ({ id: String(n), text: String(n), aria: w.botsLabel(n) })),
+            value: String(s.bots),
+            onChange: (id) => p.onBots(Number(id) as BotCount),
+          },
+          action: w.play,
+          onAction: again,
+          hint: w.hint,
+          inks: ARENA_INKS,
+          layout: "stack",
+          design: DESIGN,
+          nameFs: [62, 70],
+          top: [0.144, 0.054],
+          play: { tall: [250, 72], wide: [290, 64] },
+          cover: arenaCover(0.62),
+        }
+      : ended
+        ? {
+            label: ended.head,
+            lines: arenaLines([ended.head.toLocaleUpperCase(p.ctx.locale)]),
+            result: ended.line,
+            body: <RankCard rows={s.rows} w={w} pc={p.pc} />,
+            action: w.playAgain,
+            again: true,
+            onAction: again,
+            secondary: s.phase === "out" ? { label: w.watch, onPress: () => p.scene.current?.watch(), widePill: true } : undefined,
+            inks: ARENA_INKS,
+            layout: "stack",
+            design: DESIGN,
+            nameFs: [46, 46],
+            top: [0.037, 0.04],
+            play: { tall: [250, 62], wide: [250, 56] },
+            cover: arenaCover(0.74),
+          }
+        : null;
   return (
-    <div className="arena-board" style={{ display: "inline-flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", boxShadow: `0 0 0 3px ${INK.rim}, 0 10px 30px ${INK.rim}44` }}>
+    <div className="arena-board" style={{ position: "relative", display: "inline-flex", flexDirection: "column", borderRadius: 14, overflow: "hidden", boxShadow: `0 0 0 3px ${INK.rim}, 0 10px 30px ${INK.rim}44` }}>
       <Band
         cells={[
           { label: w.length, value: s.len, color: INK.mint },
@@ -120,12 +178,8 @@ function ArenaBoard(p: {
             }}
           />
         </BoardStick>
-        {s.phase === "ready" && <StartCard title={textFor(meta.title, p.ctx.locale)} w={w} bots={s.bots} onBots={p.onBots} onPlay={again} />}
-        {s.phase === "out" && (
-          <OutCard w={w} place={s.place} count={s.count} peak={s.peak} rows={s.rows} onWatch={() => p.scene.current?.watch()} onAgain={again} />
-        )}
-        {s.phase === "over" && <FinalCard w={w} place={s.place} count={s.count} peak={s.peak} winner={s.winner} rows={s.rows} onAgain={again} />}
       </div>
+      {card && <ArcadeTitle {...card} />}
     </div>
   );
 }

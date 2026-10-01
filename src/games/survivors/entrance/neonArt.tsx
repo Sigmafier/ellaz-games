@@ -13,9 +13,7 @@
 import { useMemo, type ReactElement, type ReactNode } from "react";
 import { mulberry32 } from "@shared/rng";
 import { Sprite, layer, type FrameId } from "./sprite";
-import { WORLD_ART } from "../careerArt";
 
-const K = "#241c17";
 const WINDOWS = ["#ffd166", "#3de8ff", "#ff4dd2"];
 
 /**
@@ -189,127 +187,6 @@ export function NeonDimWorld({ w, h }: { w: number; h: number }): ReactElement {
         <NeonWorld w={w} h={h} hz={h * 0.42} sun={0.22} id="neon-mode" />
       </div>
       <div style={{ ...layer, background: "linear-gradient(#07051a00, #07051acc)" }} />
-    </div>
-  );
-}
-
-const STAR = (k: string, x: number, y: number) => (
-  <g key={k} transform={`translate(${x} ${y}) scale(.55)`}>
-    <path d="M0 -10 L3 -3 L10 -3 L4 2 L6 10 L0 5 L-6 10 L-4 2 L-10 -3 L-3 -3 Z" fill="#ffd166" stroke={K} strokeWidth={2} />
-  </g>
-);
-
-/**
- * The CAREER card's picture: the three worlds (city towers, frost peaks, the
- * volcano), the dotted trail with a stone per level, a castle crowned for each
- * boss, and the robot standing where you are up to.
- */
-export function CareerCardArt({ w, h }: { w: number; h: number }): ReactElement {
-  const b = w / 3;
-  const pts = ([[0.06, 0.8], [0.2, 0.6], [0.3, 0.78], [0.42, 0.5], [0.56, 0.7], [0.68, 0.44], [0.82, 0.62], [0.94, 0.3]] as const).map(
-    ([x, y]) => [x * w, y * h] as const,
-  );
-  const towers = useMemo(() => {
-    const r = mulberry32(7);
-    const out: ReactNode[] = [];
-    let n = 0;
-    for (let x = 2; x < b - 8; ) {
-      const bw = 12 + r() * 14;
-      const bh = h * (0.2 + r() * 0.3);
-      out.push(<rect key={`t${n}`} x={x} y={h - bh} width={bw} height={bh} fill="#241a5e" stroke="#6c5ce7" strokeWidth={1.5} />);
-      for (let wy = h - bh + 5, k = 0; wy < h - 4; wy += 8, k++) {
-        if (r() < 0.6) out.push(<rect key={`w${n}-${k}`} x={x + 3} y={wy} width={3} height={3} fill={r() < 0.5 ? "#ffd166" : "#3de8ff"} />);
-      }
-      x += bw + 3;
-      n++;
-    }
-    return out;
-  }, [b, h]);
-  const vx = 2 * b + b * 0.55;
-  const cur = pts[3];
-  return (
-    <div aria-hidden="true" style={{ position: "relative", width: w, height: h, overflow: "hidden" }}>
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
-        <defs>
-          <linearGradient id="neon-cc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={WORLD_ART.city.deep} /><stop offset="1" stopColor={WORLD_ART.city.band} /></linearGradient>
-          <linearGradient id="neon-cf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#bfe6ff" /><stop offset="1" stopColor={WORLD_ART.frost.band} /></linearGradient>
-          <linearGradient id="neon-cl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3b0f0f" /><stop offset="1" stopColor={WORLD_ART.lava.band} /></linearGradient>
-        </defs>
-        <rect width={b} height={h} fill="url(#neon-cc)" />
-        <rect x={b} width={b} height={h} fill="url(#neon-cf)" />
-        <rect x={2 * b} width={w - 2 * b} height={h} fill="url(#neon-cl)" />
-        {towers}
-        {([[0.05, 0.5, 0.55], [0.35, 0.5, 0.75], [0.65, 0.45, 0.5]] as const).map(([px, pw, ph], i) => {
-          const x0 = b + px * b;
-          return (
-            <g key={`p${i}`}>
-              <path d={`M${x0} ${h} L${x0 + (pw * b) / 2} ${h * (1 - ph)} L${x0 + pw * b} ${h} Z`} fill="#fff" stroke="#74b9ff" strokeWidth={2} />
-              <path d={`M${x0 + (pw * b) / 2} ${h * (1 - ph)} L${x0 + pw * b * 0.62} ${h * (1 - ph * 0.65)} L${x0 + (pw * b) / 2} ${h}`} fill="#d6ecff" />
-            </g>
-          );
-        })}
-        <path d={`M${2 * b + 4} ${h} L${vx - b * 0.14} ${h * 0.38} L${vx + b * 0.14} ${h * 0.38} L${w} ${h} Z`} fill="#4a1a12" stroke={K} strokeWidth={2} />
-        <path d={`M${vx - b * 0.14} ${h * 0.38} Q${vx} ${h * 0.5} ${vx + b * 0.14} ${h * 0.38} L${vx + b * 0.08} ${h * 0.5} L${vx - b * 0.06} ${h * 0.46} Z`} fill="#ff7b00" />
-        <circle cx={vx - 4} cy={h * 0.28} r={b * 0.06} fill="#6b4a44" opacity={0.8} />
-        <circle cx={vx + 8} cy={h * 0.18} r={b * 0.08} fill="#6b4a44" opacity={0.6} />
-        <circle cx={vx - 2} cy={h * 0.07} r={b * 0.1} fill="#6b4a44" opacity={0.4} />
-        <path d={`M${pts.map((p) => p.join(" ")).join(" L")}`} fill="none" stroke="#fff" strokeWidth={5} strokeDasharray="1 10" strokeLinecap="round" />
-        {pts.map(([x, y], i) => {
-          const done = i < 3;
-          const now = i === 3;
-          if (i === 2 || i === 7) {
-            const c = done ? "#6c5ce7" : "#4a4f63";
-            return (
-              <g key={`c${i}`} transform={`translate(${x} ${y})`}>
-                <rect x={-17} y={-14} width={34} height={26} fill={c} stroke={K} strokeWidth={3} />
-                <path d="M-17 -14 v-6 h7 v6 M-3 -14 v-6 h6 v6 M10 -14 v-6 h7 v6" fill={c} stroke={K} strokeWidth={3} />
-                <path d="M-6 12 v-10 a6 6 0 0 1 12 0 v10" fill={K} />
-                <path d="M-11 -24 L-12 -34 L-5 -29 L0 -37 L5 -29 L12 -34 L11 -24 Z" fill="#ffd166" stroke={K} strokeWidth={2} />
-              </g>
-            );
-          }
-          return (
-            <g key={`n${i}`}>
-              <circle cx={x} cy={y} r={now ? 15 : 12} fill={done ? "#2bb58a" : now ? "#c2185b" : "#8a8f99"} stroke={K} strokeWidth={3} />
-              {done && [-1, 0, 1].map((k) => STAR(`s${i}${k}`, x + k * 10, y - 20 - (k ? 0 : 3)))}
-            </g>
-          );
-        })}
-      </svg>
-      <Sprite f="robot" cx={cur[0]} cy={cur[1] - 34} h={50} glow="#fff" />
-    </div>
-  );
-}
-
-/** The QUICK RUN card's picture: the dark arena, the robot in the swarm, its bolts going out. */
-export function QuickCardArt({ w, h }: { w: number; h: number }): ReactElement {
-  const cx = w / 2;
-  const cy = h * 0.55;
-  const rr = Math.min(w, h) * 0.4;
-  const sc = h * 0.26;
-  const crowd: Spot[] = [
-    [0.12, 0.22, "bat", 1, false], [0.86, 0.2, "batFly", 1, true], [0.1, 0.8, "slime", 1, false], [0.88, 0.78, "crab", 1.1, true],
-    [0.3, 0.12, "slime", 0.7, true], [0.72, 0.9, "bat", 0.8, false], [0.3, 0.88, "crab", 0.8, false], [0.7, 0.14, "slime", 0.75, false],
-  ];
-  const lines: ReactNode[] = [];
-  for (let x = 24; x < w; x += 36) lines.push(<line key={`x${x}`} x1={x} y1={0} x2={x} y2={h} stroke="#1c2046" strokeWidth={2} />);
-  for (let y = 18; y < h; y += 36) lines.push(<line key={`y${y}`} x1={0} y1={y} x2={w} y2={y} stroke="#1c2046" strokeWidth={2} />);
-  return (
-    <div aria-hidden="true" style={{ position: "relative", width: w, height: h, overflow: "hidden" }}>
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ ...layer, display: "block" }}>
-        <rect width={w} height={h} fill="#0b0d1f" />
-        {lines}
-        <circle cx={cx} cy={cy} r={rr * 0.55} fill="none" stroke="#3de8ff" strokeOpacity={0.5} strokeWidth={2} strokeDasharray="6 6" />
-      </svg>
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ ...layer, filter: "drop-shadow(0 0 5px #3de8ff)" }}>
-        {([[-0.9, -0.5], [0.95, -0.35], [-0.7, 0.55]] as const).map(([dx, dy], i) => (
-          <line key={i} x1={cx + dx * rr * 0.35} y1={cy + dy * rr * 0.35} x2={cx + dx * rr * 0.65} y2={cy + dy * rr * 0.65} stroke="#d8fbff" strokeWidth={4} strokeLinecap="round" />
-        ))}
-      </svg>
-      {crowd.map(([fx, fy, f, size, flip], i) => (
-        <Sprite key={i} f={f} cx={w * fx} cy={h * fy} h={sc * size} flip={flip} />
-      ))}
-      <Sprite f="robotShoot" cx={cx + 6} cy={cy - 4} h={h * 0.5} glow="#3de8ff" />
     </div>
   );
 }

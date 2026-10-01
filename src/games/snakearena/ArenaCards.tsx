@@ -1,10 +1,13 @@
 // What Snake Arena draws over and around its board, from the approved mock
-// (2026-09-28): the band on top (LENGTH - TIME - PLACE), the start card, the
-// out card, the final card, the ranking they share, the bots picker, and the
-// PC's live-ranking column. DOM in the board's own colours, so every number is
+// (2026-09-28): the band on top (LENGTH - TIME - PLACE), the ranking, the bots
+// picker, and the PC's live-ranking column. Since 2026-10-01 ("one-screen
+// start, all four") the start, out and final cards are the shared title card
+// (`@ui/ArcadeTitle`) - this file hands it the inks, the heading style and the
+// ranking panel. DOM in the board's own colours, so every number is
 // text and every control is a real button - and out of SnakeArenaGame.tsx,
 // which only wires them to the scene.
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
+import type { TitleInks, TitleLine } from "@ui/ArcadeTitle";
 import { FONT, INK, SNAKE_COLORS } from "./ink";
 import { BOT_COUNTS, type BotCount } from "./logic";
 import type { Row } from "./result";
@@ -86,63 +89,53 @@ export function BotsPicker({ bots, onBots, w, dark }: { bots: BotCount; onBots: 
   );
 }
 
-export function StartCard(p: { title: string; w: Words; bots: BotCount; onBots: (n: BotCount) => void; onPlay: () => void }) {
-  return (
-    <section className="arena-start-card" aria-label={p.title} style={overlay(false)}>
-      <Panel>
-        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0.06em", color: INK.mint, textShadow: `0 0 12px ${INK.mint}88` }}>{p.title}</div>
-        <div style={{ fontSize: 14, opacity: 0.85, margin: "6px 0 12px" }}>{p.w.rule}</div>
-        <BotsPicker bots={p.bots} onBots={p.onBots} w={p.w} dark />
-        <button type="button" onClick={p.onPlay} style={{ ...primary, marginTop: 12, width: "100%" }}>
-          {p.w.play}
-        </button>
-        <div style={{ fontSize: 13, opacity: 0.8, marginTop: 10 }}>{p.w.hint}</div>
-      </Panel>
-    </section>
-  );
-}
+/** Snake Arena's inks on its title card (the mock's "arena" theme). */
+export const ARENA_INKS: TitleInks = {
+  accent: INK.mint,
+  ink: "#141234",
+  light: "#e8eaff",
+  chip: "rgba(20, 14, 12, 0.88)",
+  sel: "#e8eaff",
+  selRing: "#7a6cf0",
+  panel: "rgba(11, 13, 31, 0.86)",
+  line: "#2a2f55",
+  gold: INK.gold,
+};
 
-/** The player is out and the round stands still: where they are, and the two ways on. */
-export function OutCard(p: { w: Words; place: number; count: number; peak: number; rows: Row[]; onWatch: () => void; onAgain: () => void }) {
-  return (
-    <section className="arena-out-card" aria-label={p.w.outTitle(p.place, p.count)} style={overlay(true)}>
-      <Panel>
-        <div style={{ fontSize: 22, fontWeight: 700 }}>{p.w.outTitle(p.place, p.count)}</div>
-        <div style={{ opacity: 0.75, margin: "4px 0 12px" }}>{p.w.longest(p.peak)}</div>
-        <Ranking rows={p.rows} w={p.w} dark />
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 14 }}>
-          <button type="button" onClick={p.onWatch} style={{ ...primary, background: "#fff", color: "#241c17" }}>
-            {p.w.watch}
-          </button>
-          <button type="button" onClick={p.onAgain} style={primary}>
-            {p.w.playAgain}
-          </button>
-        </div>
-      </Panel>
-    </section>
-  );
-}
+/** A heading in the card's two glows: mint, then violet. */
+export const arenaLines = (texts: string[]): TitleLine[] =>
+  texts.map((text, i) => (i === 0 ? { text, glow: INK.mint, fill: "#f4fffd" } : { text, glow: "#7a6cf0", fill: "#fff0fb" }));
 
-/** The bell, or the last snake standing: who won, where the player came, and Play again. */
-export function FinalCard(p: { w: Words; place: number; count: number; peak: number; winner: number | null; rows: Row[]; onAgain: () => void }) {
-  const won = p.winner === 0;
-  const title = won ? p.w.youWin : p.w.placeTitle(p.place, p.count);
+/** Behind a card: the band's strip solid, then the live board under a veil. */
+export const arenaCover = (veil: number) => `linear-gradient(${INK.bg} 0 ${BAND_H}px, rgba(11, 13, 31, ${veil}) ${BAND_H}px)`;
+
+/** The round-over cards' ranking: 1, a colour, a name, a length - in the mock's dark panel. */
+export function RankCard({ rows, w, pc }: { rows: Row[]; w: Words; pc: boolean }) {
   return (
-    <section className="arena-final-card" aria-label={p.w.final} style={overlay(true)}>
-      <Panel>
-        <div style={{ fontSize: 22, fontWeight: 700, color: won ? INK.gold : INK.text }}>{title}</div>
-        {/* One line, not two: five rows and this card measured 401px against a
-            396px board at 1536x639, and Play again was cut off at the bottom. */}
-        <div style={{ opacity: 0.85, marginTop: 4, fontSize: 15 }}>
-          {won ? p.w.longest(p.peak) : `${p.winner === null ? p.w.nobody : p.w.wins(nameOf(p.w, p.winner))} · ${p.w.longest(p.peak)}`}
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.7, margin: "8px 0 4px" }}>{p.w.final}</div>
-        <Ranking rows={p.rows} w={p.w} dark />
-        <button type="button" onClick={p.onAgain} style={{ ...primary, marginTop: 10, width: "100%" }}>
-          {p.w.playAgain}
-        </button>
-      </Panel>
-    </section>
+    <ol
+      style={{
+        listStyle: "none",
+        margin: 0,
+        width: pc ? 330 : 290,
+        maxWidth: "90%",
+        boxSizing: "border-box",
+        padding: "8px 16px",
+        borderRadius: 18,
+        border: "2px solid #2a2f55",
+        background: "rgba(11, 13, 31, 0.86)",
+        fontFamily: FONT,
+        textAlign: "start",
+      }}
+    >
+      {rows.map((r, i) => (
+        <li key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, height: pc ? 28 : 29, fontSize: 18, fontWeight: 600, color: INK.text }}>
+          <b style={{ width: 18, fontWeight: 700 }}>{i + 1}</b>
+          <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: 5, flex: "none", background: SNAKE_COLORS[r.id % SNAKE_COLORS.length] }} />
+          <span style={{ flex: 1, minWidth: 0 }}>{nameOf(w, r.id)}</span>
+          <span style={{ color: "#c9cde6" }}>{r.len}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -180,20 +173,6 @@ const pill: CSSProperties = {
   touchAction: "manipulation",
 };
 
-const primary: CSSProperties = {
-  minHeight: 48,
-  padding: "0 18px",
-  border: "none",
-  borderRadius: 14,
-  background: "var(--brand-strong)",
-  color: "var(--on-brand)",
-  fontFamily: FONT,
-  fontWeight: 700,
-  fontSize: 16,
-  cursor: "pointer",
-  touchAction: "manipulation",
-};
-
 const panel: CSSProperties = {
   background: "var(--surface)",
   borderRadius: 16,
@@ -204,37 +183,3 @@ const panel: CSSProperties = {
 };
 
 const heading: CSSProperties = { fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.6, marginBottom: 8 };
-
-function overlay(dim: boolean): CSSProperties {
-  return {
-    position: "absolute",
-    inset: 0,
-    display: "grid",
-    placeItems: "center",
-    background: dim ? `${INK.bg}aa` : "transparent",
-    pointerEvents: "none",
-    zIndex: 3,
-  };
-}
-
-function Panel({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        pointerEvents: "auto",
-        width: "min(86%, 340px)",
-        boxSizing: "border-box",
-        padding: "12px 16px",
-        textAlign: "center",
-        borderRadius: 18,
-        border: `1.5px solid ${INK.rim}`,
-        background: "linear-gradient(#1e2250, #151939)",
-        boxShadow: `0 0 30px ${INK.rim}66`,
-        color: INK.text,
-        fontFamily: FONT,
-      }}
-    >
-      {children}
-    </div>
-  );
-}

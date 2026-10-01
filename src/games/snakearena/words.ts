@@ -23,6 +23,10 @@ export type Words = {
   /** "3rd" - short, for the band. */
   ord: (p: number) => string;
   outTitle: (p: number, n: number) => string;
+  /** The out card's heading, drawn big: "You're out". */
+  outHead: string;
+  /** "5th of 5" - the out card's gold line, and the final card's heading. */
+  of: (p: number, n: number) => string;
   placeTitle: (p: number, n: number) => string;
   youWin: string;
   wins: (name: string) => string;
@@ -53,6 +57,8 @@ export const WORDS: Record<ShippedLocale, Words> = {
     longest: (n) => `Longest you reached: ${n}`,
     ord: enOrd,
     outTitle: (p, n) => `You're out - ${enOrd(p)} of ${n}`,
+    outHead: "You're out",
+    of: (p, n) => `${enOrd(p)} of ${n}`,
     placeTitle: (p, n) => `You came ${enOrd(p)} of ${n}`,
     youWin: "You win!",
     wins: (name) => `${name} wins`,
@@ -77,6 +83,8 @@ export const WORDS: Record<ShippedLocale, Words> = {
     longest: (n) => `האורך הכי גדול שהגעתם אליו: ${n}`,
     ord: (p) => `${p}`,
     outTitle: (p, n) => `יצאתם - מקום ${p} מתוך ${n}`,
+    outHead: "יצאתם",
+    of: (p, n) => `מקום ${p} מתוך ${n}`,
     placeTitle: (p, n) => `סיימתם במקום ${p} מתוך ${n}`,
     youWin: "ניצחתם!",
     wins: (name) => `${name} ניצח`,
@@ -101,6 +109,8 @@ export const WORDS: Record<ShippedLocale, Words> = {
     longest: (n) => `Lo más larga que llegaste: ${n}`,
     ord: (p) => `${p}.º`,
     outTitle: (p, n) => `Estás fuera - ${p}.º de ${n}`,
+    outHead: "Estás fuera",
+    of: (p, n) => `${p}.º de ${n}`,
     placeTitle: (p, n) => `Quedaste ${p}.º de ${n}`,
     youWin: "¡Has ganado!",
     wins: (name) => `Gana ${name}`,
@@ -125,6 +135,8 @@ export const WORDS: Record<ShippedLocale, Words> = {
     longest: (n) => `Som längst var du: ${n}`,
     ord: svOrd,
     outTitle: (p, n) => `Du är ute - ${svOrd(p)} av ${n}`,
+    outHead: "Du är ute",
+    of: (p, n) => `${svOrd(p)} av ${n}`,
     placeTitle: (p, n) => `Du kom ${svOrd(p)} av ${n}`,
     youWin: "Du vann!",
     wins: (name) => `${name} vinner`,

@@ -85,6 +85,7 @@ export function PuzzleSnakeGame({ ctx }: { ctx: GameContext }) {
           onSwipe={press}
           onTry={restart}
           onNext={() => (next ? open(next) : setPicker(true))}
+          onLevels={() => setPicker(true)}
           onUndo={undo}
           onStartOver={restart}
         />

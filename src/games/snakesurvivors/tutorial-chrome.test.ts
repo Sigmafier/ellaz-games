@@ -39,12 +39,15 @@ describe("the tutorial's words and its Skip", () => {
 });
 
 describe("How to play", () => {
-  it("is a real button on the entrance, and it starts the tutorial", () => {
-    const at = GAME.indexOf("extra: (");
+  it("is a real button on the title, and it starts the tutorial", () => {
+    // Since 2026-10-01 it is the title card's quiet link (`secondary`), which
+    // the shared card draws as a <button> - no longer an `extra` on a second card.
+    const at = GAME.indexOf("secondary: {");
     expect(at).toBeGreaterThan(0);
-    const extra = GAME.slice(at, GAME.indexOf("),", at));
-    expect(extra).toContain("<button");
-    expect(extra).toContain("?.startTutorial()");
+    const link = GAME.slice(at, GAME.indexOf("},", at));
+    expect(link).toContain("?.startTutorial()");
+    const CARD = code(readFileSync(new URL("../../ui/ArcadeTitle.tsx", import.meta.url), "utf8"));
+    expect(CARD).toMatch(/const linkButton = link && !linkAsPill && \(\s*<button type="button" onClick=\{link\.onPress\}/);
   });
 });
 
