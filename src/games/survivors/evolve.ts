@@ -2,9 +2,16 @@
 //
 // Operator ruling 2026-09-21: level your starting weapon to max and it turns
 // into a superpower version of itself - survivor.io's evolution, and the reason
-// per-weapon levels exist at all. The recipe is Lv5 AND the weapon's partner
-// upgrade maxed, so an evolution costs 4 level cards plus 3 to 8 upgrade cards
-// out of a run that yields about 22. It is a CHOICE, which is the whole point.
+// per-weapon levels exist at all.
+//
+// RE-RULED 2026-09-30, after Survivor.io itself was researched: the SUPER POWER
+// is READY at Lv5 with its partner upgrade taken ONCE (it used to have to be
+// maxed), and it is no longer a level-up card at all. It is handed over when a
+// BOSS or a MINI-BOSS (an elite) dies - Survivor.io's gold chest - one ready
+// super per such kill (`raiseSuper`, called from the kill in `logic.ts`). So the
+// cost moved from "three to eight upgrade cards" to "one upgrade card and a big
+// kill": the choosing is still the four level cards, and the moment is earned in
+// the arena rather than in the menu.
 //
 // AN EVOLUTION IS A FLAG, NOT A NEW WEAPON. The slot keeps its `id` and gains
 // `evolved`, and `rowFor` hands back the evolved row instead of the base one.
@@ -25,7 +32,7 @@ import type { RunState, Slot, UpgradeId, WeaponId, WeaponRow } from "./types";
 import { UPGRADE_CAP, WEAPON_LV_MAX } from "./upgrades";
 
 /**
- * Which upgrade each weapon needs MAXED before it can evolve.
+ * Which upgrade each weapon needs taken (`PARTNER_NEED` times) before it can evolve.
  *
  * Chosen so the pairing is the one a player would already be taking for that
  * weapon - pierce for the straight shot, spread for the one that fans, power for
@@ -119,29 +126,63 @@ export const SAW_REACH = 92;
 /** Does this weapon have an evolution that is actually built? */
 export const hasEvolution = (id: WeaponId): boolean => EVOLUTIONS[id].row !== null;
 
+/**
+ * How many times the partner upgrade must be taken. ONE since 2026-09-30 (it was
+ * `UPGRADE_CAP`, i.e. maxed). Survivor.io's rule is "the paired passive at any
+ * level", and the operator picked that rule whole.
+ */
+export const PARTNER_NEED = 1;
+
 /** The partner upgrade's progress toward the gate, 0..1 - for the card's recipe line. */
 export const recipeProgress = (s: RunState, id: WeaponId): number => {
   const up = RECIPE[id];
-  return Math.max(0, Math.min(1, s.up[up] / UPGRADE_CAP[up]));
+  return Math.max(0, Math.min(1, s.up[up] / Math.min(PARTNER_NEED, UPGRADE_CAP[up])));
 };
 
 /**
- * May this slot evolve right now?
+ * Is this slot's super power READY?
  *
  * Three things, and all three are load-bearing: it is not already evolved, it is
- * at the level cap, and its partner upgrade is maxed. The last one is what makes
- * an evolution cost a run's worth of choosing rather than four level cards.
+ * at the level cap, and its partner upgrade has been taken. READY is not TAKEN:
+ * a ready super waits for a boss or a mini-boss to fall (`raiseSuper`).
  */
 export function canEvolve(s: RunState, slot: Slot): boolean {
   if (slot.evolved) return false;
   if (!hasEvolution(slot.id)) return false;
   if (slot.lv < WEAPON_LV_MAX) return false;
-  const up = RECIPE[slot.id];
-  return s.up[up] >= UPGRADE_CAP[up];
+  return s.up[RECIPE[slot.id]] >= PARTNER_NEED;
 }
 
 /** Every carried weapon that could evolve this instant. */
 export const evolvable = (s: RunState): Slot[] => s.slots.filter((k) => canEvolve(s, k));
+
+/**
+ * A boss or a mini-boss just fell: offer ONE ready super power, if there is one.
+ *
+ * Called from the kill in `logic.ts`, the one place every kill resolves. It
+ * pauses the run through the SAME `choosing` flag a level-up uses, so the pause
+ * button, the chrome and the bots all handle it with no new path.
+ *
+ * WHICH ONE is slot order - the main weapon first - and NEVER an rng draw. A draw
+ * here would shift the random stream of every run that reaches a super, and the
+ * pacing and economy readings would move for a reason that has nothing to do
+ * with the rule.
+ *
+ * Nothing is raised while one is already on offer, so one kill is one super and
+ * a second kill in the same frame waits for the next boss or elite. If a
+ * level-up already paused THIS frame, it is remembered in `levelOwed` so taking
+ * the super does not drop it (`applyCard`).
+ */
+export function raiseSuper(s: RunState): WeaponId | null {
+  if (s.pendingSuper) return null;
+  const ready = evolvable(s)[0];
+  if (!ready) return null;
+  if (s.choosing) s.levelOwed = true;
+  s.pendingSuper = ready.id;
+  s.choosing = true;
+  s.events.push({ type: "super", id: ready.id });
+  return ready.id;
+}
 
 /** Take it. Idempotent, and it never touches any other slot. */
 export function applyEvolve(s: RunState, id: WeaponId): RunState {

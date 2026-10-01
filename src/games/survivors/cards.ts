@@ -9,11 +9,15 @@
 // starting weapon is what unlocks its superpower version. So a third card kind
 // exists, and it is the one a player spends most of a run taking.
 //
+// Re-ruled 2026-09-30: the SUPER POWER (`kind: "evolve"`) is no longer a
+// level-up card. A boss or a mini-boss kill raises it (`raiseSuper`) and this
+// file only hands over the one that kill named.
+//
 // `logic.ts` does not import this file, so importing values from it is one-way.
 
 import { POOL, SLOTS_MAX, holds } from "./arsenal";
 import { WEAPON_LV_MAX, canLevel, freshSlot } from "./weapons";
-import { applyEvolve, evolvable } from "./evolve";
+import { applyEvolve } from "./evolve";
 import { applyUpgrade, offerUpgrades, type RunState, type UpgradeId, type WeaponId } from "./logic";
 
 export type Card =
@@ -43,16 +47,15 @@ export type Card =
  * when there is nothing left, which the scene reads as "carry on".
  */
 export function offerCards(s: RunState, rng: () => number = Math.random): Card[] {
-  // AN EVOLUTION JUMPS THE QUEUE, and it is the one card that does.
+  // A SUPER POWER ON OFFER JUMPS THE QUEUE, and it is the one card that does.
   //
-  // A run reaches the recipe - Lv5 and the partner upgrade maxed - perhaps once,
-  // and it has spent most of its cards getting there. Leaving that card to a
-  // one-in-three shuffle would mean a player who did everything the game asked
-  // might simply never be offered it, which is the worst possible answer to the
-  // work. It is offered ALONE, so the moment reads as a moment rather than as
-  // another three-way pick.
-  const ready = evolvable(s);
-  if (ready.length > 0) return [{ kind: "evolve", id: ready[Math.floor(rng() * ready.length)].id }];
+  // It is on offer only because a boss or a mini-boss just fell with a super
+  // ready (`raiseSuper`), and it is offered ALONE, so the moment reads as a
+  // reward for that kill rather than as another three-way pick. A level-up with
+  // a ready super and no kill behind it offers ordinary cards: that is the
+  // operator's rule, not an omission. No rng draw here, for the reason
+  // `raiseSuper` gives.
+  if (s.pendingSuper) return [{ kind: "evolve", id: s.pendingSuper }];
 
   const unheld = s.slots.length < SLOTS_MAX ? POOL.filter((id) => !holds(s, id)) : [];
   const weapon: Card[] = unheld.length > 0 ? [{ kind: "weapon", id: unheld[Math.floor(rng() * unheld.length)] }] : [];
@@ -85,7 +88,17 @@ export function offerCards(s: RunState, rng: () => number = Math.random): Card[]
 export function applyCard(s: RunState, card: Card): RunState {
   if (card.kind === "upgrade") return applyUpgrade(s, card.id);
   s.choosing = false;
-  if (card.kind === "evolve") return applyEvolve(s, card.id);
+  if (card.kind === "evolve") {
+    applyEvolve(s, card.id);
+    if (s.pendingSuper === card.id) s.pendingSuper = null;
+    // A level-up that landed on the super's frame is still owed: the run stays
+    // paused, and the next `offerCards` is that level-up's three cards.
+    if (s.levelOwed) {
+      s.levelOwed = false;
+      s.choosing = true;
+    }
+    return s;
+  }
   if (card.kind === "level") {
     const slot = s.slots.find((k) => k.id === card.id);
     if (slot && slot.lv < WEAPON_LV_MAX) slot.lv += 1;

@@ -115,7 +115,10 @@ function bestCard(cards: Card[]): Card {
   // An EVOLUTION first, then a free weapon slot, then a weapon level, then the
   // upgrades that kill fastest. The card union grew on 2026-09-21 (levels and
   // evolutions) and a picker written before that would have read every new card
-  // as an unknown and taken it last.
+  // as an unknown and taken it last. Since 2026-09-30 a super (`evolve`) is only
+  // ever offered ALONE, after a boss or mini-boss kill, so the first line is the
+  // bot taking the only card there is - kept so a regression that mixes a super
+  // back into a three-card level-up is still taken first rather than skipped.
   return (
     cards.find((c) => c.kind === "evolve") ??
     cards.find((c) => c.kind === "weapon") ??
@@ -133,6 +136,8 @@ interface Report {
   popped: number;
   /** When each level-up happened, in milliseconds. */
   ups: number[];
+  /** Super powers taken - each one handed over by a boss or a mini-boss kill. */
+  supers: number;
   /** When the LAST stage's boss walked in - the finish this run was built toward. */
   bossAt: number | null;
   stage: number;
@@ -152,22 +157,30 @@ function play(level: LevelKey, seed: number, careful: boolean): Report {
   let hurt = 0;
   let incoming = 0;
   let bossAt: number | null = null;
+  let supers = 0;
   while (s.phase === "playing" && ms < 1_800_000) {
     const before = s.shots.length;
     step(s, 16, careful ? kite(s) : stroll(s, rng, held), rng);
     ms += 16;
     hurt += s.events.filter((e) => e.type === "hurt").length;
     incoming += Math.max(0, s.shots.length - before);
+    // A LEVEL-UP is a frame that raised one, read off the events - not "the run
+    // is paused", which it has been for two reasons since 2026-09-30: a boss or
+    // mini-boss kill also pauses it to hand over a SUPER POWER. Counting those
+    // as upgrades shortened normal's late gap from 12.6 s to 9.7 s with the
+    // xp curve untouched. Once per frame, exactly as the old `choosing` read
+    // counted it, so the before and after columns measure the same thing.
+    if (s.events.some((e) => e.type === "levelup")) ups.push(ms);
     if (s.choosing) {
-      ups.push(ms);
       const cards = offerCards(s, rng);
+      if (cards.length === 1 && cards[0].kind === "evolve") supers++;
       // The careless one takes whatever is on the left.
       if (cards.length > 0) applyCard(s, careful ? bestCard(cards) : cards[0]);
       else s.choosing = false;
     }
     if (bossAt === null && s.stage === STAGE_COUNT && bossOf(s)) bossAt = ms;
   }
-  return { ms, phase: s.phase, power: s.power, popped: s.popped, ups, bossAt, stage: s.stage, hurt, incoming };
+  return { ms, phase: s.phase, power: s.power, popped: s.popped, ups, supers, bossAt, stage: s.stage, hurt, incoming };
 }
 
 const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
@@ -190,7 +203,7 @@ function runs(level: LevelKey, careful = true): Report[] {
         `boss ${r.bossAt === null ? " -  " : sec(r.bossAt) + "s"}  ` +
         `stage ${r.stage}  power ${String(r.power).padStart(2)}  popped ${String(r.popped).padStart(4)}  ` +
         `hurt ${r.hurt}  incoming ${String(r.incoming).padStart(3)}  ` +
-        `late upgrade gap ${lateGap(r).toFixed(0)}s`,
+        `late upgrade gap ${lateGap(r).toFixed(0)}s  supers ${r.supers}`,
     );
     return r;
   });

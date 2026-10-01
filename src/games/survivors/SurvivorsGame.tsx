@@ -1,5 +1,5 @@
 import { textFor } from "@i18n/index";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameContext } from "@sdk/index";
 // The ARCADE chrome, because this game declares `tier: "showcase"` - the band
 // the operator picked when asked who gets dedicated game controls. The shared
@@ -8,7 +8,7 @@ import type { GameContext } from "@sdk/index";
 import { ArcadeChrome } from "@ui/ArcadeChrome";
 import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
 import { shake } from "@juice/index";
-import { SLOTS_MAX, STARTERS, asStarter, type StarterId } from "./arsenal";
+import { SLOTS_MAX } from "./arsenal";
 import { DASH_MS } from "./powers";
 import type { Card } from "./cards";
 import { WEAPON_ART, WEAPON_INK_CSS } from "./weaponArt";
@@ -31,7 +31,7 @@ import { measureBoxUnscaled, type ScaleManagerLike } from "@shared/phaserBox";
 // and the arena's size is needed to shape the box before Phaser exists.
 import type { SurvivorsScene, SurvivorsStatus } from "./SurvivorsScene";
 import type { LevelKey, UpgradeId, WeaponId } from "./logic";
-import { ARENA, ARENA_WIDE, RUN_MS, UPGRADE_CAP, UPGRADE_IDS, WEAPON_LV_MAX, type Arena, EVOLUTIONS,
+import { ARENA, ARENA_WIDE, RUN_MS, UPGRADE_CAP, UPGRADE_IDS, WEAPON_LV_MAX, type Arena,
 } from "./logic";
 import { UPGRADE_ART } from "./upgradeArt";
 import { phoneArena, phoneBox } from "./phoneArena";
@@ -40,6 +40,18 @@ import { phoneArena, phoneBox } from "./phoneArena";
 // its own file; this component only switches between the two.
 import { CareerLayer } from "./CareerLayer";
 import { MenuButton } from "./careerScreens";
+// THE TITLE SCREEN (2026-09-30): the game opens on key art and one Tap to start,
+// which goes on to the mode cards (Career / Quick run, drawn by CareerLayer).
+import { NeonTitle } from "./entrance/NeonTitle";
+// THE WEAPON PICK and THE SUPER POWER CARD (operator ruling 2026-09-30, "like
+// Survivor.io"): a run starts on one MAIN weapon picked from the whole
+// collection, and a weapon's evolution arrives as a gold card of its own.
+import { WeaponPick } from "./entrance/WeaponPick";
+import { SuperCard } from "./entrance/SuperCard";
+import { weaponWords } from "./entrance/weaponWords";
+import { asMainWeapon, weaponsOpenIn } from "./weaponPool";
+import type { CareerStore } from "../../shared/career/save";
+import { notifyRunStart } from "@ui/gameTools";
 import { neonCareerWords } from "./careerWords";
 import type { CareerResult } from "./types";
 
@@ -105,12 +117,14 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
   > | null>(null);
 
   /**
-   * WHICH GAME THIS IS RIGHT NOW: the two entrance tiles, the quick run, or the
-   * career. The QUICK RUN is today's game byte for byte - the same entrance, the
-   * same difficulty and weapon pick, the same scene - with one small "Menu" button
-   * added under its Play to get back to the tiles.
+   * WHICH SCREEN THIS IS RIGHT NOW: the title, the mode cards, the quick run, or
+   * the career. The game opens on the TITLE (operator, 2026-09-30: *"we have to
+   * have 1 enter game screen"*); its one button goes to the mode cards. The
+   * QUICK RUN is today's game byte for byte - the same entrance, the same
+   * difficulty and weapon pick, the same scene - with one small "Menu" button
+   * under its Play to get back to the mode cards.
    */
-  const [mode, setMode] = useState<"menu" | "quick" | "career">("menu");
+  const [mode, setMode] = useState<"title" | "menu" | "pick" | "quick" | "career">("title");
   /** The scene tells the career when a level ends; the career decides what that pays. */
   const careerEndRef = useRef<((r: CareerResult, token: string) => void) | null>(null);
 
@@ -122,11 +136,28 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
   const levelRef = useRef(level);
   levelRef.current = level;
 
-  // The weapon the next run starts with, remembered on this device and validated
-  // on the way in - `asStarter` reads anything unrecognised as the bolt.
-  const [startWeapon, setStartWeapon] = useState<StarterId>(() => asStarter(ctx.storage.get<string>(START_KEY, "bolt")));
+  // The career save as the kit's store, read for which weapons are open: two of
+  // the five open only once a career world is won (weaponPool.ts).
+  const careerStore = useMemo<CareerStore>(
+    () => ({ get: (key) => ctx.storage.get<unknown>(key, null), set: (key, value) => ctx.storage.set(key, value) }),
+    [ctx],
+  );
+  // The MAIN weapon the next run starts with, remembered on this device and
+  // validated on the way in - `asMainWeapon` reads anything this save may not
+  // pick (locked, unknown, not ours) as the bolt, which is always open.
+  const [startWeapon, setStartWeapon] = useState<WeaponId>(() => asMainWeapon(ctx.storage.get<string>(START_KEY, "bolt"), weaponsOpenIn(careerStore)));
   const startRef = useRef(startWeapon);
   startRef.current = startWeapon;
+  /** Pick a main weapon: remembered, and handed to the scene before the run it starts. */
+  const chooseWeapon = (id: WeaponId) => {
+    setStartWeapon(id);
+    // From the handler, never a state updater - the house rule.
+    ctx.storage.set(START_KEY, id);
+    sceneRef.current?.setStartWeapon(id);
+  };
+  // PLAY pressed on the pick before Phaser finished loading: the run starts the
+  // moment the scene is ready, rather than dropping the press.
+  const pendingPlay = useRef(false);
 
   const [status, setStatus] = useState<SurvivorsStatus>({
     score: 0,
@@ -277,6 +308,10 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
           // through a REF: this effect depends on `[ctx]` alone, and closing over
           // `level` would either go stale or reboot Phaser on every change.
           scene.setLevel(levelRef.current);
+          if (pendingPlay.current) {
+            pendingPlay.current = false;
+            scene.startFromChrome();
+          }
         },
       });
       ctx.lifecycle.loadingFinished();
@@ -600,79 +635,12 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
               result:
                 status.phase === "won" ? T.beat : status.phase === "over" ? T.lost : undefined,
               onAction: () => sceneRef.current?.startFromChrome(),
-              // The one addition to the quick run's entrance: back to the two tiles.
-              extra: <MenuButton label={neonCareerWords(ctx.locale).menu} onPress={() => setMode("menu")} />,
-              // The starting weapon, chosen before Play because it changes what
-              // Play starts (operator ruling 2026-09-14).
-              pick: (
-                <div
-                  role="group"
-                  aria-label={T.pickWeapon}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}
-                >
-                  <b style={{ color: "#fff", fontSize: 16, fontFamily: "Fredoka, inherit" }}>{T.pickWeapon}</b>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                    {STARTERS.map((id) => {
-                      const on = startWeapon === id;
-                      // Hex, so the alpha suffixes below (`33`, `14`, `8c`,
-                      // `66`) are legal CSS. `WEAPON_INK_CSS` is already in that
-                      // form for exactly this reason.
-                      const ink = WEAPON_INK_CSS[id];
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() => {
-                            setStartWeapon(id);
-                            // From the handler, never a state updater - the house rule.
-                            ctx.storage.set(START_KEY, id);
-                            sceneRef.current?.setStartWeapon(id);
-                          }}
-                          // EACH BUTTON WEARS ITS OWN WEAPON'S INK, 2026-09-22.
-                          // Operator: *"The start icons in the beginning should
-                          // be different color than the other buttons"*.
-                          //
-                          // They were all the entrance's cyan - the same colour
-                          // as the difficulty pills, the start button and the
-                          // border round everything else - so the one row on
-                          // this screen that is a CHOICE between three different
-                          // things looked like three more pieces of chrome. The
-                          // inks are the ones the shots are drawn in
-                          // (`WEAPON_INK_CSS`), so the colour a player picks here
-                          // is the colour they then see leaving the robot.
-                          style={{
-                            width: 96,
-                            minHeight: 96,
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 3,
-                            padding: "8px 4px",
-                            borderRadius: "var(--radius-2)",
-                            border: on ? `3px solid ${ink}` : `2px solid ${ink}66`,
-                            background: on ? `${ink}33` : `${ink}14`,
-                            boxShadow: on ? `0 0 18px ${ink}8c` : "none",
-                            color: "#fff",
-                            font: "inherit",
-                            fontFamily: "Fredoka, inherit",
-                            fontWeight: 700,
-                            fontSize: 14,
-                            cursor: "pointer",
-                            touchAction: "manipulation",
-                          }}
-                        >
-                          <span aria-hidden="true" style={{ color: WEAPON_INK_CSS[id], display: "flex" }}>
-                            {WEAPON_ART[id](34)}
-                          </span>
-                          {WN[id][0]}
-                          <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85, lineHeight: 1.2 }}>
-                            {WN[id][1]}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+              // After a run: back to the weapon pick (the run's main weapon is
+              // chosen there now, from the whole collection), or to the mode cards.
+              extra: (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                  <MenuButton label={weaponWords(ctx.locale).weapon} onPress={() => setMode("pick")} />
+                  <MenuButton label={neonCareerWords(ctx.locale).menu} onPress={() => setMode("menu")} />
                 </div>
               ),
             }
@@ -761,7 +729,37 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
             touchAction: "none",
           }}
         />
-        {mode !== "quick" && (
+        {mode === "title" && (
+          <NeonTitle name={T.title} locale={ctx.locale} tap={neonCareerWords(ctx.locale).tap} onStart={() => setMode("menu")} />
+        )}
+        {mode === "pick" && (
+          <WeaponPick
+            locale={ctx.locale}
+            weapon={startWeapon}
+            open={weaponsOpenIn(careerStore)}
+            names={WN}
+            upgrades={UP}
+            levels={{
+              options: LEVEL_OPTIONS,
+              value: status.level,
+              onChange: (k) => {
+                setLevel(k);
+                sceneRef.current?.setLevel(k);
+              },
+            }}
+            onPick={chooseWeapon}
+            onPlay={(id) => {
+              chooseWeapon(id);
+              setMode("quick");
+              notifyRunStart();
+              if (sceneRef.current) sceneRef.current.startFromChrome();
+              else pendingPlay.current = true;
+            }}
+            onBack={() => setMode("menu")}
+            backLabel={neonCareerWords(ctx.locale).back}
+          />
+        )}
+        {(mode === "menu" || mode === "career") && (
           <CareerLayer
             ctx={ctx}
             mode={mode}
@@ -773,8 +771,13 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
             scene={sceneRef}
             endRef={careerEndRef}
             onCareer={() => setMode("career")}
-            onQuick={() => setMode("quick")}
+            onQuick={() => setMode("pick")}
+            weapon={startWeapon}
+            onWeapon={chooseWeapon}
+            names={WN}
+            upgrades={UP}
             onMenu={() => setMode("menu")}
+            onTitle={() => setMode("title")}
           />
         )}
         {banner > 0 && (
@@ -912,64 +915,20 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
                   </button>
                 );
               }
-              // THE EVOLUTION. It arrives alone, so it gets the full width and a
-              // look nothing else on this screen has: the weapon's own ink as a
-              // FILL rather than a border, and its new name. This is the moment
-              // the whole run was for, and a card that looked like the other
-              // three would read as another routine pick.
-              //
-              // Ink on a brand fill is a contrast question, and this one is
-              // MEASURED rather than asserted (2026-09-21, WCAG AA text floor
-              // 4.5). Every weapon ink is a bright neon, so white loses on all
-              // five and it is not close:
-              //
-              //     fill              near-black #0b0d1f   white #ffffff
-              //     bolt   #d8fbff          17.55 ok            1.10 X
-              //     arc    #ffd166          13.34 ok            1.44 X
-              //     burst  #ff5ce1           7.21 ok            2.67 X
-              //     blades #ff8fc0           9.11 ok            2.11 X
-              //     drone  #7df9a6          14.63 ok            1.31 X
-              //
-              // Worst case 7.21 against 4.5. The label is the arena's own
-              // near-black on every one of them.
+              // THE EVOLUTION - the SUPER POWER. It arrives alone (cards.ts), so it
+              // is drawn as its own gold card over the whole arena rather than a
+              // row among the upgrades: this is the moment the run was for, and
+              // a card that looked like the routine picks would read as one.
+              // The card covers the "Level up" heading under it.
               if (card.kind === "evolve") {
-                const id = card.id;
                 return (
-                  <button
-                    key={`evolve-${id}`}
-                    type="button"
-                    onClick={() => sceneRef.current?.choose(card)}
-                    aria-label={`${WN[id][0]} \u2192 ${EVOLUTIONS[id].name}`}
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      minHeight: 84,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "10px 14px",
-                      borderRadius: "var(--radius-2)",
-                      border: "2px solid #0b0d1f",
-                      background: WEAPON_INK_CSS[id],
-                      color: "#0b0d1f",
-                      font: "inherit",
-                      fontFamily: "Fredoka, inherit",
-                      cursor: "pointer",
-                      touchAction: "manipulation",
-                    }}
-                  >
-                    <span aria-hidden="true" style={{ display: "flex", flex: "0 0 auto", color: "#0b0d1f" }}>
-                      {WEAPON_ART[id](44)}
-                    </span>
-                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3, minWidth: 0 }}>
-                      <span style={{ fontSize: 19, fontWeight: 800, textAlign: "start", letterSpacing: "0.02em" }}>
-                        {EVOLUTIONS[id].name.toUpperCase()}
-                      </span>
-                      <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.85, textAlign: "start" }}>
-                        {WN[id][0]}
-                      </span>
-                    </span>
-                  </button>
+                  <SuperCard
+                    key={`evolve-${card.id}`}
+                    id={card.id}
+                    weaponName={WN[card.id][0]}
+                    locale={ctx.locale}
+                    onTake={() => sceneRef.current?.choose(card)}
+                  />
                 );
               }
               // A LEVEL for a weapon the run already carries. Rendered from the

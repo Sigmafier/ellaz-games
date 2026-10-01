@@ -633,6 +633,13 @@ export class SurvivorsScene extends Phaser.Scene {
     if (this.offer.length === 0) return;
     applyCard(this.run, card);
     this.offer = [];
+    // A SUPER POWER taken with a level-up waiting behind it (both landed on one
+    // frame): `applyCard` leaves the run paused, and the level-up's own cards
+    // come up now rather than being dropped.
+    if (this.run.choosing) {
+      this.offer = offerCards(this.run, this.rng);
+      if (this.offer.length === 0) this.run.choosing = false;
+    }
     this.ctx.audio.play("pop");
     this.publish();
   }
@@ -913,6 +920,16 @@ export class SurvivorsScene extends Phaser.Scene {
         this.offer = offerCards(this.run, this.rng);
         // Nothing left to offer: carry on rather than stopping dead in front of
         // no cards. `logic.ts` returns an empty list for exactly this case.
+        if (this.offer.length === 0) this.run.choosing = false;
+      } else if (e.type === "super") {
+        // A boss or a mini-boss fell with a super power ready. The same card path
+        // a level-up takes - `offerCards` hands back the one super, alone. The
+        // level-up's sound with a bigger puff: `streak` stays the boss's arrival
+        // and nothing else, as the comment on that branch promises.
+        this.ctx.audio.play("success");
+        const at = this.screenPoint(this.run.x, this.run.y);
+        juiceBurst(at.x, at.y, { count: 18 });
+        this.offer = offerCards(this.run, this.rng);
         if (this.offer.length === 0) this.run.choosing = false;
       } else if (e.type === "won") this.finish(true);
       else if (e.type === "over") this.finish(false);

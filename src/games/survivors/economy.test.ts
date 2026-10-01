@@ -67,9 +67,13 @@ function play(level: LevelKey, arena: Arena, seed: number): Reading {
       const offer = offerCards(s, rng);
       if (offer.length === 0) { s.choosing = false; continue; }
       const pick = offer[Math.floor(rng() * offer.length)];
+      // A SUPER is not a level-up card: since 2026-09-30 a boss or mini-boss
+      // kill hands it over, alone, and counting it here moved "cards per normal
+      // run" by exactly the supers taken (24.2 -> 25.2 portrait with evo 1.0,
+      // 25.6 -> 26.8 landscape with evo 1.2) while the xp curve was untouched.
       if (pick.kind === "evolve") evolutions++;
+      else cards++;
       applyCard(s, pick);
-      cards++;
       continue;
     }
     step(s, 16, greedy(s), rng);
@@ -95,6 +99,9 @@ function play(level: LevelKey, arena: Arena, seed: number): Reading {
  * uniformly at random measures luck rather than reach.
  */
 function playAiming(level: LevelKey, arena: Arena, seed: number): Reading {
+  // Since 2026-09-30 the recipe is bolt Lv5 + pierce taken ONCE, and the super
+  // arrives on a boss or mini-boss kill - so "aiming" is the four bolt levels and
+  // one pierce; the evolve line below takes the card the kill hands over.
   const s = newRun(level, arena);
   const rng = rngFor(seed);
   const want = RECIPE.bolt; // the run starts on the bolt
@@ -110,9 +117,13 @@ function playAiming(level: LevelKey, arena: Arena, seed: number): Reading {
         offer.find((c) => c.kind === "level" && c.id === "bolt") ??
         offer.find((c) => c.kind === "upgrade" && c.id === want) ??
         offer[0];
+      // A SUPER is not a level-up card: since 2026-09-30 a boss or mini-boss
+      // kill hands it over, alone, and counting it here moved "cards per normal
+      // run" by exactly the supers taken (24.2 -> 25.2 portrait with evo 1.0,
+      // 25.6 -> 26.8 landscape with evo 1.2) while the xp curve was untouched.
       if (pick.kind === "evolve") evolutions++;
+      else cards++;
       applyCard(s, pick);
-      cards++;
       continue;
     }
     step(s, 16, greedy(s), rng);
@@ -225,16 +236,37 @@ describe("the run economy", () => {
     // be a coin-flip dressed as a gate: a mean of 0.10 over ten runs is one
     // evolution in ten, and a seed set that happened to contain none would red a
     // perfectly healthy game.
+    //
+    // RE-ARGUED 2026-09-30, when the operator re-ruled the recipe (partner upgrade
+    // taken ONCE instead of maxed; the super handed over by a boss or mini-boss
+    // kill, never by a level-up card). The absolute `< 1` below it was tuned on
+    // the old recipe, where the random bot read 0.10 - and the rule change moves
+    // it on purpose, because one partner card is far cheaper than three to eight:
+    //
+    //                          random mean   aiming, normal portrait
+    //     before (maxed)           0.10           9/12 reached
+    //     after  (taken once)      1.00          12/12 reached
+    //
+    // So the property is stated as what it always meant - picking at random must
+    // not out-evolve TRYING - against an aiming bot on the SAME seeds, levels and
+    // arena, rather than as a constant read off the old recipe.
     const evo = SEEDS.flatMap((seed) => [
       play("normal", ARENA, seed).evolutions,
       play("wild", ARENA, seed).evolutions,
     ]);
+    const aim = SEEDS.flatMap((seed) => [
+      playAiming("normal", ARENA, seed).evolutions,
+      playAiming("wild", ARENA, seed).evolutions,
+    ]);
     const mean = avg(evo);
-    console.log(`\nevolutions per run, normal+wild, random picks: ${evo.join(",")} (mean ${mean.toFixed(2)})`);
+    console.log(
+      `\nevolutions per run, normal+wild, random picks: ${evo.join(",")} (mean ${mean.toFixed(2)})` +
+        `  aiming, same runs: ${aim.join(",")} (mean ${avg(aim).toFixed(2)})`,
+    );
     expect(mean, "evolutions are being handed out rather than earned").toBeLessThanOrEqual(2.5);
     // And it must stay EARNED rather than free: a bot picking at random should
     // not out-evolve one that is trying.
-    expect(mean, "picking at random evolves as often as aiming does").toBeLessThan(1);
+    expect(mean, "picking at random evolves as often as aiming does").toBeLessThan(avg(aim));
   });
 
   it("THE CONTROL: a run that never collects a gem gets almost nothing", () => {

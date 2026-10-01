@@ -11,6 +11,7 @@ import { EVOLUTIONS, SWARM_DRONES } from "./evolve";
 export { WEAPON_LV_MAX };
 import { nearestEnemy } from "./enemies";
 import { dronePositions } from "./arsenal";
+import { RARITY } from "./weaponPool";
 
 const CAP_BOLTS = 48;
 const SPREAD_RAD = 0.16;
@@ -89,7 +90,10 @@ export function rowFor(slot: Slot): WeaponRow {
 export const weaponDamage = (s: RunState, slot: Slot): number =>
   (boltDamage(s) + (slot.id === "blades" ? 0 : rowFor(slot).bonus) + (slot.lv - 1)) *
   // A career run's damage stat (gear, shop). `?? 1` on a quick run - x * 1 is x.
-  (s.career?.damage ?? 1);
+  (s.career?.damage ?? 1) *
+  // A RARE main weapon's perk. Exactly 1 for everything else - a common main,
+  // an epic main (its perk is the level), and any weapon picked up later.
+  (slot.main && RARITY[slot.id] === "rare" ? MAIN_PERK.rareDamage : 1);
 
 /** How long this slot waits between shots, at its level. */
 export const weaponEvery = (s: RunState, slot: Slot): number =>
@@ -100,6 +104,27 @@ export const canLevel = (slot: Slot): boolean => slot.lv < WEAPON_LV_MAX;
 
 /** A freshly taken weapon starts at level one. */
 export const freshSlot = (id: WeaponId): Slot => ({ id, cd: 0, lv: 1 });
+
+/**
+ * What a MAIN weapon's rarity is worth (operator ruling 2026-09-30, from the
+ * Survivor.io research: a purple weapon starts levelled, a blue one hits harder).
+ *
+ *   common  nothing
+ *   rare    +20% damage, on that weapon only
+ *   epic    starts the run at level 2
+ *
+ * The main weapon only. A rare weapon taken off a level-up card later in the run
+ * is just that weapon - the perk is what the player CHOSE to bring in, not a
+ * property of the weapon wherever it turns up.
+ */
+export const MAIN_PERK = { rareDamage: 1.2, epicLv: 2 } as const;
+
+/** The weapon a run starts on: flagged as the main one, and levelled if it is epic. */
+export const mainSlot = (id: WeaponId): Slot => ({
+  ...freshSlot(id),
+  lv: RARITY[id] === "epic" ? MAIN_PERK.epicLv : 1,
+  main: true,
+});
 
 // `critRoll` LIVED HERE and was deleted on 2026-09-22 with the upgrade it
 // served, and the deletion is worth a note because of what it moved.

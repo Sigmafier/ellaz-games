@@ -1,16 +1,17 @@
-// The career's screens that live ON THE ARENA - the two entrance tiles (the
-// operator's pick quickB), the level banner (p0 `intro`) and the result card -
-// plus the gold pill a career run wears. The map, shop and gear are the KIT's
-// screens and are drawn by `CareerLayer.tsx` over the whole page.
+// The career's screens that live ON THE ARENA - the level banner (p0 `intro`)
+// and the result card - plus the gold pill a career run wears. The map, shop and
+// gear are the KIT's screens and are drawn by `CareerLayer.tsx` over the whole
+// page. The two entrance tiles that lived here (the operator's pick quickB) were
+// replaced on 2026-09-30 by the mode cards in `entrance/ModeCards.tsx`.
 //
 // Every control is a real <button>; nothing here is ever `disabled`. Sizes come
 // from the ARENA box's layout size (`useLayoutBox`, clientWidth/clientHeight),
 // never a transformed rect - `fitStage` may scale `#game-frame`.
 
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactElement, ReactNode, RefObject } from "react";
+import type { CSSProperties, ReactElement, RefObject } from "react";
 import type { WorldId } from "./types";
-import { CareerTileArt, K, NeonIcon, QuickTileArt, WORLD_ART, neonShape } from "./careerArt";
+import { K, NeonIcon, WORLD_ART, neonShape } from "./careerArt";
 import { CastArt } from "./castArt";
 import type { NeonCareerWords } from "./careerWords";
 
@@ -48,93 +49,6 @@ const cover = (bg: string, z = 4): CSSProperties => ({
   alignItems: "center",
   justifyContent: "center",
 });
-
-function Tile(props: { label: string; aria: string; bg: string; border: string; art: ReactNode; stats: ReactNode; w: number; h: number; onPress: () => void }): ReactElement {
-  const artH = props.h * 0.52;
-  return (
-    <button
-      type="button"
-      aria-label={props.aria}
-      onClick={props.onPress}
-      style={{
-        width: props.w,
-        height: props.h,
-        flex: "none",
-        borderRadius: Math.round(props.w * 0.075),
-        border: `5px solid ${props.border}`,
-        background: props.bg,
-        boxShadow: "0 8px 0 rgba(0,0,0,0.35)",
-        padding: Math.round(props.w * 0.035),
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: Math.round(props.h * 0.03),
-        color: "#fff",
-        font: "inherit",
-        fontFamily: FONT,
-        cursor: "pointer",
-        touchAction: "manipulation",
-      }}
-    >
-      <span style={{ width: "100%", height: artH, flex: "none", borderRadius: 14, border: `4px solid ${K}`, overflow: "hidden", display: "block", boxSizing: "border-box" }}>{props.art}</span>
-      <span style={{ fontSize: Math.round(props.h * 0.12), fontWeight: 800, textShadow: INK_SHADOW, lineHeight: 1.1 }}>{props.label}</span>
-      <span style={{ display: "flex", alignItems: "center", gap: 10, fontSize: Math.round(props.h * 0.065), fontWeight: 700 }}>{props.stats}</span>
-    </button>
-  );
-}
-
-const stat = (icon: string, n: number, size: number) => (
-  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, direction: "ltr" }}>
-    <NeonIcon name={icon} size={size} />
-    {n}
-  </span>
-);
-
-/** The entrance: the game's name and two big tiles, Career and Quick run (operator's pick B, 2026-09-29). */
-export function Chooser(props: { title: string; w: NeonCareerWords; stars: number; gold: number; best: number; onCareer: () => void; onQuick: () => void }): ReactElement {
-  const [ref, box] = useLayoutBox<HTMLDivElement>();
-  const wide = box.w > box.h;
-  const titleH = Math.max(40, Math.min(72, box.h * 0.13));
-  // Two tiles side by side on a landscape arena, stacked on a portrait one, each
-  // 1.1 wide per 1 tall and as large as the room allows.
-  const tw = wide ? Math.min(box.w * 0.4, (box.h - titleH - 36) * 1.1) : Math.min(box.w * 0.84, ((box.h - titleH - 48) / 2) * 1.35);
-  const th = wide ? tw / 1.1 : Math.min(tw / 1.35, (box.h - titleH - 48) / 2);
-  const icon = Math.max(24, th * 0.13);
-  const { w } = props;
-  return (
-    <div ref={ref} role="group" aria-label={props.title} style={{ ...cover("radial-gradient(circle at 50% 40%, rgba(24,28,70,0.92), rgba(8,10,26,0.96))"), gap: 18 }}>
-      {box.w > 0 ? (
-        <>
-          <div style={{ fontSize: titleH * 0.55, fontWeight: 800, lineHeight: 1 }}>{props.title}</div>
-          <div style={{ display: "flex", flexDirection: wide ? "row" : "column", gap: wide ? Math.round(box.w * 0.04) : 22, alignItems: "center" }}>
-            <Tile
-              label={w.career}
-              aria={`${w.career}: ${props.stars} ${w.stars}, ${props.gold} ${w.gold}`}
-              bg="#c2185b"
-              border="#fff"
-              art={<CareerTileArt />}
-              stats={<>{stat("star", props.stars, icon)}{stat("gold", props.gold, icon)}</>}
-              w={tw}
-              h={th}
-              onPress={props.onCareer}
-            />
-            <Tile
-              label={w.quick}
-              aria={`${w.quick}: ${w.best} ${props.best}`}
-              bg="#2a3170"
-              border="#22e7ff"
-              art={<QuickTileArt />}
-              stats={stat("trophy", props.best, icon)}
-              w={tw}
-              h={th}
-              onPress={props.onQuick}
-            />
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
 
 /** Where a level sits in its world, for the dots under the banner: done, now, still to come, and the castle. */
 export interface WorldDots {
@@ -309,7 +223,7 @@ export function GoldPill({ gold, label }: { gold: number; label: string }): Reac
   );
 }
 
-/** The small way back from the quick run's entrance to the two tiles. */
+/** The small way back from the quick run's entrance to the mode cards. */
 export function MenuButton({ label, onPress }: { label: string; onPress: () => void }): ReactElement {
   return (
     <button

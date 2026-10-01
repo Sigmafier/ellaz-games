@@ -4,11 +4,14 @@
 // in this repo to ship armed and unreachable: `EVOLUTIONS` can be a perfect
 // table, `canEvolve` can be perfectly correct, and if no card ever offers it the
 // whole feature is a lever with no caller that reads green in every search. So
-// the assertions below run the RECIPE end to end - level the weapon, max the
+// the assertions below run the RECIPE end to end - level the weapon, take the
 // partner upgrade, take the card that appears - and then check the weapon fires
-// differently in the arena.
+// differently in the arena. Since 2026-09-30 the card appears when a boss or a
+// mini-boss falls (`raiseSuper`); `super-power.test.ts` drives that kill through
+// `step`, and the partner-taken-once threshold.
 import { describe, expect, it } from "vitest";
 import { applyCard, offerCards } from "./cards";
+import { raiseSuper } from "./evolve";
 import {
   EVOLUTIONS, KINDS, RECIPE, STORM_JUMPS, SWARM_DRONES, UPGRADE_CAP, WEAPON_LV_MAX,
   applyUpgrade, canEvolve, evolvable, hasEvolution, newRun, recipeProgress, rowFor, rngFor, step,
@@ -61,7 +64,10 @@ function atTheRecipe(id: WeaponId): RunState {
 const BUILT: WeaponId[] = ["bolt", "arc", "burst", "blades", "drone"];
 const NOT_YET: WeaponId[] = [];
 
-describe("the recipe is Lv5 AND the partner upgrade maxed", () => {
+// The partner upgrade MAXED still satisfies the recipe (it is "taken at least
+// once"), so these cells keep the maxed setup and keep guarding what they always
+// did: neither half alone, the near miss, and never twice.
+describe("the recipe is Lv5 AND the partner upgrade taken", () => {
   it("refuses until BOTH halves are done - neither one alone", () => {
     for (const id of BUILT) {
       const up = RECIPE[id];
@@ -120,9 +126,12 @@ describe("the recipe is Lv5 AND the partner upgrade maxed", () => {
 });
 
 describe("the card reaches the player - the feature is not an armed lever", () => {
-  it("is offered, ALONE, the moment the recipe is met", () => {
+  it("is offered, ALONE, the moment a big kill lands with the recipe met", () => {
     for (const id of BUILT) {
       const s = atTheRecipe(id);
+      // Recipe met, no kill yet: a level-up is ordinary cards.
+      expect(offerCards(s, rngFor(1)).some((c) => c.kind === "evolve")).toBe(false);
+      expect(raiseSuper(s)).toBe(id);
       for (let seed = 1; seed < 25; seed++) {
         const offer = offerCards(s, rngFor(seed));
         expect(offer).toHaveLength(1);
@@ -134,7 +143,9 @@ describe("the card reaches the player - the feature is not an armed lever", () =
   it("taking it flags exactly that weapon, and the offer then goes away", () => {
     const s = atTheRecipe("bolt");
     s.slots.push({ id: "drone", cd: 0, lv: 1 });
+    expect(raiseSuper(s)).toBe("bolt");
     applyCard(s, { kind: "evolve", id: "bolt" });
+    expect(s.pendingSuper).toBeNull();
     expect(s.slots[0].evolved).toBe(true);
     expect(s.slots[1].evolved).toBeFalsy();
     expect(s.choosing).toBe(false);

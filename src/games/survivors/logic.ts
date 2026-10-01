@@ -29,10 +29,10 @@ import { mulberry32 } from "@shared/rng";
 import type { Arena, Enemy, EnemyKind, RunState, WeaponId } from "./types";
 import { cameraOf, clampToWorld, dist2, inView, isLeftBehind, spawnPoint, worldFor } from "./world";
 import { BLADES, DRONE, bladePositions, holds } from "./arsenal";
-import { CAP_FIRES, NOVA_FIRE } from "./evolve";
+import { CAP_FIRES, NOVA_FIRE, raiseSuper } from "./evolve";
 import { FREEZE_NEED, dashAway, tickPowers } from "./powers";
 import { GUNS, bossHpFor, gunEveryFor, nearestEnemy, radiusOf, spawn, speedOf, summonAt, xpOf } from "./enemies";
-import { WEAPONS, fireSlot, freshSlot, weaponDamage, weaponEvery } from "./weapons";
+import { WEAPONS, fireSlot, mainSlot, weaponDamage, weaponEvery } from "./weapons";
 import { FINAL, RULES, STAGE_MS, bossKindFor, isLastStage, spawnEvery, stageIsOver, stageMs } from "./stages";
 import { magnetRange, playerSpeed, shieldEvery, shieldReady, xpNeeded } from "./upgrades";
 // THE CAREER (P3). Every call below sits behind `if (s.career)`, so a quick run -
@@ -57,10 +57,10 @@ export type {
   WeaponId,
   WeaponRow,
 } from "./types";
-export { EVOLUTIONS, RECIPE, SWARM_DRONES, applyEvolve, canEvolve, evolvable, hasEvolution, recipeProgress } from "./evolve";
+export { EVOLUTIONS, PARTNER_NEED, RECIPE, SWARM_DRONES, applyEvolve, canEvolve, evolvable, hasEvolution, raiseSuper, recipeProgress } from "./evolve";
 export { FINAL, RULES, SHOOTERS, STAGE_COUNT, STAGE_MS, STAGES, SUMMONS, TIER, bossKindFor, isLastStage, runMs, spawnEvery, stageIsOver, stageMs, stageT } from "./stages";
 export { BASE_OF, BOSS_KINDS, ELITE, ELITE_CHANCE, GUNS, KINDS, bossBar, bossHpFor, bossOf, gunEveryFor, hpOf, isBossKind, kindsAt, nearestEnemy, radiusOf, speedOf, summonAt, xpOf } from "./enemies";
-export { STORM_JUMPS, WEAPONS, WEAPON_LV_MAX, canLevel, freshSlot, rowFor, weaponDamage, weaponEvery } from "./weapons";
+export { MAIN_PERK, STORM_JUMPS, WEAPONS, WEAPON_LV_MAX, canLevel, freshSlot, mainSlot, rowFor, weaponDamage, weaponEvery } from "./weapons";
 export {
   UPGRADE_CAP,
   UPGRADE_IDS,
@@ -226,7 +226,9 @@ export function newRun(level: RunState["level"], arena: Arena = ARENA, start: We
     gems: [],
     fires: [],
     up: { rapid: 0, power: 0, spread: 0, swift: 0, magnet: 0, heart: 0, pierce: 0, shield: 0, range: 0 },
-    slots: [freshSlot(start)],
+    // The MAIN weapon, wearing its rarity's perk (`mainSlot`, `weaponPool.ts`).
+    // Calm's default bolt is a common, so this is `freshSlot` plus a flag there.
+    slots: [mainSlot(start)],
     bladeAngle: 0,
     droneAngle: 0,
     dashCd: 0,
@@ -269,6 +271,14 @@ function damage(s: RunState, e: Enemy, dmg: number, by?: WeaponId) {
   e.flash = FLASH_MS;
   if (e.hp <= 0) {
     s.popped += 1;
+    // A BOSS OR A MINI-BOSS (an elite) PAYS OUT A SUPER POWER, if one is ready
+    // (operator ruling 2026-09-30; `raiseSuper` holds the rest). Here, in the one
+    // function every kill goes through, so no weapon can kill a boss "around" it.
+    // Not on the kill that ENDS the run - the last stage's boss, or a career
+    // level's one boss - because a card behind the win screen is a promise
+    // nobody can take.
+    const endsRun = e.id === s.boss && (s.career !== undefined || isLastStage(s.stage));
+    if ((e.id === s.boss || e.elite) && !endsRun) raiseSuper(s);
     // `by` rides the event rather than being inferred by the scene from what is
     // near the corpse. A shape killed by a blade is usually also inside a bolt's
     // path, so "what was closest" is a guess the simulation does not have to
@@ -449,6 +459,8 @@ function grantXp(s: RunState, value: number) {
     s.xp -= s.need;
     s.power += 1;
     s.need = xpNeeded(s.power, s.level);
+    // A super already paused this frame: this level-up waits behind it.
+    if (s.pendingSuper) s.levelOwed = true;
     s.choosing = true;
     s.events.push({ type: "levelup" });
   }

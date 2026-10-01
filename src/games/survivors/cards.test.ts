@@ -1,10 +1,13 @@
 // Picking weapons, pinned by behaviour. Operator ruling 2026-09-14: pick one of
-// three at the start, new weapons as level-up cards, four slots.
+// three at the start, new weapons as level-up cards, four slots. Re-ruled
+// 2026-09-30: the start is the MAIN weapon, any of the five (the entrance decides
+// which are unlocked); `super-power.test.ts` pins that half.
 import { describe, expect, it } from "vitest";
 import { UPGRADE_CAP, UPGRADE_IDS, newRun, rngFor, WEAPON_LV_MAX,
 } from "./logic";
 import { POOL, SLOTS_MAX, STARTERS, asStarter } from "./arsenal";
 import { applyCard, offerCards } from "./cards";
+import { raiseSuper } from "./evolve";
 
 describe("the start", () => {
   it("a run starts with exactly the weapon it was given", () => {
@@ -26,8 +29,11 @@ describe("the start", () => {
 
   it("a stored starter is validated, never trusted", () => {
     expect(asStarter("arc")).toBe("arc");
-    expect(asStarter("blades")).toBe("bolt"); // a weapon, but not a starter
+    // A weapon the Quick run entrance never showed is STILL a valid main weapon
+    // since 2026-09-30 - locking is the entrance's call, not the simulation's.
+    expect(asStarter("blades")).toBe("blades");
     expect(asStarter("laser")).toBe("bolt");
+    expect(asStarter("BOLT")).toBe("bolt");
     expect(asStarter(undefined)).toBe("bolt");
     expect(asStarter(7)).toBe("bolt");
   });
@@ -167,16 +173,22 @@ describe("level-up cards", () => {
     expect(offerCards(s, rngFor(9))).toHaveLength(0);
   });
 
-  it("THE CONTROL: the same run un-evolved is offered its evolutions", () => {
+  it("THE CONTROL: the same run un-evolved is offered its supers - by a big kill, never a level-up", () => {
     // Without this the assertion above passes on an `offerCards` that returns
     // nothing at all, and it would also have hidden the fact that a fully maxed
-    // run still has five evolutions waiting for it.
+    // run still has four supers waiting for it.
+    //
+    // SPLIT IN TWO on 2026-09-30. A level-up used to hand a ready super over
+    // itself; now a boss or a mini-boss has to fall first. So the same run reads
+    // EMPTY on a level-up - there is genuinely nothing left to take - and one
+    // super the moment a kill raises it.
     const s = newRun("normal");
     s.slots = POOL.slice(0, 4).map((id) => ({ id, cd: 0, lv: WEAPON_LV_MAX }));
     for (const id of UPGRADE_IDS) s.up[id] = UPGRADE_CAP[id];
+    expect(offerCards(s, rngFor(9))).toHaveLength(0);
+    expect(raiseSuper(s)).toBe(POOL[0]);
     const offer = offerCards(s, rngFor(9));
-    expect(offer).toHaveLength(1);
-    expect(offer[0].kind).toBe("evolve");
+    expect(offer).toEqual([{ kind: "evolve", id: POOL[0] }]);
   });
 
   it("THE CONTROL: the same run with its weapons at level one is NOT empty", () => {

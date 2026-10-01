@@ -87,7 +87,11 @@ export function stroll(s: RunState, rng: () => number, held: { dx: number; dy: n
 
 const CARD_ORDER: UpgradeId[] = ["rapid", "power", "spread", "pierce", "heart", "swift", "shield", "range", "magnet"];
 
-/** The card a player who knows the game takes. */
+/**
+ * The card a player who knows the game takes. A super (`evolve`) arrives alone
+ * after a boss or mini-boss kill since 2026-09-30, so it is taken because it is
+ * the only card; the rest of the order is the level-up pick.
+ */
 export function bestCard(cards: Card[]): Card {
   return (
     cards.find((c) => c.kind === "evolve") ??

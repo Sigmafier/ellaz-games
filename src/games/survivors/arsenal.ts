@@ -1,9 +1,10 @@
 // The weapon slots, and where the two weapons that are not projectiles stand.
 //
-// Operator ruling 2026-09-14: pick one of three on the entrance, carry up to
-// four, and new weapons arrive as level-up cards. Orbiting blades and a helper
-// drone are WEAPONS, so they take a slot - five exist, four fit, and one never
-// makes it into a given run.
+// Operator ruling 2026-09-14: pick one on the entrance, carry up to four, and
+// new weapons arrive as level-up cards. Orbiting blades and a helper drone are
+// WEAPONS, so they take a slot - five exist, four fit, and one never makes it
+// into a given run. Re-ruled 2026-09-30: the one picked is the MAIN weapon, any
+// of the five, and it wears its rarity's perk (`weaponPool.ts`).
 //
 // Types only from `logic.ts`, so there is no import cycle. The scene reads the
 // geometry below to draw exactly where the simulation hits.
@@ -14,20 +15,29 @@ import { SAW_REACH } from "./evolve";
 /** How many weapons a run can carry. */
 export const SLOTS_MAX = 4;
 
-/** The three a run can START with - the ones on the entrance screen. */
+/**
+ * The three the Quick run entrance has always shown.
+ *
+ * NO LONGER the list of what a run may start with. Operator ruling 2026-09-30
+ * (modelled on Survivor.io): the MAIN weapon is picked from the whole collection,
+ * each with a fixed rarity (`weaponPool.ts`), and which of the five a player has
+ * UNLOCKED is the entrance's decision, not the simulation's. The simulation
+ * starts on whatever it is handed; `asStarter` below is what now accepts all five.
+ */
 export const STARTERS = ["bolt", "arc", "burst"] as const satisfies readonly WeaponId[];
-export type StarterId = (typeof STARTERS)[number];
+/** Any weapon can be the main one, so a starter is simply a weapon. */
+export type StarterId = WeaponId;
 
 /** Every weapon a level-up can offer, in the order the art and the words list them. */
 export const POOL: readonly WeaponId[] = ["bolt", "arc", "burst", "blades", "drone"];
 
 /**
- * A stored starting weapon, validated rather than trusted. Anything that is not
- * one of the three reads as never chosen - the same discipline the stick style
- * and `session.ts` apply to a value this app did not write this session.
+ * A stored main weapon, validated rather than trusted. Anything that is not one
+ * of the five reads as never chosen - the same discipline the stick style and
+ * `session.ts` apply to a value this app did not write this session.
  */
 export const asStarter = (v: unknown): StarterId =>
-  (STARTERS as readonly unknown[]).includes(v) ? (v as StarterId) : "bolt";
+  (POOL as readonly unknown[]).includes(v) ? (v as StarterId) : "bolt";
 
 /**
  * The blades. They never fire: they turn around the robot and cut whatever they

@@ -15,6 +15,9 @@ import { describe, expect, it } from "vitest";
 const chrome = readFileSync(new URL("./SurvivorsGame.tsx", import.meta.url), "utf8");
 const scene = readFileSync(new URL("./SurvivorsScene.ts", import.meta.url), "utf8");
 const arcade = readFileSync(new URL("../../ui/ArcadeChrome.tsx", import.meta.url), "utf8");
+// The starting weapon is picked on its own screen since 2026-09-30 (the whole
+// collection, in rarity frames), so the rule about its colours reads that file.
+const pick = readFileSync(new URL("./entrance/WeaponPick.tsx", import.meta.url), "utf8");
 
 describe("the cards say a level the way every other card says a count", () => {
   it("a weapon LEVEL card draws pips, and never the words 1 -> 2", () => {
@@ -49,10 +52,23 @@ describe("the entrance tells the weapons apart", () => {
     // SURVIVED. It is this repo's most-collected instrument fault - a check that
     // truncates away the thing it is checking - met again in a test written to
     // catch a regression.
-    expect(chrome).toContain("const ink = WEAPON_INK_CSS[id]");
-    expect(chrome).toContain("border: on ? `3px solid ${ink}` : `2px solid ${ink}66`");
-    expect(chrome).toContain("background: on ? `${ink}33` : `${ink}14`");
-    expect(chrome).toContain("boxShadow: on ? `0 0 18px ${ink}8c` : \"none\"");
+    //
+    // 2026-09-30: the three starter buttons became five cards on the weapon
+    // pick. The FRAME is the rarity's now (grey, blue, gold - a word on the
+    // ribbon says it too), so what carries the weapon's own ink is the picture
+    // and the picked card's glow. Those are what is pinned: the colour a player
+    // picks is still the colour they then see leaving the robot.
+    expect(pick).toContain("const ink = WEAPON_INK_CSS[id];");
+    expect(pick).toContain('style={{ display: "flex", color: ink, opacity: locked ? 0.5 : 1');
+    expect(pick).toContain("boxShadow: props.on ? `0 0 0 3px #ffffff, 0 0 22px ${ink}8c");
+    // And the old row is gone from the quick run's result screen - one pick, one place.
+    expect(chrome).not.toContain("STARTERS.map(");
+  });
+
+  it("THE CONTROL: planting the shared cyan on the picture turns it red", () => {
+    const planted = pick.replace('color: ink, opacity: locked', 'color: "#22e7ff", opacity: locked');
+    expect(planted).not.toBe(pick);
+    expect(planted).not.toContain('style={{ display: "flex", color: ink, opacity: locked ? 0.5 : 1');
   });
 });
 

@@ -155,6 +155,16 @@ export interface Slot {
    * draw branches and five names x four languages out of the change.
    */
   evolved?: boolean;
+  /**
+   * Is this the MAIN weapon - the one the player picked at the entrance and the
+   * run started on? Only the main weapon wears its rarity's perk (`weaponPool.ts`,
+   * `weapons.ts`), so a rare weapon picked up later off a card is just a weapon.
+   *
+   * A flag rather than "slot 0", because a slot's index is an accident of the
+   * order things were pushed, and a test or a later rule that reorders the slots
+   * would quietly hand the perk to whatever landed first.
+   */
+  main?: boolean;
 }
 
 /**
@@ -301,5 +311,12 @@ export type RunEvent =
   /** A stage boss fell and the next stage has begun. Never fires for stage 3 - that is `won`. */
   | { type: "stage"; n: number }
   | { type: "levelup" }
+  /**
+   * A boss or a mini-boss (an elite) fell while a SUPER POWER was ready, and the
+   * run has stopped to offer it. Carries WHICH weapon, so the scene can name it.
+   * A separate event from `levelup` because it is a different moment - a reward
+   * for a kill, not for gems - and the chrome draws it as its own card.
+   */
+  | { type: "super"; id: WeaponId }
   | { type: "won" }
   | { type: "over" };

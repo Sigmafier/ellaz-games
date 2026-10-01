@@ -1,8 +1,13 @@
-// NEON SURVIVAL'S CAREER, AS SCREENS (P3, 2026-09-29): the entrance's two tiles,
-// the map, the vending shop, the gear screen, a level's banner and its result.
+// NEON SURVIVAL'S CAREER, AS SCREENS (P3, 2026-09-29): the mode cards, the map,
+// the vending shop, the gear screen, a level's banner and its result.
+//
+// THE MODE CARDS (2026-09-30) replaced the entrance's two small tiles: the same
+// two choices, Career and Quick run, as the approved mock's picture cards, with
+// a Back to the game's title screen. They are drawn here rather than by the game
+// because the Career card reads the save this layer owns.
 //
 // WHERE EACH ONE IS DRAWN, and why:
-//   ON THE ARENA   the two tiles, the level banner, the result card, the gold pill.
+//   ON THE ARENA   the mode cards, the level banner, the result card, the gold pill.
 //                  They belong to the game box the way the quick run's entrance
 //                  does, and a canvas tap can never reach under them.
 //   OVER THE PAGE  the map, the shop and the gear screen - the kit's screens, which
@@ -39,9 +44,12 @@ import { SLOT_IDS, type SlotId } from "../../shared/career/gear";
 import { CAREER_KEY, NEON_GEAR, NEON_SHOP, STAT_MAX, bankRun, simStats, statsOf, type Settlement } from "./careerRules";
 import { LOOKS, ROW, buyEpic, epicSlotsOwned, payBossDiamond, pressLook, readLooks, shelfRows, type LookId, type LooksSave } from "./diamondShelf";
 import { neonCareerWords } from "./careerWords";
-import { Chooser, GoldPill, Intro, Result, SlotPick } from "./careerScreens";
+import { GoldPill, Intro, Result, SlotPick } from "./careerScreens";
+import { ModeCards } from "./entrance/ModeCards";
+import { WeaponPick } from "./entrance/WeaponPick";
+import { weaponsOpen } from "./weaponPool";
 import { RobotFill } from "./castArt";
-import type { CareerResult, CareerStats } from "./types";
+import type { CareerResult, CareerStats, UpgradeId, WeaponId } from "./types";
 import { levelRow, NEON_CAMPAIGN } from "./worlds";
 
 type Kit = Awaited<ReturnType<typeof loadCareerKit>>;
@@ -53,7 +61,7 @@ type Kit = Awaited<ReturnType<typeof loadCareerKit>>;
  * locale the Career page lives under, on either host.
  */
 const CAREER_PAGE = "../../career/";
-type Screen = "lobby" | "shop" | "gear" | "intro" | "run" | "result";
+type Screen = "lobby" | "shop" | "gear" | "pick" | "intro" | "run" | "result";
 
 /** The half of the scene this layer drives. */
 export interface CareerSceneApi {
@@ -112,6 +120,13 @@ export function CareerLayer(props: {
   onCareer: () => void;
   onQuick: () => void;
   onMenu: () => void;
+  /** Back from the mode cards to the title screen. */
+  onTitle: () => void;
+  /** The main weapon, and how to pick one - the game owns both, the quick run shares them. */
+  weapon: WeaponId;
+  onWeapon: (id: WeaponId) => void;
+  names: Record<WeaponId, [string, string]>;
+  upgrades: Record<UpgradeId, string>;
 }): ReactElement | null {
   const { ctx } = props;
   const w = neonCareerWords(ctx.locale);
@@ -180,9 +195,15 @@ export function CareerLayer(props: {
     writeSave(store, CAREER_KEY, next);
     setSave(next);
   };
+  // A level goes through the WEAPON PICK first (2026-09-30): before this, a
+  // career run silently took whatever weapon was last picked for a Quick run.
   const play = (id: string) => {
     setLevel(id);
     setPaid(null);
+    setScreen("pick");
+  };
+  const startLevel = (id: string, weapon: WeaponId) => {
+    props.onWeapon(weapon);
     props.scene.current?.startCareer(id, simStats(save), looks.worn);
     setScreen("intro");
   };
@@ -194,7 +215,8 @@ export function CareerLayer(props: {
 
   if (props.mode === "menu") {
     return (
-      <Chooser title={props.title} w={w} stars={totalStars(save)} gold={save.gold} best={props.quickBest} onCareer={() => { setScreen("lobby"); props.onCareer(); }} onQuick={props.onQuick} />
+      <ModeCards title={props.title} locale={ctx.locale} w={w} save={save} stars={totalStars(save)} gold={save.gold} best={props.quickBest}
+        onCareer={() => { setScreen("lobby"); props.onCareer(); }} onQuick={props.onQuick} onBack={props.onTitle} />
     );
   }
 
@@ -274,6 +296,12 @@ export function CareerLayer(props: {
   }
 
   if (!level) return null;
+  if (screen === "pick") {
+    return (
+      <WeaponPick locale={ctx.locale} weapon={props.weapon} open={weaponsOpen(save)} names={props.names} upgrades={props.upgrades}
+        onPick={props.onWeapon} onPlay={(weapon) => startLevel(level, weapon)} onBack={() => setScreen("lobby")} backLabel={w.back} />
+    );
+  }
   const L = levelRow(level);
   if (screen === "intro") {
     const inWorld = nodeStates(NEON_CAMPAIGN, save).filter((v) => v.node.world === L.world);

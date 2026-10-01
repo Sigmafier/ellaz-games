@@ -1,4 +1,4 @@
-// Neon Survival's CAREER words - the entrance tiles, the world names, the level
+// Neon Survival's CAREER words - the title's button, the mode cards, the world names, the level
 // banner and the result card - in every language the app has authored text in.
 //
 // NOT in `src/i18n/dict`, for the reason the kit gives in `src/ui/career/words.ts`:
@@ -35,6 +35,14 @@ export interface NeonCareerWords {
   /** P4 - the diamond shelf's three capsules, and the result screen's diamond line. */
   looks: { gold: string; ice: string; epic: string };
   diamond: string;
+  /** The title screen's one button (2026-09-30). */
+  tap: string;
+  /** The Career card's line: "{n}" is the world you are up to. */
+  worldN: string;
+  /** The Quick run card's line. */
+  quickLine: string;
+  /** The mode screen's way back to the title, said to a screen reader. */
+  back: string;
 }
 
 const WORDS: Record<Locale, NeonCareerWords> = {
@@ -46,6 +54,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     map: "Back to map", retry: "Retry", gold: "Gold", best: "Best", stars: "Stars",
     newGear: "New gear", start: "Start",
     looks: { gold: "Gold bot", ice: "Ice bot", epic: "Epic gear" }, diamond: "Diamond",
+    tap: "Tap to start", worldN: "World {n}", quickLine: "3 stages, a boss in each", back: "Back",
   },
   he: {
     career: "קריירה", quick: "ריצה מהירה", menu: "תפריט",
@@ -55,6 +64,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     map: "חזרה למפה", retry: "שוב", gold: "זהב", best: "שיא", stars: "כוכבים",
     newGear: "ציוד חדש", start: "התחלה",
     looks: { gold: "רובוט זהב", ice: "רובוט קרח", epic: "ציוד אגדי" }, diamond: "יהלום",
+    tap: "הקישו כדי להתחיל", worldN: "עולם {n}", quickLine: "3 שלבים, בוס בכל אחד", back: "חזרה",
   },
   es: {
     career: "Carrera", quick: "Partida rápida", menu: "Menú",
@@ -64,6 +74,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     map: "Volver al mapa", retry: "Otra vez", gold: "Oro", best: "Récord", stars: "Estrellas",
     newGear: "Equipo nuevo", start: "Empezar",
     looks: { gold: "Robot de oro", ice: "Robot de hielo", epic: "Equipo épico" }, diamond: "Diamante",
+    tap: "Toca para empezar", worldN: "Mundo {n}", quickLine: "3 fases, un jefe en cada una", back: "Atrás",
   },
   sv: {
     career: "Karriär", quick: "Snabbspel", menu: "Meny",
@@ -73,6 +84,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     map: "Till kartan", retry: "Igen", gold: "Guld", best: "Rekord", stars: "Stjärnor",
     newGear: "Ny utrustning", start: "Starta",
     looks: { gold: "Guldrobot", ice: "Isrobot", epic: "Episk utrustning" }, diamond: "Diamant",
+    tap: "Tryck för att börja", worldN: "Värld {n}", quickLine: "3 faser, en boss i varje", back: "Tillbaka",
   },
 };
 

@@ -24,7 +24,7 @@ export type * from "./entities";
 export type * from "./careerTypes";
 
 import type { CareerState } from "./careerTypes";
-import type { Arena, Bolt, Enemy, Fire, Gem, LevelKey, RunEvent, Shot, Slot, UpgradeId } from "./entities";
+import type { Arena, Bolt, Enemy, Fire, Gem, LevelKey, RunEvent, Shot, Slot, UpgradeId, WeaponId } from "./entities";
 
 export interface RunState {
   level: LevelKey;
@@ -127,4 +127,20 @@ export interface RunState {
    * `calm-is-untouched.test.ts` fingerprints that, shape for shape.
    */
   career?: CareerState;
+  /**
+   * The SUPER POWER on offer right now, raised by a boss or mini-boss kill and
+   * cleared when it is taken. Absent or null means none.
+   *
+   * STORED rather than recomputed at offer time, and that is what makes it one
+   * super per kill: `offerCards` hands back exactly the weapon the kill named,
+   * so a level-up can never offer a super (it has no kill behind it) and a kill
+   * can never offer two.
+   */
+  pendingSuper?: WeaponId | null;
+  /**
+   * A level-up landed on the same frame as a super and is waiting behind it.
+   * Both pause the run through the one `choosing` flag, so without this, taking
+   * the super card would clear the flag and silently drop the level-up.
+   */
+  levelOwed?: boolean;
 }

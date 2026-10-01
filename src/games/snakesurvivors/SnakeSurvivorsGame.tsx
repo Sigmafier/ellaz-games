@@ -15,6 +15,7 @@ import { ARENA, ARENA_WIDE, hitsLeft } from "./logic";
 import type { Arena, CardId, LevelKey, Tier } from "./types";
 import type { SnakeSurvivorsScene, SnakeSurvivorsStatus } from "./SnakeSurvivorsScene";
 import { TUTORIAL_TEXT, TutorialBanner } from "./TutorialBanner";
+import { SnakeTitle } from "./SnakeTitle";
 
 // Snake Survivors' chrome: the arcade HUD, the entrance, and the card picker,
 // all drawn by the shared showcase components over a Phaser arena. Same shape
@@ -88,6 +89,13 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
   const [level, setLevel] = useRememberedLevel(ctx, LEVEL_OPTIONS.map((o) => o.id), "normal");
   const levelRef = useRef(level);
   levelRef.current = level;
+  /**
+   * THE TITLE SCREEN (operator, 2026-09-30, approved off a mock): the game
+   * opens on the snake closing its loop and one Tap to start. Until it is
+   * pressed the entrance below waits behind it; after, that entrance - the
+   * difficulty, Play and How to play - is exactly what it was.
+   */
+  const [titled, setTitled] = useState(false);
 
   const [status, setStatus] = useState<SnakeSurvivorsStatus>({
     phase: "ready",
@@ -167,6 +175,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
     {
       he: {
         title: "נחש הישרדות",
+        tap: "הקישו כדי להתחיל",
         tagline: "הקיפו אותם. סגרו את הלולאה.",
         hint: "גררו כדי לנווט, או החצים",
         play: "שחקו",
@@ -186,6 +195,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
       },
       en: {
         title: "Snake Survivors",
+        tap: "Tap to start",
         tagline: "Circle them. Close the loop.",
         hint: "Drag to steer, or the arrow keys",
         play: "Play",
@@ -205,6 +215,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
       },
       es: {
         title: "Serpiente superviviente",
+        tap: "Toca para empezar",
         tagline: "Rodéalos. Cierra el círculo.",
         hint: "Arrastra para girar, o las flechas",
         play: "Jugar",
@@ -224,6 +235,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
       },
       sv: {
         title: "Ormöverlevare",
+        tap: "Tryck för att börja",
         tagline: "Ring in dem. Slut cirkeln.",
         hint: "Dra för att styra, eller piltangenterna",
         play: "Spela",
@@ -387,7 +399,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
       paused={status.phase === "playing" ? status.paused : undefined}
       onPaused={status.phase === "playing" ? (next) => sceneRef.current?.setPaused(next) : undefined}
       entrance={
-        asking && !choosing
+        titled && asking && !choosing
           ? {
               title: T.title,
               tagline: T.tagline,
@@ -431,6 +443,20 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
             touchAction: "none",
           }}
         />
+        {!titled && (
+          <SnakeTitle
+            name={T.title}
+            tagline={T.tagline}
+            locale={ctx.locale}
+            tap={T.tap}
+            how={HOW_TO}
+            onStart={() => setTitled(true)}
+            onHow={() => {
+              setTitled(true);
+              sceneRef.current?.startTutorial();
+            }}
+          />
+        )}
         {/* THE LENGTH, big and bold under the hearts (R4.5). A picture, never a
             control - it takes no pointer, like the rest of the HUD. */}
         {status.phase === "playing" && (
