@@ -17,7 +17,7 @@ export const snakearenaFr: GameCopy = {
   name: "Arène des serpents",
   metaTitle: "Arène des serpents - Snake gratuit contre des bots | Ellaz",
   metaDescription:
-    "Le Snake classique sur grille, en manche de 90 secondes contre 3 à 5 serpents de l'ordinateur. Mangez, évitez chaque corps, finissez le plus long.",
+    "Le Snake classique sur grille, en manche de 90 secondes contre 2 à 5 serpents de l'ordinateur. Mangez, évitez chaque corps, finissez le plus long.",
 
   lede: "Le serpent que vous connaissez, sur un plateau plus grand, et en compagnie. Pendant 90 secondes, vous et jusqu'à cinq serpents de l'ordinateur courez après les mêmes pommes, et celui dont la tête touche un mur ou un corps est éliminé. Le plus long serpent encore en mouvement à la fin du temps gagne.",
 
@@ -30,11 +30,13 @@ export const snakearenaFr: GameCopy = {
 
     "La manche dure 90 secondes. S'il ne reste qu'un serpent avant la fin, il gagne tout de suite. Sinon, le plus long serpent encore vivant à la sonnerie l'emporte.",
 
-    "Vous choisissez contre combien de serpents de l'ordinateur vous jouez : 3, 4 ou 5. Ils s'appellent Bolt, Moss, Echo, Pip et Fizz, chacun a sa couleur et son nom flotte au-dessus de sa tête. Sur ordinateur, le plateau fait 30 cases sur 20 avec un classement en direct à côté. Sur téléphone, il pivote en 23 sur 32 pour tenir à la verticale.",
+    "Vous choisissez un niveau : en facile, 2 serpents de l'ordinateur et un rythme plus calme, en normal 3 et en difficile 5. Ils s'appellent Bolt, Moss, Echo, Pip et Fizz, chacun a sa couleur et son nom flotte au-dessus de sa tête. Sur ordinateur, le plateau fait 30 cases sur 20 avec un classement en direct à côté. Sur téléphone, il pivote en 23 sur 32 pour tenir à la verticale.",
+
+    "La carte de départ propose trois autres choix : la couleur de votre serpent, la carte aux rochers, où quelques petits groupes de rochers font office de murs, et sur ordinateur un deuxième joueur, qui dirige avec WASD pendant que vous gardez les flèches.",
   ],
 
   howToPlay: [
-    { title: "Commencer", body: "Appuyez sur Jouer, puis sur une flèche ou faites glisser. Votre serpent vert menthe et tous les bots attendent sur le plateau jusqu'à votre première direction, donc rien ne bouge avant que vous soyez prêt." },
+    { title: "Commencer", body: "Appuyez sur Jouer, puis sur une flèche ou faites glisser. Votre serpent et tous les bots attendent sur le plateau jusqu'à votre première direction, donc rien ne bouge avant que vous soyez prêt." },
     { title: "Diriger", body: "Les flèches ou WASD sur ordinateur, un glissement ou les quatre boutons sur téléphone. Le réglage des commandes remplace les boutons par un joystick, ou par un manche qui apparaît là où vous touchez le plateau." },
     { title: "Grandir", body: "Passez la tête sur une pomme pour gagner un segment. Les serpents qui éclatent laissent une rangée de pommes, qui vaut la course si le chemin est libre." },
     { title: "Quand vous êtes éliminé", body: "La manche s'arrête et montre votre place. Regarder joue la suite trois fois plus vite pour voir qui gagne, et Rejouer lance tout de suite une nouvelle manche." },
@@ -54,16 +56,16 @@ export const snakearenaFr: GameCopy = {
   ],
 
   ages: [
-    { title: "Dès 6 ans", body: "Un jeune joueur peut diriger avec les grands boutons et apprendre à s'éloigner des corps. Avec 3 bots la manche est indulgente, mais être éliminé la termine quand même." },
-    { title: "De 8 à 12 ans", body: "4 bots, une vraie course aux pommes, et le moment où l'on comprend qu'un choc de face coûte cher aux deux." },
-    { title: "Ados et adultes", body: "5 bots sur le grand plateau, où tenir jusqu'à la sonnerie est un savoir-faire à part entière." },
+    { title: "Dès 6 ans", body: "Un jeune joueur peut diriger avec les grands boutons et apprendre à s'éloigner des corps. En facile, avec 2 bots plus lents, la manche est indulgente, mais être éliminé la termine quand même." },
+    { title: "De 8 à 12 ans", body: "Les 3 bots du niveau normal, une vraie course aux pommes, et le moment où l'on comprend qu'un choc de face coûte cher aux deux." },
+    { title: "Ados et adultes", body: "Les 5 bots du niveau difficile, peut-être sur la carte aux rochers, où tenir jusqu'à la sonnerie est un savoir-faire à part entière." },
   ],
 
   accessibility:
-    "Il faut diriger pendant toute la manche, au clavier, en faisant glisser ou avec quatre grands boutons, et un pas arrive environ 7 fois par seconde, donc le jeu demande une attention continue pendant 90 secondes. Rien n'exige un double appui rapide ni un glisser précis : chaque commande est une simple pression, les boutons font 64 pixels et la pause fige la manche exactement là où elle en est.",
+    "Il faut diriger pendant toute la manche, au clavier, en faisant glisser ou avec quatre grands boutons, et un pas arrive environ 7 fois par seconde (environ 5 en facile), donc le jeu demande une attention continue pendant 90 secondes. Rien n'exige un double appui rapide ni un glisser précis : chaque commande est une simple pression, les boutons font 64 pixels et la pause fige la manche exactement là où elle en est.",
 
   together: [
-    { title: "Chacun son tour", body: "Jouez à tour de rôle avec le même nombre de bots et comparez la longueur atteinte. Le record est gardé à part pour 3, 4 et 5 bots." },
+    { title: "Chacun son tour", body: "Jouez à tour de rôle au même niveau et comparez la longueur atteinte. Le record est gardé à part pour chaque niveau et chaque carte." },
     { title: "L'un joue, l'autre prévient", body: "L'un dirige pendant que l'autre surveille le plateau et prévient quand un bot approche." },
     { title: "Regardez la fin ensemble", body: "Quand l'un de vous est éliminé, appuyez sur Regarder et pariez sur le gagnant avant la sonnerie." },
   ],
@@ -73,8 +75,8 @@ export const snakearenaFr: GameCopy = {
     { q: "Comment gagne-t-on ?", a: "En étant le plus long serpent encore vivant quand les 90 secondes sont écoulées, ou le dernier serpent restant avant cela." },
     { q: "Que se passe-t-il quand deux serpents se percutent de face ?", a: "Les deux sont éliminés, quelle que soit leur longueur. Deux têtes qui entrent dans la même case, ou qui se traversent, comptent de la même façon." },
     { q: "Pourquoi des pommes apparaissent-elles là où était un serpent ?", a: "Un serpent éliminé éclate : chaque case de son corps devient une pomme. C'est là qu'on grandit vite." },
-    { q: "Contre combien de bots peut-on jouer ?", a: "Trois, quatre ou cinq. On choisit sur la carte de départ, et sur ordinateur aussi dans le panneau à côté du plateau." },
-    { q: "Comment le score est-il gardé ?", a: "Votre record est la plus grande longueur atteinte par votre serpent dans une manche, enregistrée sur cet appareil pour chaque nombre de bots. Toutes les 5 pommes mangées rapportent aussi une pièce." },
+    { q: "Contre combien de bots peut-on jouer ?", a: "Deux en facile, trois en normal et cinq en difficile. On choisit sur la carte de départ, et sur ordinateur aussi dans le panneau à côté du plateau." },
+    { q: "Comment le score est-il gardé ?", a: "Votre record est la plus grande longueur atteinte par votre serpent dans une manche, enregistrée sur cet appareil pour chaque niveau et chaque carte. Toutes les 5 pommes mangées rapportent aussi une pièce." },
     { q: "Peut-on faire une pause ?", a: "Oui, le bouton pause arrête la manche et le chrono. Passer à un autre onglet la met aussi en attente." },
   ],
 

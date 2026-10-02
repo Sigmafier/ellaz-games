@@ -4,6 +4,7 @@
 // Survival's `upgrades.ts` learned: a card, a HUD line and the simulation cannot
 // disagree about what `swift` is worth if only one function knows.
 
+import { MERGE } from "./merge";
 import type { CardId, LevelKey, Run, Tier } from "./types";
 
 /** How many times each card may be taken. An epic is once a run. */
@@ -214,8 +215,6 @@ export const SPIT = { range: 260, speed: 320, lifeMs: 1000 } as const;
 export const chainOf = (r: Taken) => (r.taken.chain ? 1 + r.taken.chain : 0);
 /** How far Chain Crush looks for a shape to zap, from the loop's middle. */
 export const CHAIN_RANGE = 240;
-/** Double Gems: what every gem picked up is multiplied by. */
-export const gemMult = (r: Taken) => (r.taken.doubleGems ? 2 : 1);
 /** Frost Trail: a shape touching the body moves at this fraction of its speed... */
 export const frostOf = (r: Taken) => [1, 0.55, 0.4][r.taken.frost] ?? 0.4;
 /** ...for this long after the touch. */
@@ -267,7 +266,8 @@ export function cardStat(id: CardId, level: number): number {
     case "chain":
       return chainOf(r);
     case "doubleGems":
-      return gemMult(r);
+      // Gem Merge (the id is forever; the card changed 2026-10-01): how near two gems fuse from.
+      return MERGE.reach;
     case "frost":
       return Math.round(100 * (1 - frostOf(r)));
     case "longBody":

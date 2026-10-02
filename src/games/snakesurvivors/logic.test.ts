@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "@shared/rng";
 import { ringRun } from "./testRing";
 import { HIT_COST, MIN_LEN, START_LEN } from "./body";
-import { BOSS_AT, BOSS_HP, KINDS, stageGoal } from "./crowd";
+import { BOSS_AT, KINDS, bossHpOf, stageGoal } from "./crowd";
 import { CAPS, WEAPONS, offerCards } from "./cards";
 import { hitsLeft, newRun, pickCard, step } from "./logic";
 import type { Foe, Kind, Run } from "./types";
@@ -269,7 +269,8 @@ describe("the boss", () => {
  * ROUND FOUR (operator ruling): "three stages, three bosses, then win." Each
  * cell sets up the boss for its own stage by hand, the same way "the boss"
  * above does for stage 1 - a fresh ring so a real loop closes on it, hp set to
- * what that stage's `BOSS_HP` says, `run.stage` set to match.
+ * what that stage's `bossHpOf` says on normal (4/6/9 since the 2026-10-01
+ * hardening; calm keeps `BOSS_HP`'s 3/5/7), `run.stage` set to match.
  */
 describe("the three bosses", () => {
   /** A run whose body is a real ring (so a real loop can close on the boss),
@@ -307,7 +308,7 @@ describe("the three bosses", () => {
     step(run, 16, STILL, fixed);
     expect(run.phase).toBe("boss");
     const boss = run.foes.find((f) => f.kind === "warden")!;
-    expect(boss.hp).toBe(BOSS_HP[2]);
+    expect(boss.hp).toBe(bossHpOf("normal", 2));
     expect(boss.hp).toBeGreaterThan(KINDS.warden.hp);
     const total = boss.hp;
     for (let loop = 1; loop <= total; loop++) {
@@ -324,8 +325,8 @@ describe("the three bosses", () => {
     step(run, 16, STILL, fixed);
     expect(run.phase).toBe("boss");
     const boss = run.foes.find((f) => f.kind === "warden")!;
-    expect(boss.hp).toBe(BOSS_HP[3]);
-    expect(boss.hp).toBeGreaterThan(BOSS_HP[2]);
+    expect(boss.hp).toBe(bossHpOf("normal", 3));
+    expect(boss.hp).toBeGreaterThan(bossHpOf("normal", 2));
     const total = boss.hp;
     for (let loop = 1; loop <= total; loop++) {
       closeOn(run, boss);

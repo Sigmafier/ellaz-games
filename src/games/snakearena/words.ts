@@ -15,7 +15,6 @@ export type Words = {
   play: string;
   playAgain: string;
   watch: string;
-  bots: string;
   rule: string;
   hint: string;
   live: string;
@@ -32,7 +31,22 @@ export type Words = {
   wins: (name: string) => string;
   nobody: string;
   final: string;
-  botsLabel: (n: number) => string;
+  /** The title card's choices (forum review, 2026-10-01). */
+  level: string;
+  /** Easy, Normal, Hard - in `LEVELS` order. */
+  levels: readonly [string, string, string];
+  colour: string;
+  /** The six swatches' accessible names, in `COLOUR_IDS` order. */
+  colours: readonly [string, string, string, string, string, string];
+  map: string;
+  /** Open, Rocks - in `MAPS` order. */
+  maps: readonly [string, string];
+  players: string;
+  playerCount: (n: number) => string;
+  /** Two players: who steers with what, under PLAY and beside the board. */
+  keys2: string;
+  /** The band's label over a person's length, two players ("P1 length"). */
+  lengthOf: (name: string) => string;
 };
 
 const EN_SUFFIX = ["th", "st", "nd", "rd"];
@@ -50,7 +64,6 @@ export const WORDS: Record<ShippedLocale, Words> = {
     play: "Play",
     playAgain: "Play again",
     watch: "Watch (3x)",
-    bots: "Bots",
     rule: "Longest snake at 1:30 wins. Hit a body and you're out.",
     hint: "Arrows, swipe or the buttons",
     live: "Live ranking",
@@ -64,7 +77,16 @@ export const WORDS: Record<ShippedLocale, Words> = {
     wins: (name) => `${name} wins`,
     nobody: "Nobody was left standing",
     final: "Final ranking",
-    botsLabel: (n) => `${n} bots`,
+    level: "Level",
+    levels: ["Easy", "Normal", "Hard"],
+    colour: "Your colour",
+    colours: ["Mint", "Pink", "Gold", "Blue", "Violet", "Silver"],
+    map: "Map",
+    maps: ["Open", "Rocks"],
+    players: "Players",
+    playerCount: (n) => (n === 1 ? "1 player" : `${n} players`),
+    keys2: "P1: arrow keys · P2: W A S D",
+    lengthOf: (name) => `${name} length`,
   },
   he: {
     you: "אתם",
@@ -76,7 +98,6 @@ export const WORDS: Record<ShippedLocale, Words> = {
     play: "שחקו",
     playAgain: "שחקו שוב",
     watch: "צפייה (x3)",
-    bots: "בוטים",
     rule: "הנחש הכי ארוך ב-1:30 מנצח. נגיעה בגוף - ואתם בחוץ.",
     hint: "חצים, החלקה או הכפתורים",
     live: "דירוג חי",
@@ -90,7 +111,16 @@ export const WORDS: Record<ShippedLocale, Words> = {
     wins: (name) => `${name} ניצח`,
     nobody: "אף נחש לא נשאר",
     final: "הדירוג הסופי",
-    botsLabel: (n) => `${n} בוטים`,
+    level: "רמה",
+    levels: ["קל", "רגיל", "קשה"],
+    colour: "הצבע שלכם",
+    colours: ["מנטה", "ורוד", "זהב", "כחול", "סגול", "כסף"],
+    map: "מפה",
+    maps: ["פתוחה", "סלעים"],
+    players: "שחקנים",
+    playerCount: (n) => (n === 1 ? "שחקן אחד" : `${n} שחקנים`),
+    keys2: "P1: החצים · P2: W A S D",
+    lengthOf: (name) => `אורך ${name}`,
   },
   es: {
     you: "Tú",
@@ -102,7 +132,6 @@ export const WORDS: Record<ShippedLocale, Words> = {
     play: "Jugar",
     playAgain: "Otra vez",
     watch: "Mirar (x3)",
-    bots: "Bots",
     rule: "Gana la serpiente más larga a la 1:30. Si chocas con un cuerpo, quedas fuera.",
     hint: "Flechas, deslizar o los botones",
     live: "Clasificación en directo",
@@ -116,7 +145,16 @@ export const WORDS: Record<ShippedLocale, Words> = {
     wins: (name) => `Gana ${name}`,
     nobody: "No quedó nadie en pie",
     final: "Clasificación final",
-    botsLabel: (n) => `${n} bots`,
+    level: "Nivel",
+    levels: ["Fácil", "Normal", "Difícil"],
+    colour: "Tu color",
+    colours: ["Menta", "Rosa", "Oro", "Azul", "Violeta", "Plata"],
+    map: "Mapa",
+    maps: ["Abierto", "Rocas"],
+    players: "Jugadores",
+    playerCount: (n) => (n === 1 ? "1 jugador" : `${n} jugadores`),
+    keys2: "P1: flechas · P2: W A S D",
+    lengthOf: (name) => `Largo ${name}`,
   },
   sv: {
     you: "Du",
@@ -128,7 +166,6 @@ export const WORDS: Record<ShippedLocale, Words> = {
     play: "Spela",
     playAgain: "Spela igen",
     watch: "Titta (3x)",
-    bots: "Bottar",
     rule: "Längsta ormen vid 1:30 vinner. Nuddar du en kropp är du ute.",
     hint: "Pilar, svep eller knapparna",
     live: "Ställning just nu",
@@ -142,12 +179,25 @@ export const WORDS: Record<ShippedLocale, Words> = {
     wins: (name) => `${name} vinner`,
     nobody: "Ingen orm fanns kvar",
     final: "Slutställning",
-    botsLabel: (n) => `${n} bottar`,
+    level: "Nivå",
+    levels: ["Lätt", "Normal", "Svår"],
+    colour: "Din färg",
+    colours: ["Mint", "Rosa", "Guld", "Blå", "Lila", "Silver"],
+    map: "Karta",
+    maps: ["Öppen", "Stenar"],
+    players: "Spelare",
+    playerCount: (n) => `${n} spelare`,
+    keys2: "P1: piltangenterna · P2: W A S D",
+    lengthOf: (name) => `Längd ${name}`,
   },
 };
 
-/** A snake's name: "You" for the player, then the bots in order. */
-export const nameOf = (w: Words, id: number) => (id === 0 ? w.you : (w.names[id - 1] ?? `#${id}`));
+/**
+ * A snake's name: "You" for the one player - or "P1" and "P2" for two - then
+ * the bots in order, Bolt first whoever is playing.
+ */
+export const nameOf = (w: Words, id: number, humans = 1): string =>
+  id < humans ? (humans === 1 ? w.you : `P${id + 1}`) : (w.names[id - humans] ?? `#${id}`);
 
 /** "1:12" - whole seconds left. */
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;

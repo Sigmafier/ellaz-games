@@ -30,8 +30,8 @@ describe("what a press means", () => {
   });
 
   it("keys", () => {
-    expect(keyPress("ArrowLeft")).toEqual({ kind: "direction", dir: "left" });
-    expect(keyPress("w")).toEqual({ kind: "direction", dir: "up" });
+    expect(keyPress("ArrowLeft")).toEqual({ kind: "direction", dir: "left", who: 0 });
+    expect(keyPress("w")).toEqual({ kind: "direction", dir: "up", who: 0 });
     expect(keyPress(" ")).toEqual({ kind: "confirm" });
     expect(keyPress("Shift")).toBeNull();
   });
@@ -45,6 +45,9 @@ describe("where a step leaves the round", () => {
     expect(afterStep("playing", r)).toBe("playing");
     expect(stepMsFor("watch")).toBeCloseTo(STEP_MS / 3);
     expect(stepMsFor("playing")).toBe(STEP_MS);
+    // Easy's slower step is the round's own, and watching still triples it.
+    expect(stepMsFor("playing", 185)).toBe(185);
+    expect(stepMsFor("watch", 185)).toBeCloseTo(185 / 3);
   });
 
   it("the bell ends a round that is playing or being watched", () => {

@@ -61,8 +61,8 @@ export const segmentAlpha = (i: number, safe = false) => (safe ? 0.5 : 1) * Math
  * `dim` (0..1) fades a whole snake back, for the board under a card. `safe`
  * fades it a fixed amount more, for the round's own safe start.
  */
-export function drawSnake(g: Pen, b: Board, id: number, body: readonly Point[], dir: Dir, dim = 0, safe = false) {
-  const color = hex(SNAKE_COLORS[id % SNAKE_COLORS.length]);
+export function drawSnake(g: Pen, b: Board, id: number, body: readonly Point[], dir: Dir, dim = 0, safe = false, colors: readonly string[] = SNAKE_COLORS) {
+  const color = hex(colors[id % colors.length]);
   const k = 1 - 0.6 * dim;
   for (let i = body.length - 1; i >= 0; i--) {
     const x = b.ox + body[i].x * b.c;
@@ -92,13 +92,13 @@ function drawEyes(g: Pen, b: Board, head: Point, dir: Dir, k: number) {
 
 /**
  * The player's snake waiting for its first direction: four arrows round the
- * head, breathing, in its own mint - the classic's hint, not a button.
+ * head, breathing, in its own colour - the classic's hint, not a button.
  */
-export function drawAim(g: Pen, b: Board, head: Point, pulse: number) {
+export function drawAim(g: Pen, b: Board, head: Point, pulse: number, color: string = SNAKE_COLORS[0]) {
   const { x, y } = centre(b, head);
   const reach = b.c * (0.8 + 0.35 * pulse);
   const w = b.c * 0.55;
-  g.fillStyle(hex(SNAKE_COLORS[0]), 0.7 + 0.3 * pulse);
+  g.fillStyle(hex(color), 0.7 + 0.3 * pulse);
   for (const { fx, fy } of Object.values(LOOK)) {
     const tipX = x + fx * (reach + w);
     const tipY = y + fy * (reach + w);
@@ -109,13 +109,62 @@ export function drawAim(g: Pen, b: Board, head: Point, pulse: number) {
 }
 
 /**
- * The whole board for one frame. `dim` fades the snakes back while a card
- * covers them; `safe` fades every snake for the round's own safe start.
+ * The Rocks map's obstacles: a slate block per cell, a lighter top edge so it
+ * reads as raised, never the colour of a snake or an apple.
  */
-export function drawRound(g: Pen, b: Board, r: Round, pulse: number, dim = 0, safe = false) {
+export function drawRocks(g: Pen, b: Board, rocks: readonly Point[]) {
+  for (const p of rocks) {
+    const x = b.ox + p.x * b.c;
+    const y = b.oy + p.y * b.c;
+    g.fillStyle(ROCK, 1).fillRoundedRect(x + b.c * 0.06, y + b.c * 0.06, b.c * 0.88, b.c * 0.88, b.c * 0.2);
+    g.fillStyle(ROCK_TOP, 1).fillRoundedRect(x + b.c * 0.16, y + b.c * 0.12, b.c * 0.68, b.c * 0.22, b.c * 0.1);
+  }
+}
+
+const ROCK = 0x5d6383;
+const ROCK_TOP = 0x8a90b0;
+
+/** One cell of slime: which snake left it, where, and the scene time it was left. */
+export type TrailMark = { id: number; x: number; y: number; at: number };
+
+/** How long a mark of slime takes to fade out, ms (forum review: "fades with time"). */
+export const TRAIL_MS = 2000;
+
+/** A mark's opacity `age` ms after it was left: faint, falling to nothing at `TRAIL_MS`. */
+export const trailAlpha = (age: number) => Math.max(0, 0.28 * (1 - age / TRAIL_MS));
+
+/**
+ * The trail after a step at scene time `now`: every living snake marks the cell
+ * its head is on, and marks that have faded are dropped - so the list holds at
+ * most two seconds of heads, about 15 a snake at Normal's step.
+ */
+export function trailAfter(trail: readonly TrailMark[], r: Round, now: number): TrailMark[] {
+  const kept = trail.filter((m) => now - m.at < TRAIL_MS);
+  for (const s of r.snakes) if (s.alive) kept.push({ id: s.id, x: s.body[0].x, y: s.body[0].y, at: now });
+  return kept;
+}
+
+/** The slime, under everything that moves: a soft dot per mark in its snake's colour. */
+export function drawTrail(g: Pen, b: Board, trail: readonly TrailMark[], now: number, colors: readonly string[]) {
+  for (const m of trail) {
+    const a = trailAlpha(now - m.at);
+    if (a <= 0) continue;
+    const { x, y } = centre(b, m);
+    g.fillStyle(hex(colors[m.id % colors.length]), a).fillCircle(x, y, b.c * 0.3);
+  }
+}
+
+/**
+ * The whole board for one frame: floor, slime, rocks, apples, snakes. `dim`
+ * fades the snakes back while a card covers them; `safe` fades every snake for
+ * the round's own safe start.
+ */
+export function drawRound(g: Pen, b: Board, r: Round, pulse: number, dim = 0, safe = false, colors: readonly string[] = SNAKE_COLORS, trail: readonly TrailMark[] = [], now = 0) {
   drawBoard(g, b);
+  drawTrail(g, b, trail, now, colors);
+  drawRocks(g, b, r.rocks);
   drawApples(g, b, r.apples, pulse);
-  for (const s of r.snakes) if (s.alive) drawSnake(g, b, s.id, s.body, s.dir, dim, safe);
+  for (const s of r.snakes) if (s.alive) drawSnake(g, b, s.id, s.body, s.dir, dim, safe, colors);
 }
 
 /** Where a snake's name sits: centred over its head, just above the cell. */
@@ -130,8 +179,8 @@ export type Spark = { x: number; y: number; vx: number; vy: number; life: number
  * that snake's OWN colour, never white (white on this glass reads as a camera
  * flash, not as the snake coming apart).
  */
-export function burstSparks(b: Board, id: number, body: readonly Point[]): Spark[] {
-  const color = hex(SNAKE_COLORS[id % SNAKE_COLORS.length]);
+export function burstSparks(b: Board, id: number, body: readonly Point[], colors: readonly string[] = SNAKE_COLORS): Spark[] {
+  const color = hex(colors[id % colors.length]);
   const out: Spark[] = [];
   body.forEach((p, i) => {
     const { x, y } = centre(b, p);

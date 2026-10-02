@@ -4,8 +4,15 @@ import { nameOf, type Words } from "./words";
 
 export function cardText(
   w: Words,
-  r: { phase: "out" | "over"; place: number; count: number; peak: number; winner: number | null },
+  r: { phase: "out" | "over"; place: number; count: number; peak: number; winner: number | null; humans?: number; places?: number[] },
 ): { head: string; line: string } {
+  const humans = r.humans ?? 1;
+  if (humans > 1) {
+    // Two players: who won is the heading, where each of you finished the line.
+    const head = r.winner === null ? w.nobody : w.wins(nameOf(w, r.winner, humans));
+    const line = (r.places ?? []).map((p, id) => `${nameOf(w, id, humans)} ${w.ord(p)}`).join(" · ");
+    return { head, line };
+  }
   const longest = w.longest(r.peak);
   if (r.phase === "out") return { head: w.outHead, line: `${w.of(r.place, r.count)} · ${longest}` };
   if (r.winner === 0) return { head: w.youWin, line: longest };

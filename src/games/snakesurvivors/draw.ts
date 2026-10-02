@@ -9,6 +9,7 @@ import { mulberry32 } from "@shared/rng";
 import { bodyColor } from "../snake/draw";
 import { WALL } from "../survivors/world";
 import { BODY_R, HEAD_R } from "./body";
+import { gemReach } from "./merge";
 import type { Arena, Kind, Pt, Run } from "./types";
 
 export interface Pen {
@@ -141,12 +142,23 @@ export const GEM_LOOK: Record<number, { ink: number; size: number; glow: number 
   3: { ink: INK.gold, size: 4.4, glow: 3.2 },
 };
 
-/** A gem: a small glowing diamond in its value's colour. */
+/**
+ * A gem: a small glowing diamond in its value's colour. A FUSED gem (Gem Merge,
+ * worth 4 or more) is drawn as the yellow one with the diamond itself grown
+ * well past its halo's growth, and a second, pulsing halo - one big prize where
+ * a handful of small ones lay. A 1 to 3 gem draws exactly as it always did.
+ */
 export function drawGem(g: Pen, x: number, y: number, pulse: number, v = 1): void {
   const look = GEM_LOOK[Math.max(1, Math.min(3, Math.round(v)))];
-  const s = look.size + 0.5 * Math.sin(pulse);
-  g.fillStyle(look.ink, 0.25);
-  g.fillCircle(x, y, s * look.glow);
+  const reach = gemReach(v);
+  const s = look.size * (1 + (reach - 1) * 2.5) + 0.5 * Math.sin(pulse);
+  const halo = v > 3 ? look.size * look.glow * reach : s * look.glow;
+  if (v > 3) {
+    g.fillStyle(look.ink, 0.1 + 0.06 * Math.sin(pulse * 0.7));
+    g.fillCircle(x, y, halo * 1.3);
+  }
+  g.fillStyle(look.ink, v > 3 ? 0.2 : 0.25);
+  g.fillCircle(x, y, halo);
   g.fillStyle(look.ink, 1);
   g.fillPoints([{ x, y: y - s }, { x: x + s, y }, { x, y: y + s }, { x: x - s, y }], true);
   g.fillStyle(INK.gemLit, 1);

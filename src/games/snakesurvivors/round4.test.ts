@@ -274,15 +274,30 @@ describe("the new powers do what their cards say", () => {
     expect(run.foes).toContain(near);
   });
 
-  it("Double Gems counts a gem twice, to the bar and the tail", () => {
+  // Double Gems became GEM MERGE on 2026-10-01 (same id, forever). A gem now
+  // counts exactly its value with or without the card; what the card changes
+  // is how MANY gems lie about, not what they are worth.
+  it("Gem Merge: a gem picked up counts its value once, with or without the card", () => {
     const one = quiet(newRun("normal", { w: 420, h: 560 }, fixed));
     const two = quiet(newRun("normal", { w: 420, h: 560 }, fixed));
     two.taken.doubleGems = 1;
     for (const r of [one, two]) r.gems = [{ x: r.x, y: r.y, v: 1 }];
     step(one, 16, STILL, fixed);
     step(two, 16, STILL, fixed);
-    expect(two.xp).toBe(2 * one.xp);
-    expect(two.len - 28).toBeCloseTo(2 * (one.len - 28), 6);
+    expect(two.xp).toBe(one.xp);
+    expect(two.len).toBeCloseTo(one.len, 6);
+  });
+
+  it("Gem Merge: gems lying near each other fuse into one worth the sum, only with the card", () => {
+    const pile = (r: Run) => [0, 1, 2].map((i) => ({ x: r.x + 200 + i * 20, y: r.y + 200, v: 1 }));
+    const off = quiet(newRun("normal", { w: 420, h: 560 }, fixed));
+    const on = quiet(newRun("normal", { w: 420, h: 560 }, fixed));
+    on.taken.doubleGems = 1;
+    for (const r of [off, on]) r.gems = pile(r);
+    for (let i = 0; i < 80; i++) for (const r of [off, on]) (r.calmMs = 1e12), step(r, 25, STILL, fixed);
+    expect(off.gems).toHaveLength(3);
+    expect(on.gems).toHaveLength(1);
+    expect(on.gems[0].v).toBe(3);
   });
 
   it("Frost Trail slows a shape that touches the body, and only one that does", () => {
@@ -404,13 +419,15 @@ describe("the crowd: more, faster, tougher, each stage over the last", () => {
     expect(hpAt("wild", 3)).toBeGreaterThan(hpAt("calm", 3));
   });
 
-  it("on wild a bump costs two once stage 2 is under way (R4.5: not at its opening), and the hearts count it", () => {
+  it("on wild a bump costs more once stage 2 is under way (R4.5: not at its opening), and the hearts count it", () => {
     const run = newRun("wild", { w: 420, h: 560 }, fixed);
     expect(biteCost(run)).toBe(1);
     run.stage = 2;
     run.crushed = stageGoal("wild", 2).crushed - 1;
     expect(biteCost(run)).toBe(1 + LEVELS.wild.bite);
-    expect(LEVELS.normal.bite).toBe(0);
+    // Normal's own extra bite: 0 until the 2026-10-01 hardening, 1 since (1/2/4 a bump by stage).
+    expect(LEVELS.normal.bite).toBe(1);
+    expect(LEVELS.wild.bite).toBeGreaterThan(LEVELS.normal.bite);
     expect(hitsLeft(40, 2)).toBeLessThan(hitsLeft(40, 1));
   });
 

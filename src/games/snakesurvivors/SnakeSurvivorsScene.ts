@@ -13,14 +13,15 @@ import { cameraOf } from "../survivors/world";
 import { SHEETS, kindScale, sheetOf } from "./cast";
 import { centreOf, insideNow, pendingLoop } from "./body";
 import { HOLE } from "./cards";
-import { BOSS_HP, KINDS, LUNGE, MINI_HP, biteCost, isBoss } from "./crowd";
+import { KINDS, LUNGE, MINI_HP, biteCost, bossHpOf, isBoss } from "./crowd";
 import { crushFx } from "./crushFx";
 import {
-  INK, KIND_INK, drawBolt, drawGem, drawGemArrow, drawHpBar, drawGround, drawGuideRing, drawInsideMark, drawLoop, drawNova, drawShieldRing,
+  INK, KIND_INK, dashes, drawBolt, drawGem, drawGemArrow, drawHpBar, drawGround, drawGuideRing, drawInsideMark, drawLoop, drawNova, drawShieldRing,
   drawShockRing, drawShot, drawSnake, drawSnapGuide, drawVortex, drawWindup, drawZap,
 } from "./draw";
 import { FX_TEXT, type FxText } from "./fxText";
-import { ARENA, newRun, pickCard, step } from "./logic";
+import { ARENA, mergeGuard, newRun, pickCard, step } from "./logic";
+import { pullPairs } from "./merge";
 import {
   gemTarget, guideRing, hasSeenTutorial, leaveTutorial, markTutorialSeen, newTutorial, tickTutorial, tutorialPick,
   type Tutorial, type TutorialStep,
@@ -369,7 +370,8 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
         this.cameras.main.shake(160, 0.008);
         haptic.fail();
         this.spray(e.x, e.y, INK.red, 9);
-        this.popup("-1", this.run.x, this.run.y, "#ff7675");
+        // What the bump actually cost: 2 or 4 later in a normal run, not always 1.
+        this.popup(`-${biteCost(this.run)}`, this.run.x, this.run.y, "#ff7675");
       } else if (e.k === "shield") {
         this.ctx.audio.play("pop", { semitones: -3 });
         this.spray(this.run.x, this.run.y, INK.gem, 10);
@@ -449,9 +451,9 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       lv: r.lv,
       offer: r.choosing ? [...r.choosing] : [],
       taken: { ...r.taken },
-      // BOSS_HP[r.stage]: while a warden is up, r.stage is still ITS stage -
-      // it only moves on once the warden falls and `boss` goes back to null.
-      boss: boss ? { now: boss.hp, max: BOSS_HP[r.stage] } : null,
+      // bossHpOf(level, r.stage): while a warden is up, r.stage is still ITS
+      // stage - it only moves on once the warden falls and `boss` goes back to null.
+      boss: boss ? { now: boss.hp, max: bossHpOf(r.level, r.stage) } : null,
       bite: biteCost(r),
       newBest: this.newBest,
       tutorial: this.tut ? this.tut.step : null,
@@ -470,6 +472,11 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.under.clear();
     const now = this.time?.now ?? 0;
     const pulse = now / 180;
+    if (r.taken.doubleGems) {
+      // GEM MERGE's pull, drawn: a faint dashed line from each gem to the one it is sliding into.
+      g.lineStyle(2, INK.gold, 0.6);
+      for (const [a, b] of pullPairs(r.gems, r, mergeGuard(r))) for (const [p, q] of dashes(a, b, 3, 3)) g.lineBetween(p.x, p.y, q.x, q.y);
+    }
     for (const gem of r.gems) drawGem(g, gem.x, gem.y, pulse + gem.x, gem.v);
     for (const v of r.vortices) drawVortex(this.under, v, now, v.life, HOLE.ms);
     for (const l of this.loops) drawLoop(g, l.poly, l.age, LOOP_LIFE, l.flashMs);

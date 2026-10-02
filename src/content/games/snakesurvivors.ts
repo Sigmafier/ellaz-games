@@ -18,7 +18,8 @@ import { snakesurvivorsFr } from "./fr/snakesurvivors";
  * stage clock, so no sentence here quotes one any more.
  *
  * ROUND FOUR (2026-09-28): a run is three STAGES now, each closed by its own
- * warden, tougher than the last (3/5/7 loops) - beating one opens the next
+ * warden, tougher than the last (3/5/7 loops on Calm, 4/6/9 on Normal and Wild
+ * since the 2026-10-01 hardening) - beating one opens the next
  * with a harder crowd, and only the third win ends the run. No sentence here
  * may say "the warden" as if there were only ever one.
  */
@@ -41,7 +42,7 @@ export const snakesurvivors: GameContent = {
 
         "הגוף הוא לא קיר. צורות חוצות אותו בחופשיות, וזה כל הטריק: קהל שרודף אחרי הראש בזמן שאתם מסתובבים חותך פינה ונשאר בתוך העיגול שאתם מציירים. אז סוגרים, ולא צריך לפגוע בזנב בדיוק: ברגע שהראש מגיע למרחק 42 יחידות מהגוף, הלולאה נסגרת, וקו מקווקו מראה איפה. אבל הגודל קובע. לולאה מוחצת רק אם היא סוגרת לפחות 4000 יחידות רבועות, בערך עיגול ברדיוס 36, אז סיבוב צפוף במקום לא מוחץ כלום, והצורות שמתיישבות בתוכו מגיעות בסוף לראש. בגלל זה האורך הוא יותר מחיים: נחש ארוך יכול להרשות לעצמו לולאה רחבה, נחש קצר בקושי מצליח לסגור אחת, וכל יהלום מחזיר קצת מהטווח הזה. סגירה אחת היא מחיצה אחת, וכל צורה בפנים חוטפת ממנה מכה אחת.",
 
-        "שלוש צורות הולכות לעברכם, ואלה אותן שלוש שממלאות את הישרדות ניאון. הרץ הוא עטלף קטן ומהיר. הכדור הוא רפש שנסחף פנימה אחרי שהריצה כבר נמשכת זמן מה. הבריון הוא סרטן איטי וקשוח שמופיע עוד יותר מאוחר, ולולאה אחת לא מספיקה לו - הוא צריך שתיים. אין שעון. הריצה מחולקת לשלושה שלבים, וכל שלב נסגר בשומר משלו. הראשון מגיע כשאתם באורך 50 חוליות או אחרי 10 צורות מחוצות, מה שקודם, ומד בתחתית המסך מראה כמה נשאר. זה עטלף ענק שנעצר וזוהר לפני שהוא מסתער ישר עליכם, וזה הרגע לסטות הצידה - מוחצים אותו בשלוש לולאות, מכה אחת בכל לולאה.",
+        "שלוש צורות הולכות לעברכם, ואלה אותן שלוש שממלאות את הישרדות ניאון. הרץ הוא עטלף קטן ומהיר. הכדור הוא רפש שנסחף פנימה אחרי שהריצה כבר נמשכת זמן מה. הבריון הוא סרטן איטי וקשוח שמופיע עוד יותר מאוחר, ולולאה אחת לא מספיקה לו - הוא צריך שתיים. אין שעון. הריצה מחולקת לשלושה שלבים, וכל שלב נסגר בשומר משלו. הראשון מגיע כשאתם באורך 50 חוליות או אחרי 10 צורות מחוצות, מה שקודם, ומד בתחתית המסך מראה כמה נשאר. זה עטלף ענק שנעצר וזוהר לפני שהוא מסתער ישר עליכם, וזה הרגע לסטות הצידה - מוחצים אותו בשלוש לולאות ברגוע, או בארבע ברגיל ובפראי, מכה אחת בכל לולאה.",
 
         "מוחצים את השומר הראשון וזה פותח את השלב הבא: הקהל גדל - יותר צורות, מגיעות מהר יותר, והבריון מצטרף מוקדם יותר - וכל צורה צריכה עוד לולאה כדי להיחשב מחוצה. השומר השני מחכה אחרי 240 צורות מחוצות בסך הכול ברמה רגילה, קשוח מהראשון; השלישי אחרי 760, קשוח עוד יותר ומסתער עליכם לעיתים קרובות יותר. מוחצים את שלושתם והריצה שלכם.",
 
@@ -89,7 +90,7 @@ export const snakesurvivors: GameContent = {
         { q: "איך סוגרים לולאה?", a: "מנווטים את הראש בחזרה עד 42 יחידות מהגוף, והלולאה נסגרת מעצמה. היא צריכה להקיף לפחות 4000 יחידות רבועות, כך שסיבוב צפוף במקום לא נחשב, וכל סגירה פוגעת פעם אחת בכל צורה שבפנים." },
         { q: "מה קורה כשצורה נוגעת בי?", a: "אם היא נוגעת בראש, מאבדים לפחות חוליה אחת ומקבלים 1.4 שניות של הבהוב שבו שום דבר לא פוגע. אם היא נוגעת בגוף, לא קורה כלום: צורות חוצות את הגוף בחופשיות, וככה קהל נכנס לתוך הלולאה." },
         { q: "כמה זמן נמשכת ריצה?", a: "אין שעון. הריצה מחולקת לשלושה שלבים: השומר הראשון מגיע ב-50 חוליות או 10 צורות מחוצות, מה שקודם. השני מחכה אחרי 240 צורות מחוצות בסך הכול ברמה רגילה והוא קשוח יותר, והשלישי אחרי 760 וקשוח עוד יותר. מוחצים את שלושתם והריצה נוצחה." },
-        { q: "מה עושים הקלפים?", a: "שישה עשר: תשעה אפורים, ארבעה כחולים נדירים ושלושה זהובים נדירים עוד יותר. שלושה מהאפורים הם נשקים: ניבים נושכים צורה שנוגעת בראש, זנב קוצני פוגע במי שנוגע בגוף, ויריקה יורה בצורה הקרובה כל 2 שניות, אבל אף פעם לא בשומר. מגנט מושך יהלומים, זריז מוסיף 10% מהירות בכל דרגה, צמיחה מגדלת חוליה כל 9 שניות, גל הדף הודף את הצורות שממש מחוץ ללולאה, לאסו נותן ללולאה להיסגר מרחוק יותר, ומגן סופג מכה אחת בחינם ואז נטען מחדש. הכחולים והזהובים מוסיפים שרשרת מחיצה, יהלומים כפולים, שובל כפור, גוף ארוך, ראש כפול, חור שחור ונובה." },
+        { q: "מה עושים הקלפים?", a: "שישה עשר: תשעה אפורים, ארבעה כחולים נדירים ושלושה זהובים נדירים עוד יותר. שלושה מהאפורים הם נשקים: ניבים נושכים צורה שנוגעת בראש, זנב קוצני פוגע במי שנוגע בגוף, ויריקה יורה בצורה הקרובה כל 2 שניות, אבל אף פעם לא בשומר. מגנט מושך יהלומים, זריז מוסיף 10% מהירות בכל דרגה, צמיחה מגדלת חוליה כל 9 שניות, גל הדף הודף את הצורות שממש מחוץ ללולאה, לאסו נותן ללולאה להיסגר מרחוק יותר, ומגן סופג מכה אחת בחינם ואז נטען מחדש. הכחולים והזהובים מוסיפים שרשרת מחיצה, מיזוג יהלומים, שובל כפור, גוף ארוך, ראש כפול, חור שחור ונובה." },
         { q: "איך נספר הניקוד?", a: "בצורות שנמחצו. השיא נשמר על המכשיר, בנפרד לכל רמה, וכל 100 צורות שנמחצו מביאות מטבעות." },
         { q: "מה הקשר לנחש ולהישרדות ניאון?", a: "זה המשחק השני במשפחת הנחש: אותו נחש ניאון כמו בנחש הקלאסי, מול שלוש הצורות שבאות מהישרדות ניאון." },
       ],
@@ -114,7 +115,7 @@ export const snakesurvivors: GameContent = {
 
         "You do not have to touch your own tail exactly. Once your head comes within 42 units of your body, the loop snaps shut, and a dashed line shows where as you come round. Size still matters. A loop only crushes if it encloses at least 4,000 square units, roughly a circle with a radius of 36, so spinning tight in one spot crushes nothing, and the shapes that settle inside that spin reach your head soon enough. That is why length is more than health: a long snake can afford a wide loop, a short one struggles to draw one at all, and every gem gives some of that reach back. One closing is one crush. Every shape inside takes a single hit from it, however many there are.",
 
-        "Three kinds of shape walk at you, the same three that fill Neon Survival: the runner is a small, fast bat, the orb a slime that drifts in later, and the brute a slow, tough crab that needs two loops, not one. There is no clock. A run is three stages, each closed by a tougher warden - the first at 50 segments or 10 crushed, the second at 240 in total, the third at 760. Each is a giant bat that stops and glows before it lunges: swerve then, three loops down. Beat all three and the run is yours.",
+        "Three kinds of shape walk at you, the same three that fill Neon Survival: the runner is a small, fast bat, the orb a slime that drifts in later, and the brute a slow, tough crab that needs two loops, not one. There is no clock. A run is three stages, each closed by a tougher warden - the first at 50 segments or 10 crushed, the second at 240 in total, the third at 760. Each is a giant bat that stops and glows before it lunges: swerve then, and loop it down. Beat all three and the run is yours.",
 
         "Calm, Normal and Wild change the crowd on top of what each stage already raises - how often shapes arrive, how fast they walk and how many are on screen at once. The snake is identical on all three. Nothing about it gets weaker.",
       ],
@@ -185,7 +186,7 @@ export const snakesurvivors: GameContent = {
 
         "Tres formas vienen a por ti, las mismas de Supervivencia Neón: el corredor, un murciélago pequeño y rápido; el orbe, un limo que llega tras un rato; el bruto, un cangrejo lento y duro que necesita dos lazos, no uno.",
 
-        "No hay reloj. Tres etapas, cada una cerrada por un guardián más duro: el primero a los 50 segmentos o 10 formas, el segundo a las 240 en total, el tercero a las 760. Cada uno es un murciélago gigante que se para y brilla antes de lanzarse: esquiva, tres lazos y cae. Vence a los tres y ganas. Los niveles cambian la multitud: cuánto tardan las formas, lo rápido que andan, cuántas caben en pantalla.",
+        "No hay reloj. Tres etapas, cada una cerrada por un guardián más duro: el primero a los 50 segmentos o 10 formas, el segundo a las 240 en total, el tercero a las 760. Cada uno es un murciélago gigante que se para y brilla antes de lanzarse: esquiva y lázalo. Vence a los tres y ganas. Los niveles cambian la multitud: cuánto tardan las formas, lo rápido que andan, cuántas caben en pantalla.",
 
         "Es el segundo juego de la familia de la serpiente. Aquí ya no hay cuadrícula.",
       ],
@@ -250,7 +251,7 @@ export const snakesurvivors: GameContent = {
       claim: "A loop only crushes if it encloses at least 4,000 square units, roughly a circle with a radius of 36",
       source: "src/games/snakesurvivors/body.ts",
     },
-    { claim: "A shape that reaches your head bites off at least 1 of them (more in the last stage on Normal and Wild)", source: "src/games/snakesurvivors/crowd.ts" },
+    { claim: "A shape that reaches your head bites off at least 1 of them (more in the later stages on Normal and Wild)", source: "src/games/snakesurvivors/crowd.ts" },
     { claim: "Once your head comes within 42 units of your body the loop snaps shut", source: "src/games/snakesurvivors/cards.ts" },
     { claim: "Drop below 3 segments and the run is over", source: "src/games/snakesurvivors/body.ts" },
     { claim: "The longest you can grow is 60 segments", source: "src/games/snakesurvivors/body.ts" },
@@ -265,11 +266,11 @@ export const snakesurvivors: GameContent = {
       source: "src/games/snakesurvivors/crowd.ts",
     },
     {
-      claim: "the brute takes two loops, the first warden three; the orb joins after the runner, the brute after the orb",
+      claim: "the brute takes two loops, the first warden three on Calm and four on Normal and Wild; the orb joins after the runner, the brute after the orb",
       source: "src/games/snakesurvivors/crowd.ts",
     },
     {
-      claim: "sixteen cards in three tiers: nine grey, Fangs, Spiked tail, Magnet, Swift and Spit up to 3 levels, Regrow, Shockwave, Lasso and Shield up to 2; four blue rare, Chain Crush, Double Gems, Frost Trail, Long Body; three gold epic, once a run",
+      claim: "sixteen cards in three tiers: nine grey, Fangs, Spiked tail, Magnet, Swift and Spit up to 3 levels, Regrow, Shockwave, Lasso and Shield up to 2; four blue rare, Chain Crush, Gem Merge, Frost Trail, Long Body; three gold epic, once a run",
       source: "src/games/snakesurvivors/cards.ts",
     },
     { claim: "Spit shoots the nearest shape every 2 seconds, never the warden", source: "src/games/snakesurvivors/cards.ts" },

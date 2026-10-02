@@ -2,8 +2,9 @@
 // who is also a bot. Test-side only - nothing in the game imports it - and pure,
 // so a round is a function of its seed.
 import { mulberry32 } from "@shared/rng";
-import { decide, deadly, movesOf, MISTAKE, viewOf, type View } from "./bots";
-import { STEP_MS, newRound, tick, placeOf, type BotCount, type Dir, type Round, type Shape } from "./logic";
+import { decide, deadly, movesOf, viewOf, type View } from "./bots";
+import { tick, placeOf, type Dir, type Round, type Shape } from "./logic";
+import { LEVEL, dealRound, type Level, type MapId } from "./setup";
 
 /**
  * The two players the ladder is measured against.
@@ -24,10 +25,10 @@ export function carelessMove(r: Round, v: View, id: number, rng: () => number): 
 
 export type Result = { won: boolean; survived: boolean; place: number; peak: number; ticks: number; lived: number; cause?: string };
 
-/** One whole round, seeded: the player (snake 0) under `policy`, the bots at their level. */
-export function playRound(shape: Shape, bots: BotCount, seed: number, policy: Policy, mistake = MISTAKE[bots]): Result {
+/** One whole round, seeded: the player (snake 0) under `policy`, the bots at their level, on `map`. */
+export function playRound(shape: Shape, level: Level, seed: number, policy: Policy, map: MapId = "open", mistake = LEVEL[level].mistake): Result {
   const rng = mulberry32(seed);
-  let r = newRound(shape, bots, rng);
+  let r = dealRound(shape, { level, map, humans: 1 }, rng);
   while (!r.over) {
     const v = viewOf(r);
     r = {
@@ -48,12 +49,12 @@ export function playRound(shape: Shape, bots: BotCount, seed: number, policy: Po
 export type Shares = { rounds: number; win: number; survive: number; place: number };
 
 /** `rounds` seeded rounds from `seed0`, summarised as shares. */
-export function measure(shape: Shape, bots: BotCount, policy: Policy, rounds: number, seed0 = 1, mistake = MISTAKE[bots]): Shares {
+export function measure(shape: Shape, level: Level, policy: Policy, rounds: number, seed0 = 1, map: MapId = "open", mistake = LEVEL[level].mistake): Shares {
   let win = 0;
   let survive = 0;
   let place = 0;
   for (let i = 0; i < rounds; i++) {
-    const res = playRound(shape, bots, seed0 + i * 7919, policy, mistake);
+    const res = playRound(shape, level, seed0 + i * 7919, policy, map, mistake);
     win += Number(res.won);
     survive += Number(res.survived);
     place += res.place;
@@ -62,12 +63,12 @@ export function measure(shape: Shape, bots: BotCount, policy: Policy, rounds: nu
 }
 
 /** How long the player lasts, in seconds, over `rounds` seeded rounds: median, and how many ended under 11 s. */
-export function lifetimes(shape: Shape, bots: BotCount, policy: Policy, rounds: number, seed0 = 1) {
+export function lifetimes(shape: Shape, level: Level, policy: Policy, rounds: number, seed0 = 1, map: MapId = "open") {
   const secs: number[] = [];
   const causes: Record<string, number> = {};
   for (let i = 0; i < rounds; i++) {
-    const res = playRound(shape, bots, seed0 + i * 7919, policy);
-    secs.push((res.lived * STEP_MS) / 1000);
+    const res = playRound(shape, level, seed0 + i * 7919, policy, map);
+    secs.push((res.lived * LEVEL[level].stepMs) / 1000);
     if (res.cause) causes[res.cause] = (causes[res.cause] ?? 0) + 1;
   }
   secs.sort((a, b) => a - b);

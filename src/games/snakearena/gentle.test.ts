@@ -3,8 +3,8 @@ import { mulberry32 } from "@shared/rng";
 import { steerBots } from "./bots";
 import { drawSnake, segmentAlpha, type Board, type Pen } from "./draw";
 import { lifetimes } from "./ladder";
+import { LEVELS, type MapId } from "./setup";
 import {
-  BOT_COUNTS,
   PC_SHAPE,
   PHONE_SHAPE,
   SAFE_TICKS,
@@ -14,7 +14,6 @@ import {
   newRound,
   tick,
   turn,
-  type BotCount,
   type Dir,
   type Point,
   type Round,
@@ -132,18 +131,26 @@ describe("the phone board is roomier than the first build's 17x24", () => {
  * The first build measured 18-37 s with 2-9 of 30 under 11 s; the gentler rules
  * above are what closes that gap, and this is where the next change that moves
  * them is caught, the same way `bots.test.ts` pins the ladder.
+ *
+ * Since 2026-10-01 per LEVEL and per MAP. Measured: Open 77-90 s median at
+ * every level, Easy 89.9 s on both boards (it lasts to the bell); Rocks 64-90 s,
+ * its lowest Hard on the PC board (64.5 s), with 1 of 30 under 11 s at most.
  */
 describe("a careful player's life, 30 seeded rounds a cell", () => {
-  for (const [name, shape] of [
-    ["PC", PC_SHAPE],
-    ["phone", PHONE_SHAPE],
-  ] as const) {
-    for (const bots of BOT_COUNTS) {
-      it(`${name} (${shape.cols}x${shape.rows}), ${bots} bots: median over 60 s, at most 1 of 30 under 11 s`, () => {
-        const l = lifetimes(shape, bots as BotCount, "careful", 30);
-        expect(l.median, `median ${l.median.toFixed(1)}s, causes ${JSON.stringify(l.causes)}`).toBeGreaterThan(60);
-        expect(l.under11, `${l.under11} of 30 under 11s`).toBeLessThanOrEqual(1);
-      });
+  for (const map of ["open", "rocks"] as MapId[]) {
+    for (const [name, shape] of [
+      ["PC", PC_SHAPE],
+      ["phone", PHONE_SHAPE],
+    ] as const) {
+      for (const level of LEVELS) {
+        it(`${map}, ${name} (${shape.cols}x${shape.rows}), ${level}: median over 60 s, at most 1 of 30 under 11 s`, () => {
+          const l = lifetimes(shape, level, "careful", 30, 1, map);
+          expect(l.median, `median ${l.median.toFixed(1)}s, causes ${JSON.stringify(l.causes)}`).toBeGreaterThan(60);
+          expect(l.under11, `${l.under11} of 30 under 11s`).toBeLessThanOrEqual(1);
+          // Easy is the gentle one: a careful player there lasts to the bell in most rounds.
+          if (level === "easy") expect(l.median).toBeGreaterThan(85);
+        });
+      }
     }
   }
 });

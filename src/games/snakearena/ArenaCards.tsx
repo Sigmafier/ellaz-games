@@ -8,10 +8,13 @@
 // which only wires them to the scene.
 import type { CSSProperties } from "react";
 import type { TitleInks, TitleLine } from "@ui/ArcadeTitle";
-import { FONT, INK, SNAKE_COLORS } from "./ink";
-import { BOT_COUNTS, type BotCount } from "./logic";
+import { FONT, INK } from "./ink";
 import type { Row } from "./result";
+import { LEVELS, type Level } from "./setup";
 import { nameOf, type Words } from "./words";
+
+/** Who is who on a ranking: every snake's colour by id, and how many are people. */
+export type Cast = { colors: readonly string[]; humans: number };
 
 /** The band on top of the board. Fixed, so the frame never moves with a digit. */
 export const BAND_H = 44;
@@ -46,14 +49,14 @@ export function Band({ cells }: { cells: [Cell, Cell, Cell] }) {
 }
 
 /** 1, a colour, a name, a length - one row per snake, best first. */
-export function Ranking({ rows, w, dark }: { rows: Row[]; w: Words; dark: boolean }) {
+export function Ranking({ rows, w, dark, cast }: { rows: Row[]; w: Words; dark: boolean; cast: Cast }) {
   return (
     <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4, textAlign: "start" }}>
       {rows.map((r, i) => (
         <li key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, opacity: r.alive || dark ? 1 : 0.55 }}>
           <b style={{ width: 14 }}>{i + 1}</b>
-          <span aria-hidden="true" style={{ width: 14, height: 14, borderRadius: 4, background: SNAKE_COLORS[r.id % SNAKE_COLORS.length] }} />
-          <span style={{ flex: 1, minWidth: 0 }}>{nameOf(w, r.id)}</span>
+          <span aria-hidden="true" style={{ width: 14, height: 14, borderRadius: 4, background: cast.colors[r.id] }} />
+          <span style={{ flex: 1, minWidth: 0 }}>{nameOf(w, r.id, cast.humans)}</span>
           <span style={{ opacity: 0.7 }}>{r.len}</span>
         </li>
       ))}
@@ -62,27 +65,22 @@ export function Ranking({ rows, w, dark }: { rows: Row[]; w: Words; dark: boolea
 }
 
 /**
- * 3, 4 or 5 bots. Three real buttons, the chosen one filled - a picker, not a
- * toggle, because the mock drew all three and a child can see which is on.
+ * Easy, Normal or Hard (the PC's panel beside the board, as mock 4 drew it).
+ * Three real buttons, the chosen one filled - a picker, not a toggle, because a
+ * child can see which is on.
  */
-export function BotsPicker({ bots, onBots, w, dark }: { bots: BotCount; onBots: (n: BotCount) => void; w: Words; dark?: boolean }) {
+export function LevelPicker({ level, onLevel, w }: { level: Level; onLevel: (l: Level) => void; w: Words }) {
   return (
-    <div role="group" aria-label={w.bots} style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
-      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.7, marginInlineEnd: 4 }}>{w.bots}</span>
-      {BOT_COUNTS.map((n) => (
+    <div role="group" aria-label={w.level} style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+      {LEVELS.map((l, i) => (
         <button
-          key={n}
+          key={l}
           type="button"
-          aria-pressed={n === bots}
-          aria-label={w.botsLabel(n)}
-          onClick={() => onBots(n)}
-          style={{
-            ...pill,
-            background: n === bots ? "var(--brand-strong)" : dark ? "#2a2f63" : "var(--surface)",
-            color: n === bots ? "var(--on-brand)" : dark ? INK.text : "var(--text)",
-          }}
+          aria-pressed={l === level}
+          onClick={() => onLevel(l)}
+          style={{ ...pill, padding: "0 10px", background: l === level ? "var(--brand-strong)" : "var(--surface)", color: l === level ? "var(--on-brand)" : "var(--text)" }}
         >
-          {n}
+          {w.levels[i]}
         </button>
       ))}
     </div>
@@ -110,7 +108,7 @@ export const arenaLines = (texts: string[]): TitleLine[] =>
 export const arenaCover = (veil: number) => `linear-gradient(${INK.bg} 0 ${BAND_H}px, rgba(11, 13, 31, ${veil}) ${BAND_H}px)`;
 
 /** The round-over cards' ranking: 1, a colour, a name, a length - in the mock's dark panel. */
-export function RankCard({ rows, w, pc }: { rows: Row[]; w: Words; pc: boolean }) {
+export function RankCard({ rows, w, pc, cast }: { rows: Row[]; w: Words; pc: boolean; cast: Cast }) {
   return (
     <ol
       style={{
@@ -130,8 +128,8 @@ export function RankCard({ rows, w, pc }: { rows: Row[]; w: Words; pc: boolean }
       {rows.map((r, i) => (
         <li key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, height: pc ? 28 : 29, fontSize: 18, fontWeight: 600, color: INK.text }}>
           <b style={{ width: 18, fontWeight: 700 }}>{i + 1}</b>
-          <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: 5, flex: "none", background: SNAKE_COLORS[r.id % SNAKE_COLORS.length] }} />
-          <span style={{ flex: 1, minWidth: 0 }}>{nameOf(w, r.id)}</span>
+          <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: 5, flex: "none", background: cast.colors[r.id] }} />
+          <span style={{ flex: 1, minWidth: 0 }}>{nameOf(w, r.id, cast.humans)}</span>
           <span style={{ color: "#c9cde6" }}>{r.len}</span>
         </li>
       ))}
@@ -139,24 +137,25 @@ export function RankCard({ rows, w, pc }: { rows: Row[]; w: Words; pc: boolean }
   );
 }
 
-/** The PC's left column: the live ranking, and the rule under it. */
-export function RankPanel({ rows, w }: { rows: Row[]; w: Words }) {
+/** The PC's left column: the live ranking, and the rule under it - and with two players, whose keys are whose. */
+export function RankPanel({ rows, w, cast }: { rows: Row[]; w: Words; cast: Cast }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, width: 230 }}>
       <div style={panel}>
         <div style={heading}>{w.live}</div>
-        <Ranking rows={rows} w={w} dark={false} />
+        <Ranking rows={rows} w={w} dark={false} cast={cast} />
       </div>
       <div style={{ ...panel, fontSize: 14, color: "var(--text-dim)" }}>{w.rule}</div>
+      {cast.humans > 1 && <div style={{ ...panel, fontSize: 14, fontWeight: 600 }}>{w.keys2}</div>}
     </div>
   );
 }
 
-/** The PC's right column head: the bots picker in a panel, as the mock has it. */
-export function BotsPanel(p: { bots: BotCount; onBots: (n: BotCount) => void; w: Words }) {
+/** The PC's right column head: the level picker in a panel, as the mock has it. */
+export function LevelPanel(p: { level: Level; onLevel: (l: Level) => void; w: Words }) {
   return (
     <div style={{ ...panel, width: 230, boxSizing: "border-box" }}>
-      <BotsPicker {...p} />
+      <LevelPicker {...p} />
     </div>
   );
 }

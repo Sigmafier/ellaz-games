@@ -13,13 +13,14 @@ import {
   advance, centreOf, findLoop, findTailLoop, inside, maxLenOf, trimTrail,
 } from "./body";
 import {
-  CHAIN_RANGE, FROST_MS, HOLE, NOVA_EVERY, SPIT, TAIL_COOL_MS, applyCard, biteOf, chainOf, gemMult, noneTaken, nextGoldDry, offerCards,
+  CHAIN_RANGE, FROST_MS, HOLE, NOVA_EVERY, SPIT, TAIL_COOL_MS, applyCard, biteOf, chainOf, noneTaken, nextGoldDry, offerCards,
   pullOf, regrowEvery, shieldEvery, shockOf, spikeEvery, spitEvery,
 } from "./cards";
 import { BONUS_GEM, crushFx } from "./crushFx";
 import {
   KINDS, SAFE_START_MS, SHOT, STAGE_BREATHER_MS, biteCost, isBoss, moveFoes, startBoss, tickMini, tickSpawns, wardenMayCome,
 } from "./crowd";
+import { gemReach, mergeGems } from "./merge";
 import { FLOOR_GEMS, tickFloorGems } from "./floor";
 import type { Arena, CardId, Foe, LevelKey, Pt, Run, Stage, Steer } from "./types";
 
@@ -29,14 +30,18 @@ export type { Arena, CardId, Foe, LevelKey, Run, Stage, Steer } from "./types";
 export const ARENA: Arena = { w: 420, h: 560 };
 export const ARENA_WIDE: Arena = { w: 648, h: 364 };
 
-/** ms of safety after a hit, so one crowd cannot take the whole tail at once. */
+/**
+ * ms of safety after a hit, so one crowd cannot take the whole tail at once. The
+ * same on every level: the 2026-10-01 hardening tried 1.0 s on normal and wild,
+ * and the operator ruled on 2026-10-02 to keep 1.4 s (see `HARDER` in tuning.ts).
+ */
 export const BLINK_MS = 1400;
 /** ms after a crush before another may land - one closing is one crush. */
 export const LOOP_COOL_MS = 700;
 /** What one BLUE gem grows the snake by, in segments; a red is two, a yellow three. */
 export const GROW = 1 / 3;
-/** How close a gem must come to the head to be collected. */
-const PICKUP = 16;
+/** How close a gem must come to the head to be collected (a fused gem reaches further, `gemReach`). */
+export const PICKUP = 16;
 /** How fast a magnet pulls a gem, units/s. */
 const PULL_SPEED = 240;
 
@@ -410,16 +415,22 @@ function spit(run: Run, dt: number, rng: () => number): void {
   run.shots = flying;
 }
 
+/** How near the head a gem is the magnet's or the pickup's, and so never merged. */
+export const mergeGuard = (run: Run) => Math.max(pullOf(run), 2 * PICKUP);
+
 function collectGems(run: Run, dt: number, rng: () => number): void {
   const pull = pullOf(run);
+  // GEM MERGE (the `doubleGems` card since 2026-10-01): gems near each other
+  // slide together and fuse, worth the sum (`merge.ts`). Gems the magnet or the
+  // pickup already has are left alone.
+  if (run.taken.doubleGems) run.gems = mergeGems(run.gems, run, mergeGuard(run), dt);
   const kept = [];
   for (const g of run.gems) {
     const dx = run.x - g.x;
     const dy = run.y - g.y;
     const d = Math.hypot(dx, dy);
-    if (d < PICKUP) {
-      // DOUBLE GEMS (round four): every gem counts twice, to the bar and the tail.
-      const v = g.v * gemMult(run);
+    if (d < PICKUP * gemReach(g.v)) {
+      const v = g.v;
       run.xp += v;
       grow(run, v * GROW);
       run.events.push({ k: "gem" });

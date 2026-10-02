@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { mulberry32 } from "@shared/rng";
 import { circle } from "./bots";
-import { BOSS_HP, KINDS, MINI_HP, bossProgress, spawnEvery, stageGoal, tickMini } from "./crowd";
+import { KINDS, MINI_HP, bossHpOf, bossProgress, spawnEvery, stageGoal, tickMini } from "./crowd";
 import { ARENA, ARENA_WIDE, newRun, pickCard, step } from "./logic";
 import type { Foe, Kind, Run, Stage } from "./types";
 
@@ -66,7 +66,7 @@ describe("the warden waits for the mini-boss", () => {
       step(run, 25, STILL, fixed);
       const wardens = run.foes.filter((f) => f.kind === "warden");
       expect(wardens, `stage ${stage}`).toHaveLength(1);
-      expect(wardens[0].hp).toBe(BOSS_HP[stage]);
+      expect(wardens[0].hp).toBe(bossHpOf(run.level, stage));
       expect(run.phase).toBe("boss");
       expect(run.events).toContainEqual({ k: "boss" });
     }
@@ -151,6 +151,9 @@ describe("the warden waits for the mini-boss", () => {
     // "never together" is a reading, not an empty set.
     expect(wardens).toBe(6);
     expect(minis).toBe(6);
-    expect(steps).toBeGreaterThan(6 * 4 * 60 * 40);
+    // At least three minutes a run on average. It was four until the
+    // 2026-10-01 hardening (operator: harder on normal) ended more runs early:
+    // 55,968 steps measured after it, 9.3 minutes of play across the six.
+    expect(steps).toBeGreaterThan(6 * 3 * 60 * 40);
   }, 300_000);
 });

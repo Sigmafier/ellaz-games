@@ -82,11 +82,15 @@ export const MINI_HP: Record<Stage, number> = { 1: 2, 2: 4, 3: 5 };
  * 1.15 -> 1.3). Measured with the bots: without them a circling bot won 12 of
  * 12 wild runs, and a bot that loops but never takes a card won 4 of 6 normal
  * ones - see `pacing.test.ts`.
+ *
+ * HARDER (operator, 2026-10-01): normal's `bite` 0 -> 1 and wild's 1 -> 2, so a
+ * bump costs 1/2/4 segments by stage on normal (was 1/1/3) and 1/3/6 on wild
+ * (was 1/2/5). Calm's row is untouched. See `HARDER` below for the rest.
  */
 export const LEVELS: Record<LevelKey, { spawnMs: number; floorMs: number; rampMs: number; pace: number; cap: number; tough: number; bite: number; bite3: number; goal: number; climb: number }> = {
   calm: { spawnMs: 3000, floorMs: 1600, rampMs: 150_000, pace: 0.85, cap: 11, tough: 1, bite: 0, bite3: 0, goal: 0.75, climb: 0.16 },
-  normal: { spawnMs: 2200, floorMs: 1040, rampMs: 180_000, pace: 1, cap: 15, tough: 1.4, bite: 0, bite3: 2, goal: 1, climb: 0.22 },
-  wild: { spawnMs: 1700, floorMs: 760, rampMs: 210_000, pace: 1.3, cap: 19, tough: 1.5, bite: 1, bite3: 3, goal: 1.2, climb: 0.22 },
+  normal: { spawnMs: 2200, floorMs: 1040, rampMs: 180_000, pace: 1, cap: 15, tough: 1.4, bite: 1, bite3: 2, goal: 1, climb: 0.22 },
+  wild: { spawnMs: 1700, floorMs: 760, rampMs: 210_000, pace: 1.3, cap: 19, tough: 1.5, bite: 2, bite3: 3, goal: 1.2, climb: 0.22 },
 };
 
 /**
@@ -207,6 +211,33 @@ export const STAGE_CROWD: Record<Stage, { cap: number; spawn: number; brute: num
 };
 
 /**
+ * HARDER, ON NORMAL AND WILD ONLY (operator, 2026-10-01). A forum reviewer
+ * finished a normal run "at length 60 with all lives" and asked to "feel like
+ * you barely made it". Measured on 60 seeds a shape before this: every careful
+ * bot win ended with all 8 hearts. Per level, so calm reads exactly what it
+ * read before (`calm-is-untouched.test.ts` pins it):
+ *
+ *   `spawn`   replaces `STAGE_CROWD.spawn` - the fastest gap between shapes on
+ *             normal, stage 2 / 3: 468 / 291 ms -> 395 / 229; wild 342 / 213 ->
+ *             289 / 167
+ *   `boss`    loops to crush each stage's warden: 3/5/7 -> 4/6/9 on both
+ *
+ * The mock also cut the safe time after a bump (`BLINK_MS`) from 1.4 s to 1.0
+ * s. Measured, that one change caused every stage-1 death and most of the lost
+ * wins (normal careful wins 13/18 of 60 with it, 24/32 with it put back), and
+ * the operator ruled on 2026-10-02: "Keep 1.4s safe time". So the blink is the
+ * same 1.4 s on every level, as before, and is not in this table.
+ */
+export const HARDER: Record<LevelKey, { spawn: Record<Stage, number>; boss: Record<Stage, number> }> = {
+  calm: { spawn: { 1: STAGE_CROWD[1].spawn, 2: STAGE_CROWD[2].spawn, 3: STAGE_CROWD[3].spawn }, boss: BOSS_HP },
+  normal: { spawn: { 1: 1, 2: 0.38, 3: 0.22 }, boss: { 1: 4, 2: 6, 3: 9 } },
+  wild: { spawn: { 1: 1, 2: 0.38, 3: 0.22 }, boss: { 1: 4, 2: 6, 3: 9 } },
+};
+
+/** Loops to crush THIS level's warden for a stage (`HARDER.boss`; calm's is `BOSS_HP`). */
+export const bossHpOf = (level: LevelKey, stage: Stage) => HARDER[level].boss[stage];
+
+/**
  * R4.5: DIFFICULTY THAT KEEPS GROWING, with no wall at a stage's opening.
  *
  * Round four measured every circling-bot death in the first minute of stage 2:
@@ -237,7 +268,7 @@ export function stageProgress(run: Pick<Run, "len" | "crushed" | "stage" | "leve
 
 const anchor = (level: LevelKey, stage: Stage) => ({
   cap: STAGE_CROWD[stage].cap,
-  spawn: STAGE_CROWD[stage].spawn,
+  spawn: HARDER[level].spawn[stage],
   hp: stage === 1 ? 1 : STAGE_CROWD[stage].hp * LEVELS[level].tough,
 });
 

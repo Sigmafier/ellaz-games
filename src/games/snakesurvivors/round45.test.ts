@@ -263,7 +263,7 @@ describe("difficulty that keeps growing, with no wall at a stage's opening", () 
     expect(biteCost(at(2, BITE_FROM - 0.1, "wild"))).toBe(1);
     expect(biteCost(at(2, BITE_FROM + 0.1, "wild"))).toBe(1 + LEVELS.wild.bite);
     expect(biteCost(at(3, 0.1, "wild"))).toBe(1 + LEVELS.wild.bite + LEVELS.wild.bite3);
-    expect(biteCost(at(3, 0.1, "normal"))).toBe(1 + LEVELS.normal.bite3);
+    expect(biteCost(at(3, 0.1, "normal"))).toBe(1 + LEVELS.normal.bite + LEVELS.normal.bite3);
     expect(biteCost(at(3, 0.9, "calm"))).toBe(1);
   });
 

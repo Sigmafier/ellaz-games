@@ -10,7 +10,7 @@
 
 import { spawnPoint } from "../survivors/world";
 import { LUNGE } from "./chase";
-import { BOSS_HP, KINDS, LEVELS, MINI_AT, MINI_HP, STAGE_CROWD, bossDue, crowdAt, isBoss, stageProgress } from "./tuning";
+import { KINDS, LEVELS, MINI_AT, MINI_HP, STAGE_CROWD, bossDue, bossHpOf, crowdAt, isBoss, stageProgress } from "./tuning";
 import type { Sent } from "./tuning";
 import type { Foe, Kind, Run, Stage } from "./types";
 
@@ -111,12 +111,12 @@ export function wardenWaiting(run: Run): boolean {
 }
 
 /** The trigger is met (`wardenMayCome`): the warden for THIS stage comes, tougher
- *  than the one before it (`BOSS_HP`). */
+ *  than the one before it (`bossHpOf` - calm's `BOSS_HP`, harder on normal and wild). */
 export function startBoss(run: Run, rng: () => number): void {
   run.phase = "boss";
   const at = spawnPoint(rng, run);
   const boss = makeFoe(run, "warden", at.x, at.y);
-  boss.hp = BOSS_HP[run.stage];
+  boss.hp = bossHpOf(run.level, run.stage);
   run.foes.push(boss);
   run.events.push({ k: "boss" });
 }

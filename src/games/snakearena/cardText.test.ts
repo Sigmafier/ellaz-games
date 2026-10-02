@@ -52,4 +52,16 @@ describe("every shipped language has the new words, with no long dashes", () => 
       for (const s of [w.outHead, w.of(2, 5)]) expect(DASHES.test(s), `${loc}: ${s}`).toBe(false);
     }
   });
+
+  it("the title card's choices: level, colour, map, players - every word present, no long dashes", () => {
+    for (const loc of SHIPPED_LOCALES) {
+      const w = WORDS[loc];
+      const all = [w.level, ...w.levels, w.colour, ...w.colours, w.map, ...w.maps, w.players, w.playerCount(1), w.playerCount(2), w.keys2, w.lengthOf("P1")];
+      for (const s of all) {
+        expect(s.trim().length, `${loc}: empty word`).toBeGreaterThan(0);
+        expect(DASHES.test(s), `${loc}: ${s}`).toBe(false);
+      }
+      expect(new Set(w.colours).size, `${loc}: two swatches share a name`).toBe(6);
+    }
+  });
 });

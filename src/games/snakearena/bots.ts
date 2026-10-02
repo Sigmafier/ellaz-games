@@ -17,15 +17,10 @@
 // one of its three moves at random instead. That is the whole of its
 // difficulty - it never sees further ahead, never cuts anyone off on purpose,
 // and never knows where the next apple will land.
-import { DIRS, OPPOSITE, inside, step, type BotCount, type Dir, type Point, type Round, type Snake } from "./logic";
-
-/**
- * The chance, per step, that a bot takes a random move. Per bot count: the more
- * bots, the more of the board they fill, so each slips a little more often to
- * keep a round winnable. Measured, not felt - `bots.test.ts` plays each level
- * and pins the shares that come out; the table is beside the numbers there.
- */
-export const MISTAKE: Record<BotCount, number> = { 3: 0.08, 4: 0.06, 5: 0.05 };
+//
+// The chance of a slip is the LEVEL's (`setup.ts`), measured, not felt -
+// `bots.test.ts` plays each level and pins the shares that come out.
+import { DIRS, OPPOSITE, inside, step, type Dir, type Point, type Round, type Snake } from "./logic";
 
 /** Everything a bot reads about the board, built ONCE per step and shared by every bot. */
 export interface View {
@@ -64,6 +59,11 @@ export function viewOf(r: Round): View {
   const frees = new Uint16Array(n);
   const v: View = { cols, rows, blocked, frees, reach, dist: new Int16Array(n).fill(-1), near: [], seen: new Uint32Array(n), depth: new Uint16Array(n), stamp: 0, queue: new Int16Array(n) };
   const apples = new Set(r.apples.map((p) => at(v, p)));
+  // A rock is a wall that never moves off its cell: blocked, and free "never".
+  for (const p of r.rocks) {
+    blocked[at(v, p)] = 1;
+    frees[at(v, p)] = 0xffff;
+  }
   for (const s of r.snakes) {
     if (!s.alive) continue;
     const len = s.body.length;
@@ -240,9 +240,9 @@ export function decide(r: Round, id: number, mistake: number, rng: () => number,
   return best;
 }
 
-/** Every alive bot (every snake but the player, 0) chooses its move for the next step. */
+/** Every alive bot (every snake but the people, `0 .. humans-1`) chooses its move for the next step. */
 export function steerBots(r: Round, mistake: number, rng: () => number = Math.random): Round {
   const v = viewOf(r);
-  const snakes = r.snakes.map((s) => (s.id === 0 || !s.alive ? s : { ...s, pending: decide(r, s.id, mistake, rng, v) }));
+  const snakes = r.snakes.map((s) => (s.id < r.humans || !s.alive ? s : { ...s, pending: decide(r, s.id, mistake, rng, v) }));
   return { ...r, snakes };
 }

@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { mulberry32 } from "@shared/rng";
-import { MISTAKE, deadly, decide, movesOf, steerBots, viewOf } from "./bots";
+import { deadly, decide, movesOf, steerBots, viewOf } from "./bots";
 import { carelessMove, measure, type Policy, type Shares } from "./ladder";
-import { BOT_COUNTS, PC_SHAPE, PHONE_SHAPE, makeRound, newRound, tick, type BotCount, type Dir, type Point } from "./logic";
+import { PC_SHAPE, PHONE_SHAPE, makeRound, newRound, tick, type Dir, type Point } from "./logic";
+import { LEVEL, LEVELS, botsFor, type Level, type MapId } from "./setup";
 
 const shape = { cols: 12, rows: 10 };
 function line(x: number, y: number, len: number, dir: Dir): Point[] {
@@ -81,11 +82,11 @@ describe("a bot's three rules", () => {
         const v = viewOf(r);
         for (const s of r.snakes) {
           if (!s.alive || movesOf(s).every((d) => deadly(r, v, s, d))) continue;
-          expect(deadly(r, v, s, decide(r, s.id, MISTAKE[5], rng, v))).toBe(false);
+          expect(deadly(r, v, s, decide(r, s.id, LEVEL.hard.mistake, rng, v))).toBe(false);
           expect(deadly(r, v, s, carelessMove(r, v, s.id, rng))).toBe(false);
           checked++;
         }
-        r = tick(steerBots(r, MISTAKE[5], rng), rng).round;
+        r = tick(steerBots(r, LEVEL.hard.mistake, rng), rng).round;
       }
     }
     expect(checked).toBeGreaterThan(1000);
@@ -102,10 +103,27 @@ describe("a bot's three rules", () => {
  * THE LADDER, measured: 360 seeded rounds, bots against a player who is also a
  * bot, 30 per board shape per level per arm, both shapes summed.
  *
- *   level    fair   careful win   careless win
- *   3 bots   0.250     0.567          0.017
- *   4 bots   0.200     0.417          0.017
- *   5 bots   0.167     0.300          0.000
+ *   level                    fair   careful win   careless win
+ *   Easy   (2 bots, 185 ms)  0.333     0.683          0.100
+ *   Normal (3 bots, 140 ms)  0.250     0.567          0.017
+ *   Hard   (5 bots, 140 ms)  0.167     0.300          0.000
+ *
+ * LEVELS, 2026-10-01 (forum review: "Easy could be 2 opponents, hard 4 or 5.
+ * Slower on easy."). Normal and Hard ARE the old 3- and 5-bot rounds - same
+ * bots, step and slip rate, and an Open deal draws from the RNG exactly as
+ * before - so their two rows did not move. Easy's slip rate was measured, not
+ * felt, at four values on these same seeds:
+ *
+ *   Easy slip   careful win   careless win
+ *     0.06         0.517          0.067     <- under Normal's 0.567: not easier
+ *     0.08         0.583          0.017     <- a gap of one round in sixty
+ *     0.10         0.617          0.033
+ *     0.12         0.683          0.100     <- chosen: a clear step down
+ *
+ * 0.12 leaves the careless arm at 10%, inside the "loses most rounds" bound
+ * below. The slower step is the half a person feels and node cannot: the
+ * harness plays in steps, so 185 ms shows up only as a shorter round (486
+ * steps for 642), which is part of why Easy's careful player lasts longer.
  *
  * "Fair" is one share in n+1. The two arms are the bounds a person sits between:
  *
@@ -140,41 +158,82 @@ describe("a bot's three rules", () => {
  */
 describe("the bot ladder", () => {
   const ROUNDS = 30;
-  const both = (bots: BotCount, p: Policy) => {
-    const a: Shares = measure(PC_SHAPE, bots, p, ROUNDS);
-    const b: Shares = measure(PHONE_SHAPE, bots, p, ROUNDS);
+  const both = (level: Level, p: Policy, map: MapId = "open") => {
+    const a: Shares = measure(PC_SHAPE, level, p, ROUNDS, 1, map);
+    const b: Shares = measure(PHONE_SHAPE, level, p, ROUNDS, 1, map);
     return { win: (a.win + b.win) / 2, survive: (a.survive + b.survive) / 2, place: (a.place + b.place) / 2 };
   };
-  type Row = { bots: BotCount; careful: ReturnType<typeof both>; careless: ReturnType<typeof both> };
+  type Row = { level: Level; bots: number; careful: ReturnType<typeof both>; careless: ReturnType<typeof both> };
   let table: Row[] = [];
   beforeAll(() => {
-    table = BOT_COUNTS.map((bots) => ({ bots, careful: both(bots, "careful"), careless: both(bots, "careless") }));
-  }, 120_000);
+    table = LEVELS.map((level) => ({ level, bots: botsFor(level, 1), careful: both(level, "careful"), careless: both(level, "careless") }));
+  }, 180_000);
   const r3 = (x: number) => Math.round(x * 1000) / 1000;
 
   it("prints the table", () => {
     for (const row of table) {
       console.log(
-        `${row.bots} bots  fair ${r3(1 / (row.bots + 1))}  careful win ${r3(row.careful.win)} survive ${r3(row.careful.survive)} place ${r3(row.careful.place)}` +
+        `${row.level} (${row.bots} bots)  fair ${r3(1 / (row.bots + 1))}  careful win ${r3(row.careful.win)} survive ${r3(row.careful.survive)} place ${r3(row.careful.place)}` +
           `  careless win ${r3(row.careless.win)} survive ${r3(row.careless.survive)} place ${r3(row.careless.place)}`,
       );
     }
-    expect(table.map((t) => [t.bots, r3(t.careful.win), r3(t.careless.win)])).toEqual([
-      [3, 0.567, 0.017],
-      [4, 0.417, 0.017],
-      [5, 0.3, 0],
+    expect(table.map((t) => [t.level, r3(t.careful.win), r3(t.careless.win)])).toEqual([
+      ["easy", 0.683, 0.1],
+      ["normal", 0.567, 0.017],
+      ["hard", 0.3, 0],
     ]);
   });
 
+  it("each level is harder than the one before it: a careful player's win share strictly falls Easy > Normal > Hard", () => {
+    for (let i = 1; i < table.length; i++) expect(table[i].careful.win, `${table[i].level}`).toBeLessThan(table[i - 1].careful.win);
+  });
+
   it("a careless player loses most rounds at every level", () => {
-    for (const row of table) expect(row.careless.win, `${row.bots} bots`).toBeLessThan(0.2);
+    for (const row of table) expect(row.careless.win, row.level).toBeLessThan(0.2);
   });
 
   it("a careful player wins at least its fair share at every level", () => {
-    for (const row of table) expect(row.careful.win, `${row.bots} bots`).toBeGreaterThanOrEqual(1 / (row.bots + 1) - 0.001);
+    for (const row of table) expect(row.careful.win, row.level).toBeGreaterThanOrEqual(1 / (row.bots + 1) - 0.001);
   });
 
   it("and careful always beats careless", () => {
     for (const row of table) expect(row.careful.win).toBeGreaterThan(row.careless.win);
+  });
+});
+
+/**
+ * THE ROCKS MAP, measured on the same seeds (2026-10-01), careful win share:
+ *
+ *            Open    Rocks
+ *   Easy     0.683   0.750
+ *   Normal   0.567   0.500
+ *   Hard     0.300   0.350
+ *
+ * Rocks do not make the bot-measured round uniformly harder: they cost a bot
+ * room as much as they cost the player, and on Easy and Hard that comes out a
+ * few rounds in sixty in the player's favour. What a person meets is a board
+ * with less open floor to plan on, which this harness cannot weigh. What it
+ * CAN hold is the order: on Rocks too, each level is harder than the last.
+ */
+describe("the bot ladder on Rocks", () => {
+  const ROUNDS = 30;
+  const careful = (level: Level) =>
+    (measure(PC_SHAPE, level, "careful", ROUNDS, 1, "rocks").win + measure(PHONE_SHAPE, level, "careful", ROUNDS, 1, "rocks").win) / 2;
+  let rows: [Level, number][] = [];
+  beforeAll(() => {
+    rows = LEVELS.map((l) => [l, Math.round(careful(l) * 1000) / 1000]);
+  }, 180_000);
+
+  it("prints and pins the careful win share per level", () => {
+    console.log(`rocks careful win: ${rows.map(([l, w]) => `${l} ${w}`).join("  ")}`);
+    expect(rows).toEqual([
+      ["easy", 0.75],
+      ["normal", 0.5],
+      ["hard", 0.35],
+    ]);
+  });
+
+  it("each level is still harder than the one before it", () => {
+    for (let i = 1; i < rows.length; i++) expect(rows[i][1], rows[i][0]).toBeLessThan(rows[i - 1][1]);
   });
 });

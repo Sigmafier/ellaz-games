@@ -106,14 +106,17 @@ export const CARD_ART: Record<CardId, () => ReactNode> = {
         <circle cx="12" cy="2" r="3.5" fill="#9b7bff" />
       </>,
     ),
-  // Double Gems: two gems, blue over red, and a gold glint.
+  // Gem Merge (the `doubleGems` id, forever): three small blue gems pulled
+  // along dashed lines into one big red one - the merge, as the card's picture.
   doubleGems: () =>
     svg(
       <>
-        <polygon points="4,-13 13,-2 4,9 -5,-2" fill="#ff7675" />
-        <polygon points="-5,-7 4,4 -5,15 -14,4" fill="#74b9ff" />
-        <circle cx="-8" cy="1" r="2.2" fill="#dff1ff" />
-        <path d="M12 -14 V-8 M9 -11 H15" stroke="#ffd166" strokeWidth="2" strokeLinecap="round" />
+        <path d="M-12 -10 L2 -2 M-14 2 L1 2 M-12 13 L2 6" stroke="#ffd166" strokeWidth="1.6" strokeDasharray="2.5 2.5" strokeLinecap="round" />
+        <polygon points="-12,-14 -9,-10 -12,-6 -15,-10" fill="#74b9ff" />
+        <polygon points="-14,-2 -11,2 -14,6 -17,2" fill="#74b9ff" />
+        <polygon points="-12,9 -9,13 -12,17 -15,13" fill="#74b9ff" />
+        <polygon points="8,-10 17,2 8,14 -1,2" fill="#ff7675" />
+        <circle cx="5" cy="-1" r="2.2" fill="#dff1ff" />
       </>,
     ),
   // Frost Trail: an ice flake over the snake's violet tail.

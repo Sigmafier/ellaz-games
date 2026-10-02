@@ -11,7 +11,7 @@ export const snakearenaSv: GameCopy = {
   name: "Ormarenan",
   metaTitle: "Ormarenan - gratis ormspel mot bottar | Ellaz",
   metaDescription:
-    "Klassisk orm på rutnät, i en omgång på 90 sekunder mot 3 till 5 datorormar. Ät äpplen, håll dig undan varje kropp och var längst när tiden tar slut.",
+    "Klassisk orm på rutnät, i en omgång på 90 sekunder mot 2 till 5 datorormar. Ät äpplen, håll dig undan varje kropp och var längst när tiden tar slut.",
 
   lede: "Ormen du redan kan, på ett större bräde och i sällskap. I 90 sekunder jagar du och upp till fem datorormar samma äpplen, och den vars huvud träffar en vägg eller en kropp är ute. Den längsta ormen som fortfarande rör sig när klockan når 0:00 vinner.",
 
@@ -24,11 +24,13 @@ export const snakearenaSv: GameCopy = {
 
     "En omgång varar 90 sekunder. Finns bara en orm kvar innan dess vinner den direkt. Annars tar den längsta ormen som lever vid signalen hem det.",
 
-    "Du väljer hur många datorormar du möter: 3, 4 eller 5. De heter Bolt, Moss, Echo, Pip och Fizz, var och en har sin egen färg och namnet svävar över huvudet. På en dator är brädet 30 rutor gånger 20 och en ställning i realtid står bredvid. På en telefon vänds det till 23 gånger 32 så att det får plats på höjden.",
+    "Du väljer en nivå: Lätt är 2 datorormar i lugnare takt, Normal är 3 och Svår är 5. De heter Bolt, Moss, Echo, Pip och Fizz, var och en har sin egen färg och namnet svävar över huvudet. På en dator är brädet 30 rutor gånger 20 och en ställning i realtid står bredvid. På en telefon vänds det till 23 gånger 32 så att det får plats på höjden.",
+
+    "Startkortet har tre val till: din orms färg, stenkartan, där några små stenklungor fungerar som väggar, och på en dator en andra spelare, som styr med WASD medan du behåller pilarna.",
   ],
 
   howToPlay: [
-    { title: "Börja", body: "Tryck på Spela och sedan en pil eller ett svep. Din mintgröna orm och alla bottar väntar på brädet tills din första riktning, så ingenting rör sig innan du är redo." },
+    { title: "Börja", body: "Tryck på Spela och sedan en pil eller ett svep. Din orm och alla bottar väntar på brädet tills din första riktning, så ingenting rör sig innan du är redo." },
     { title: "Styr", body: "Piltangenter eller WASD på datorn, svep eller de fyra knapparna på telefonen. Inställningen för kontroller byter knapparna mot en joystick, eller mot en spak som dyker upp där du rör vid brädet." },
     { title: "Väx", body: "För huvudet över ett äpple för att växa ett segment. Ormar som spruckit lämnar en rad äpplen efter sig, som är värd att springa efter om vägen är fri." },
     { title: "När du är ute", body: "Omgången stannar och visar vilken plats du fick. Titta spelar resten tre gånger så fort så att du ser vem som vinner, och Spela igen startar en ny omgång direkt." },
@@ -48,16 +50,16 @@ export const snakearenaSv: GameCopy = {
   ],
 
   ages: [
-    { title: "Från 6 år", body: "En yngre spelare kan styra med de stora knapparna och lära sig hålla sig undan kroppar. Med 3 bottar är omgången förlåtande, men att åka ut avslutar den ändå." },
-    { title: "8 till 12", body: "4 bottar, en riktig kapplöpning efter äpplen, och ögonblicket då man lär sig att en krock rakt framifrån kostar er båda." },
-    { title: "Tonåringar och vuxna", body: "5 bottar på hela brädet, där det i sig är en färdighet att hålla sig vid liv till signalen." },
+    { title: "Från 6 år", body: "En yngre spelare kan styra med de stora knapparna och lära sig hålla sig undan kroppar. På Lätt, med 2 långsammare bottar, är omgången förlåtande, men att åka ut avslutar den ändå." },
+    { title: "8 till 12", body: "Normals 3 bottar, en riktig kapplöpning efter äpplen, och ögonblicket då man lär sig att en krock rakt framifrån kostar er båda." },
+    { title: "Tonåringar och vuxna", body: "Svårs 5 bottar, kanske på stenkartan, där det i sig är en färdighet att hålla sig vid liv till signalen." },
   ],
 
   accessibility:
-    "Du styr hela omgången, med tangenter, svep eller fyra stora knappar, och ett steg kommer ungefär 7 gånger i sekunden, så spelet kräver jämn uppmärksamhet i 90 sekunder. Inget kräver ett snabbt dubbeltryck eller en exakt dragning: varje kontroll är ett enda tryck, knapparna är 64 pixlar stora och paus fryser omgången precis där den är.",
+    "Du styr hela omgången, med tangenter, svep eller fyra stora knappar, och ett steg kommer ungefär 7 gånger i sekunden (ungefär 5 på Lätt), så spelet kräver jämn uppmärksamhet i 90 sekunder. Inget kräver ett snabbt dubbeltryck eller en exakt dragning: varje kontroll är ett enda tryck, knapparna är 64 pixlar stora och paus fryser omgången precis där den är.",
 
   together: [
-    { title: "Turas om", body: "Spela samma antal bottar i tur och ordning och jämför hur långa ni blev. Rekordet sparas separat för 3, 4 och 5 bottar." },
+    { title: "Turas om", body: "Spela samma nivå i tur och ordning och jämför hur långa ni blev. Rekordet sparas separat för varje nivå och karta." },
     { title: "En spelar, en varnar", body: "En av er styr medan den andra håller koll på brädet och säger till när en bott är på väg." },
     { title: "Titta på slutet tillsammans", body: "När en av er åker ut, tryck på Titta och gissa vinnaren innan signalen." },
   ],
@@ -67,8 +69,8 @@ export const snakearenaSv: GameCopy = {
     { q: "Hur vinner man?", a: "Genom att vara den längsta ormen som lever när klockan på 90 sekunder tar slut, eller den sista ormen som är kvar innan dess." },
     { q: "Vad händer när två ormar krockar huvud mot huvud?", a: "Båda åker ut, oavsett längd. Två huvuden som går in i samma ruta, eller rakt igenom varandra, räknas likadant." },
     { q: "Varför dök det upp äpplen där en orm var?", a: "En orm som åker ut spricker: varje ruta i kroppen blir ett äpple. Där går det fort att växa." },
-    { q: "Mot hur många bottar kan jag spela?", a: "Tre, fyra eller fem. Du väljer på startkortet, och på en dator även i panelen bredvid brädet." },
-    { q: "Hur sparas poängen?", a: "Ditt rekord är den största längd din orm nådde under en omgång, sparad på den här enheten för varje antal bottar. Var femte äpple du äter ger också ett mynt." },
+    { q: "Mot hur många bottar kan jag spela?", a: "Två på Lätt, tre på Normal och fem på Svår. Du väljer på startkortet, och på en dator även i panelen bredvid brädet." },
+    { q: "Hur sparas poängen?", a: "Ditt rekord är den största längd din orm nådde under en omgång, sparad på den här enheten för varje nivå och karta. Var femte äpple du äter ger också ett mynt." },
     { q: "Kan jag pausa?", a: "Ja, pausknappen stoppar omgången och klockan. Byter du flik hålls den också." },
   ],
 

@@ -7,6 +7,8 @@
 // wall or any body (its own included) is out; a head-on collision puts BOTH
 // out; a snake that is out bursts into apples along its body; the longest
 // snake alive when the clock runs out wins, and the last one alive wins at once.
+// (Since the forum review, 2026-10-01, the bot count is the LEVEL's - 2, 3 or
+// 5 - and a round may have rocks and a second person in it: `setup.ts`.)
 //
 // And the gentler round, ruled the same day after the first build measured a
 // careful player's median life at 18-37 s: a 3-second safe start, a roomier
@@ -63,8 +65,9 @@ export const START_LEN = 3;
  */
 export const SAFE_TICKS = Math.ceil(3000 / STEP_MS);
 
-export const BOT_COUNTS = [3, 4, 5] as const;
-export type BotCount = (typeof BOT_COUNTS)[number];
+/** The safe start and the round's length in steps, for a round stepping every `stepMs` - so 3 s and 90 s stay 3 s and 90 s on Easy's slower step. */
+export const safeTicksFor = (stepMs: number) => Math.ceil(3000 / stepMs);
+export const roundTicksFor = (stepMs: number) => Math.floor(ROUND_MS / stepMs);
 
 export interface Snake {
   id: number;
@@ -89,6 +92,12 @@ export interface Round {
   shape: Shape;
   snakes: Snake[];
   apples: Point[];
+  /** The Rocks map's obstacles (`rocks.ts`): a wall in the middle of the board. Empty on Open. */
+  rocks: Point[];
+  /** Snakes `0 .. humans-1` are people (1, or 2 on a PC); the rest are bots. */
+  humans: number;
+  /** Ms per step: `STEP_MS`, or Easy's slower step (`setup.ts`). */
+  stepMs: number;
   /** Apples are topped back up to this many after every step. */
   target: number;
   tick: number;
@@ -123,7 +132,7 @@ export function appleTarget(snakes: number): number {
 }
 
 /** Where snake `i` of `n` starts: round a ring, the player (0) on the left, all heading clockwise. */
-function spawn(shape: Shape, i: number, n: number): { body: Point[]; dir: Dir } {
+export function spawn(shape: Shape, i: number, n: number): { body: Point[]; dir: Dir } {
   const a = Math.PI + (i * 2 * Math.PI) / n;
   const head = {
     x: Math.round((shape.cols - 1) / 2 + shape.cols * 0.3 * Math.cos(a)),
@@ -150,24 +159,35 @@ export function makeRound(o: {
   apples: Point[];
   target?: number;
   ticks?: number;
+  rocks?: Point[];
+  humans?: number;
+  stepMs?: number;
 }): Round {
+  const stepMs = o.stepMs ?? STEP_MS;
   return {
     shape: o.shape,
     snakes: o.snakes.map((s, i) => snakeOf(i, s.body, s.dir)),
     apples: o.apples,
+    rocks: o.rocks ?? [],
+    humans: o.humans ?? 1,
+    stepMs,
     target: o.target ?? appleTarget(o.snakes.length),
     tick: 0,
-    ticks: o.ticks ?? ROUND_TICKS,
+    ticks: o.ticks ?? roundTicksFor(stepMs),
     safeUntil: 0,
     over: false,
     winner: null,
   };
 }
 
-/** A fresh round: the player (snake 0) and `bots` computer snakes, and the apples. */
-export function newRound(shape: Shape, bots: number, rng: () => number = Math.random): Round {
-  const n = bots + 1;
-  const r = { ...makeRound({ shape, snakes: Array.from({ length: n }, (_, i) => spawn(shape, i, n)), apples: [] }), safeUntil: SAFE_TICKS };
+/** The rest of a deal: rocks, people and the step (`setup.ts` fills them in from the title card's choices). */
+export type Deal = { rocks?: Point[]; humans?: number; stepMs?: number };
+
+/** A fresh round: the people (snakes 0..), `bots` computer snakes, and the apples. */
+export function newRound(shape: Shape, bots: number, rng: () => number = Math.random, deal: Deal = {}): Round {
+  const n = bots + (deal.humans ?? 1);
+  const base = makeRound({ shape, snakes: Array.from({ length: n }, (_, i) => spawn(shape, i, n)), apples: [], ...deal });
+  const r = { ...base, safeUntil: safeTicksFor(base.stepMs) };
   return { ...r, apples: topUp(r, r.apples, rng, true) };
 }
 
@@ -219,6 +239,7 @@ function planMoves(r: Round, held: ReadonlySet<number>): Move[] {
  */
 function judge(r: Round, moves: Move[]): Map<number, OutCause> {
   const out = new Map<number, OutCause>();
+  const rocks = new Set(r.rocks.map((p) => cellOf(r.shape, p)));
   const heads = new Map<number, number[]>();
   const bodies = new Map<number, { id: number; i: number }>();
   for (const m of moves) {
@@ -228,7 +249,8 @@ function judge(r: Round, moves: Move[]): Map<number, OutCause> {
     m.body.forEach((p, i) => i > 0 && bodies.set(cellOf(r.shape, p), { id: m.s.id, i }));
   }
   for (const m of moves) {
-    if (!inside(r.shape, m.head)) {
+    // A rock is a wall in the middle of the board, and puts a head out the same way.
+    if (!inside(r.shape, m.head) || rocks.has(cellOf(r.shape, m.head))) {
       out.set(m.s.id, "wall");
       continue;
     }
@@ -318,9 +340,10 @@ function burst(next: Round, apples: Point[], out: Map<number, OutCause>, before:
   return apples.concat(more);
 }
 
-/** 1 on every cell a body or an apple holds. */
+/** 1 on every cell a body, a rock or an apple holds - so no apple is ever dealt or dropped on a rock. */
 function occupied(r: Round, apples: Point[]): Uint8Array {
   const taken = new Uint8Array(r.shape.cols * r.shape.rows);
+  for (const p of r.rocks) taken[cellOf(r.shape, p)] = 1;
   for (const sn of r.snakes) for (const p of sn.body) taken[cellOf(r.shape, p)] = 1;
   for (const a of apples) taken[cellOf(r.shape, a)] = 1;
   return taken;
@@ -369,10 +392,15 @@ function topUp(r: Round, apples: Point[], rng: () => number, atDeal = false): Po
   return out;
 }
 
-/** The bell, or the last snake standing. */
+/**
+ * The bell, or the last snake standing - or, with two people playing, the
+ * moment neither of them is left: the bots finishing the round between
+ * themselves is nothing anyone at the keyboard is playing.
+ */
 function finish(r: Round): Round {
   const alive = r.snakes.filter((s) => s.alive);
-  if (alive.length > 1 && r.tick < r.ticks) return r;
+  const peopleGone = r.humans > 1 && !alive.some((s) => s.id < r.humans);
+  if (alive.length > 1 && r.tick < r.ticks && !peopleGone) return r;
   if (alive.length === 0) return { ...r, over: true, winner: null };
   const best = alive.slice().sort((a, b) => b.body.length - a.body.length || a.grewAt - b.grewAt || a.id - b.id)[0];
   return { ...r, over: true, winner: best.id };
@@ -405,5 +433,5 @@ export function placeOf(r: Round, id: number): number {
 
 /** Whole seconds left on the clock, rounded up so the bell rings at 0:00. */
 export function secondsLeft(r: Round): number {
-  return Math.max(0, Math.ceil(((r.ticks - r.tick) * STEP_MS) / 1000));
+  return Math.max(0, Math.ceil(((r.ticks - r.tick) * r.stepMs) / 1000));
 }
