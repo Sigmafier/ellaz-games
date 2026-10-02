@@ -329,7 +329,9 @@ describe("round four: longer, harder, more enemies", () => {
    */
   it("gold is rare with a promise on normal and wild, and calm keeps the old odds", () => {
     const bands: Record<LevelKey, { gold: [number, number]; none: number; blue: [number, number] }> = {
-      normal: { gold: [1.2, 1.9], none: 0.2, blue: [3.5, 5.5] },
+      // normal `none` 0.2 -> 0.3 on 2026-10-02 (round eight's half-heart hit ends
+      // more runs in stage 2, before the gold rolls stack up): 0.25 / 0.20 measured.
+      normal: { gold: [1.2, 1.9], none: 0.3, blue: [3.5, 5.5] },
       wild: { gold: [1.0, 1.7], none: 0.35, blue: [3.5, 5.5] },
       calm: { gold: [2.2, 3.4], none: 0.15, blue: [7.0, 9.5] },
     };
@@ -368,7 +370,11 @@ describe("round four: longer, harder, more enemies", () => {
     expect(deaths.length).toBeGreaterThanOrEqual(30);
     expect(deaths.some((d) => d.stage === 2)).toBe(true);
     expect(deaths.some((d) => d.stage === 3)).toBe(true);
-    expect(deaths.filter((d) => d.stage === 3).length * 3).toBeGreaterThanOrEqual(deaths.length);
+    // A third of deaths in stage 3 until round eight (2026-10-02): the half-heart
+    // hit from a fifth into stage 2 moves more of them there - 37 of 125 measured
+    // (normal 12+9, wild 4+5, calm 3+4) - so the bound is a quarter. The 45 s
+    // floor below is what keeps stage 2's OPENING from being a wall: 62 s measured.
+    expect(deaths.filter((d) => d.stage === 3).length * 4).toBeGreaterThanOrEqual(deaths.length);
     for (const d of deaths) {
       expect(d.stage, "no careful death in stage 1").toBeGreaterThan(1);
       const s2 = d.stages.find((s) => s.stage === 2)!;

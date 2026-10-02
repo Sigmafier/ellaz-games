@@ -163,6 +163,8 @@ export interface Run {
   path: Pt[];
   /** Length in SEGMENTS, the number the HUD shows. Fractional while growing. */
   len: number;
+  /** The longest whole `len` this run has reached - what a heart is worth (`hitCost`). */
+  peak: number;
   foes: Foe[];
   gems: Gem[];
   nextId: number;

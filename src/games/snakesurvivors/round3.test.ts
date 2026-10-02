@@ -6,7 +6,7 @@ import { shortestLasso } from "./bots";
 import {
   CAPS, CARD_IDS, NEW_CARDS, SNAP, WEAPONS, cardOffer, cardStat, shieldEvery, snapOf, spitEvery,
 } from "./cards";
-import { BOSS_AT, KINDS, LEVELS, STAGE_CROWD, bossDue, bossProgress, isBoss, makeFoe, moveFoes, stageGoal } from "./crowd";
+import { BOSS_AT, KINDS, LEVELS, STAGE_CROWD, bossDue, bossProgress, hitCost, isBoss, makeFoe, moveFoes, stageGoal } from "./crowd";
 import { GEM_LOOK } from "./draw";
 import { GROW, hitsLeft, newRun, step } from "./logic";
 import { ringRun } from "./testRing";
@@ -134,12 +134,15 @@ describe("the loop snaps shut", () => {
 });
 
 describe("a bump", () => {
-  it("costs one segment", () => {
+  it("costs one segment on calm, and in stage 1 on normal; half a heart on normal deep in stage 2 (round eight)", () => {
     expect(HIT_COST).toBe(1);
-    const run = quiet(newRun("normal", ARENA, fixed));
-    run.foes = [foe("runner", run.x, run.y)];
-    step(run, 16, STILL, fixed);
-    expect(run.len).toBe(START_LEN - 1);
+    for (const [level, stage, cost] of [["calm", 1, 1], ["normal", 1, 1], ["normal", 2, 1]] as const) {
+      const run = quiet(newRun(level, ARENA, fixed));
+      run.stage = stage;
+      run.foes = [foe("runner", run.x, run.y)];
+      step(run, 16, STILL, fixed);
+      expect(run.len, level).toBe(START_LEN - cost);
+    }
   });
 
   it("says which shape did it and where, so the scene can show the bite at the shape", () => {
@@ -399,17 +402,18 @@ describe("Shield", () => {
     expect(run.len).toBe(START_LEN);
     expect(run.events.some((e) => e.k === "shield")).toBe(true);
     expect(run.events.some((e) => e.k === "hit")).toBe(false);
-    // The next bump, the shield spent, costs a segment.
+    // The next bump, the shield spent, costs what a bump costs (`hitCost`, 2 here).
+    const cost = hitCost(run);
     run.blink = 0;
     run.foes = [foe("runner", run.x, run.y)];
     step(run, 16, STILL, fixed);
-    expect(run.len).toBe(START_LEN - 1);
+    expect(run.len).toBe(START_LEN - cost);
     // And after its recharge it blocks again.
     for (let t = 0; t < shieldEvery(run) + 100; t += 16) step(run, 16, STILL, fixed);
     run.blink = 0;
     run.foes = [foe("runner", run.x, run.y)];
     step(run, 16, STILL, fixed);
-    expect(run.len).toBe(START_LEN - 1);
+    expect(run.len).toBe(START_LEN - cost);
   });
 });
 

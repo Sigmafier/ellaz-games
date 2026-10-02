@@ -11,10 +11,10 @@ import { CAST, type CastKey, type Clip } from "../survivors/sprites";
 import { knobAt, originFor as stickOriginFor, stickVector, STICK_RADIUS, type Stick } from "../survivors/stick";
 import { cameraOf } from "../survivors/world";
 import { SHEETS, kindScale, sheetOf } from "./cast";
-import { centreOf, insideNow, pendingLoop } from "./body";
+import { centreOf, guideShown, insideNow, pendingLoop } from "./body";
 import { HOLE } from "./cards";
-import { KINDS, LUNGE, MINI_HP, biteCost, bossHpOf, isBoss } from "./crowd";
-import { crushFx } from "./crushFx";
+import { KINDS, LUNGE, MINI_HP, bossHpOf, hitCost, isBoss } from "./crowd";
+import { crushFx, tailCrushFx } from "./crushFx";
 import {
   INK, KIND_INK, dashes, drawBolt, drawGem, drawGemArrow, drawHpBar, drawGround, drawGuideRing, drawInsideMark, drawLoop, drawNova, drawShieldRing,
   drawShockRing, drawShot, drawSnake, drawSnapGuide, drawVortex, drawWindup, drawZap,
@@ -50,8 +50,11 @@ export interface SnakeSurvivorsStatus {
   offer: CardId[];
   taken: Record<CardId, number>;
   boss: { now: number; max: number } | null;
-  /** Segments one bump costs right now (round four: 2 from stage 2 on wild) - the hearts divide by it. */
+  /** Segments one bump costs right now (`hitCost`: half a heart on normal and wild, from a fifth into stage 2) - the hearts divide by it. */
   bite: number;
+  /** The goal row (round eight): ms of PLAY (never paused or choosing), and the stage whose warden is next. */
+  ms: number;
+  stage: Stage;
   newBest: boolean;
   /** The guided first run's step, or null on a real run. */
   tutorial: TutorialStep | null;
@@ -280,11 +283,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.mobs.clear();
     for (const c of this.corpses) c.destroy();
     this.corpses.length = 0;
-    this.sparks.length = 0;
-    this.loops.length = 0;
-    this.rings.length = 0;
-    this.zaps.length = 0;
-    this.novas.length = 0;
+    this.sparks.length = this.loops.length = this.rings.length = this.zaps.length = this.novas.length = 0;
     this.draw();
     this.publish(true);
   }
@@ -330,6 +329,8 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
         const c = centreOf(e.poly);
         const size = Math.max(...e.poly.map((p) => Math.hypot(p.x - c.x, p.y - c.y)));
         this.rings.push({ c, from: size * 0.9, to: size * fx.ringReach, age: 0, life: fx.ringMs });
+        const tail = tailCrushFx(this.run, e.by);
+        if (tail) this.rings.push({ c: tail.at, from: tail.from, to: tail.to, age: 0, life: tail.life }), this.spray(tail.at.x, tail.at.y, INK.mint, tail.sparks, 5);
         for (const f of e.caught) this.spray(f.x, f.y, KIND_INK[f.kind], fx.perFoe, 5, 520);
         this.ctx.audio.play(fx.sound, { semitones: Math.min(12, e.n * 2) });
         if (fx.shake) this.cameras.main.shake(fx.shake.ms, fx.shake.amount);
@@ -357,11 +358,9 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
         this.banner(this.fx.mini, this.run.x, this.run.y - 70, 1400);
         this.ctx.audio.play("star", { semitones: 3 });
         this.cameras.main.flash(180, 255, 209, 102);
-      } else if (e.k === "bolt") {
-        this.spray(e.x, e.y, 0xff7a3d, 6);
-      } else if (e.k === "vortex") {
-        this.spray(e.x, e.y, 0x9b7bff, 10);
-      } else if (e.k === "hurt") this.spray(e.x, e.y, 0xffffff, 5);
+      } else if (e.k === "bolt") this.spray(e.x, e.y, 0xff7a3d, 6);
+      else if (e.k === "vortex") this.spray(e.x, e.y, 0x9b7bff, 10);
+      else if (e.k === "hurt") this.spray(e.x, e.y, 0xffffff, 5);
       else if (e.k === "hit") {
         // Drawn AT THE SHAPE that bit, in red, with the segment it cost over the
         // head: a bump with no mark on its cause read as "I bit my own tail"
@@ -370,14 +369,13 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
         this.cameras.main.shake(160, 0.008);
         haptic.fail();
         this.spray(e.x, e.y, INK.red, 9);
-        // What the bump actually cost: 2 or 4 later in a normal run, not always 1.
-        this.popup(`-${biteCost(this.run)}`, this.run.x, this.run.y, "#ff7675");
+        // What the bump actually cost (`hitCost`: half a heart on normal and wild, from a fifth into stage 2), not always 1.
+        this.popup(`-${hitCost(this.run)}`, this.run.x, this.run.y, "#ff7675");
       } else if (e.k === "shield") {
         this.ctx.audio.play("pop", { semitones: -3 });
         this.spray(this.run.x, this.run.y, INK.gem, 10);
-      } else if (e.k === "spit") {
-        this.spray(e.x, e.y, INK.gold, 2);
-      } else if (e.k === "bite") {
+      } else if (e.k === "spit") this.spray(e.x, e.y, INK.gold, 2);
+      else if (e.k === "bite") {
         this.ctx.audio.play("pop", { semitones: 7 });
         this.spray(e.x, e.y, INK.gold, 6);
       } else if (e.k === "spike") this.spray(e.x, e.y, INK.gold, 3);
@@ -454,7 +452,8 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       // bossHpOf(level, r.stage): while a warden is up, r.stage is still ITS
       // stage - it only moves on once the warden falls and `boss` goes back to null.
       boss: boss ? { now: boss.hp, max: bossHpOf(r.level, r.stage) } : null,
-      bite: biteCost(r),
+      bite: hitCost(r),
+      ms: r.t, stage: r.stage,
       newBest: this.newBest,
       tutorial: this.tut ? this.tut.step : null,
       banner: r.phase === "stage" && t < this.bannerUntil ? r.stage : null,
@@ -501,7 +500,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     // mark under every shape it would catch now, with the count by the head.
     const pending = this.phase === "playing" ? pendingLoop(r) : null;
     const caught = pending ? insideNow(r, pending) : [];
-    if (pending) drawSnapGuide(g, r, r.heading, pending.at, pulse);
+    if (pending && guideShown(caught.length, this.tut !== null)) drawSnapGuide(g, r, r.heading, pending.at, pulse);
     for (const f of caught) drawInsideMark(this.under, f.x, f.y, KINDS[f.kind].r, pulse + f.id);
     this.insideChip.setVisible(caught.length > 0);
     if (caught.length) {

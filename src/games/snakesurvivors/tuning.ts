@@ -5,7 +5,7 @@
 // Split out of `crowd.ts`, which re-exports every name here unchanged, so an
 // importer reads them from `./crowd` exactly as before.
 
-import { HIT_COST, START_LEN } from "./body";
+import { HIT_COST, MIN_LEN, START_LEN } from "./body";
 import type { Kind, LevelKey, Run, Stage } from "./types";
 
 /**
@@ -139,6 +139,41 @@ export const biteCost = (run: Pick<Run, "level" | "stage" | "len" | "crushed" | 
   HIT_COST +
   (run.stage > 2 || (run.stage === 2 && stageProgress(run) >= BITE_FROM) ? LEVELS[run.level].bite : 0) +
   (run.stage > 2 ? LEVELS[run.level].bite3 : 0);
+/**
+ * HALF A HEART A HIT, FROM A FIFTH INTO STAGE 2, ON NORMAL AND WILD (round
+ * eight, on a forum player's "after a while enemies seem to do no damage").
+ * The HUD draws the tail's life as `HEARTS` hearts of the run's LONGEST tail
+ * (`heartBlock`), so on a long snake one segment was a sliver of a heart and a
+ * bump looked like nothing. Once stage 2 is `BITE_FROM` under way - the same
+ * point the level's own stage-2 bite starts - a hit costs at least 1 /
+ * `HIT_PART` of a heart on that same scale (the peak floored at `START_LEN`,
+ * life counted from `MIN_LEN`) and never less than `biteCost`, what it cost
+ * before: 4 at 60, 7 at 100. Before that point it is `biteCost` exactly.
+ *
+ * Measured 2026-10-02, careful bot, 60 runs a cell (phone / PC), cap 100:
+ *   hits as before              normal 42/48  wild 39/31  (EASIER than R7's 23/32)
+ *   half a heart from start     normal 11/9   27 and 22 runs dead in stage 1 (~40 s)
+ *   a third, at stage 2's open  normal 31/29  wild 31/23  but losses all in stage 2,
+ *                               from 23 s in - the wall round four removed
+ *   a third, a fifth into s2    normal 39/48  wild 39/31  (about no change)
+ *   HALF, a fifth into s2       normal 32/36  wild 33/29  losses s2 16+15, s3 12+9,
+ *                               the first 62 s into stage 2
+ * The operator ruled the last ("1/2 heart, a bit later").
+ *
+ * CALM is `biteCost` exactly: calm is pinned by law (`calm-is-untouched.test.ts`).
+ * Every hit - a bump, a bolt - reads this one function, and so do the hearts'
+ * last-bump warning and the "-N" over the head.
+ */
+export const HEARTS = 8;
+/** A hit, once stage 2 is `BITE_FROM` under way, costs 1 / HIT_PART of a heart. */
+export const HIT_PART = 2;
+export function hitCost(run: Pick<Run, "level" | "stage" | "len" | "crushed" | "phase" | "peak">): number {
+  const today = biteCost(run);
+  if (run.level === "calm") return today;
+  if (run.stage === 1 || (run.stage === 2 && stageProgress(run) < BITE_FROM)) return today;
+  const life = Math.floor(Math.max(run.peak, run.len, START_LEN)) - MIN_LEN + 1;
+  return Math.max(today, Math.ceil(life / (HIT_PART * HEARTS)));
+}
 /**
  * Where in stage 2 the level's extra `bite` starts (R4.5): not at the opening,
  * which is where every wild death used to be, but once the stage is under way.

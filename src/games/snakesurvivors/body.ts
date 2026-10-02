@@ -27,10 +27,18 @@ export const MIN_LEN = 3;
  * reach of a loop, so every bump took away the move that answers it.
  */
 export const HIT_COST = 1;
-/** The most segments a snake can grow to, so a long run stays drawable. */
-export const MAX_LEN = 60;
-/** The most THIS run may grow to: `MAX_LEN`, plus what Long Body adds. */
-export const maxLenOf = (run: Pick<Run, "taken">) => MAX_LEN + longOf(run);
+/**
+ * The most segments a snake can grow to on NORMAL and WILD. It was 60 until
+ * round eight (operator ruling, 2026-10-02, on a forum player's "max length 60
+ * is too short for double loops"). The tightest spin still crushes nothing at
+ * 100 plus every Long Body (`round4.test.ts`): `LAP_SLACK` bounds a loop by its
+ * TURN, not by the body's length.
+ */
+export const MAX_LEN = 100;
+/** CALM keeps the old cap, by law (`calm-is-untouched.test.ts`). */
+export const CALM_MAX_LEN = 60;
+/** The most THIS run may grow to: its level's cap, plus what Long Body adds. */
+export const maxLenOf = (run: Pick<Run, "taken" | "level">) => (run.level === "calm" ? CALM_MAX_LEN : MAX_LEN) + longOf(run);
 export const HEAD_R = 9;
 export const BODY_R = 6;
 
@@ -242,6 +250,17 @@ export function snapHint(run: Run): Pt | null {
 export function insideNow(run: Run, p = pendingLoop(run)): Foe[] {
   return p ? run.foes.filter((f) => inside(p.poly, f.x, f.y)) : [];
 }
+
+/**
+ * When the loop-closing guide is DRAWN (round eight, the forum player: "the
+ * loop-closing guide shows even when nothing is inside"). It used to show for
+ * every loop the head was working on (`pendingLoop`), so a snake circling empty
+ * floor wore it all the time and it stopped meaning anything. Now it shows only
+ * when that loop would catch at least one shape (`insideNow`) - the moment it
+ * is worth closing. The guided first run keeps it always on: that run exists to
+ * teach what a closing loop looks like. `caught` is `insideNow(...).length`.
+ */
+export const guideShown = (caught: number, tutorial: boolean): boolean => tutorial || caught > 0;
 
 /** The area a polygon encloses (shoelace), whichever way round it runs. */
 export function areaOf(poly: readonly Pt[]): number {

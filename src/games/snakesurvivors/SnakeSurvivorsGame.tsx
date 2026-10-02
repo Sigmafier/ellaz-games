@@ -11,7 +11,7 @@ import { CAPS, LONG_STEP, NOVA_EVERY, WEAPONS, cardOffer, chainOf, noneTaken } f
 import { CARD_ART } from "./cardArt";
 import { START_LEN } from "./body";
 import { ARENA, ARENA_WIDE } from "./logic";
-import { bossRow, heartBlock, runStats } from "./hud";
+import { bossRow, goalRow, heartBlock, runStats } from "./hud";
 import { PauseCard, SnakeHud, crownIcon, crushIcon, levelIcon } from "./SnakeHud";
 import type { Arena, CardId, LevelKey, Tier } from "./types";
 import type { SnakeSurvivorsScene, SnakeSurvivorsStatus } from "./SnakeSurvivorsScene";
@@ -71,7 +71,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
     offer: [],
     taken: noneTaken(),
     boss: null,
-    bite: 1,
+    bite: 1, ms: 0, stage: 1,
     newBest: false,
     tutorial: null,
     banner: null,
@@ -235,7 +235,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         doubleGems: ["מיזוג יהלומים", "יהלומים מתמזגים לגדולים. פחות לרדוף, אותו ערך.", (n, w) => `מתמזגים ממרחק ${n}, היה ${w}`],
         frost: ["שובל כפור", "צורות שנוגעות בזנב שלך מואטות", (n, w) => `מאט ב-${n}%, היה ${w}%`],
         longBody: ["גוף ארוך", `אפשר לגדול עוד ${LONG_STEP} חוליות`, (n, w) => `+${n} לאורך המרבי, היה +${w}`],
-        twinHead: ["ראש כפול", "ראש שני בקצה הזנב: סוגרים לולאות משני הצדדים", (n) => `${n} ראשים`],
+        twinHead: ["ראש כפול", "גם הזנב שלך סוגר לולאות", (n) => `${n} ראשים`],
         blackHole: ["חור שחור", "מחיצה משאירה מערבולת שמושכת צורות פנימה", (n) => `מערבולת ל-${n} שנ׳`],
         nova: ["נובה", `כל ${NOVA_EVERY} מחיצות מנקות את כל הצורות במסך חוץ מהבוס`, (n) => `כל ${n} מחיצות`],
       },
@@ -253,7 +253,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         doubleGems: ["Gem Merge", "Gems fuse into big ones. Fewer to chase, same value.", (n, w) => `fuses gems from ${n}, was ${w}`],
         frost: ["Frost Trail", "shapes touching your tail are slowed", (n, w) => `slows them ${n}%, was ${w}%`],
         longBody: ["Long Body", `grow up to ${LONG_STEP} segments longer`, (n, w) => `+${n} most length, was +${w}`],
-        twinHead: ["Twin Head", "a second head on your tail - close loops from both ends", (n) => `${n} heads`],
+        twinHead: ["Twin Head", "Your tail closes loops too", (n) => `${n} heads`],
         blackHole: ["Black Hole", "a crush leaves a vortex that pulls shapes in", (n) => `a vortex for ${n} s`],
         nova: ["Nova", `every ${NOVA_EVERY}th crush clears every shape on screen but the boss`, (n) => `every ${n} crushes`],
       },
@@ -271,7 +271,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         doubleGems: ["Fusión de gemas", "Las gemas se funden en grandes. Menos que perseguir, el mismo valor.", (n, w) => `funde gemas desde ${n}, antes ${w}`],
         frost: ["Estela helada", "las figuras que tocan tu cola van más lentas", (n, w) => `las frena un ${n}%, antes ${w}%`],
         longBody: ["Cuerpo largo", `puedes crecer ${LONG_STEP} segmentos más`, (n, w) => `+${n} de largo máximo, antes +${w}`],
-        twinHead: ["Doble cabeza", "una segunda cabeza en la cola: cierra círculos por los dos lados", (n) => `${n} cabezas`],
+        twinHead: ["Doble cabeza", "Tu cola también cierra círculos", (n) => `${n} cabezas`],
         blackHole: ["Agujero negro", "aplastar deja un remolino que atrae a las figuras", (n) => `un remolino de ${n} s`],
         nova: ["Nova", `cada ${NOVA_EVERY} aplastes se borran todas las figuras en pantalla menos el jefe`, (n) => `cada ${n} aplastes`],
       },
@@ -289,7 +289,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         doubleGems: ["Stensammanslagning", "Ädelstenar smälter ihop till stora. Färre att jaga, samma värde.", (n, w) => `smälter ihop från ${n} (förut ${w})`],
         frost: ["Frostspår", "figurer som rör svansen saktar in", (n, w) => `saktar in ${n} % (förut ${w} %)`],
         longBody: ["Lång kropp", `du kan växa ${LONG_STEP} segment längre`, (n, w) => `+${n} i största längd (förut +${w})`],
-        twinHead: ["Tvillinghuvud", "ett andra huvud på svansen: slut öglor från båda hållen", (n) => `${n} huvuden`],
+        twinHead: ["Tvillinghuvud", "Din svans sluter också öglor", (n) => `${n} huvuden`],
         blackHole: ["Svart hål", "en krossning lämnar en virvel som drar in figurer", (n) => `en virvel i ${n} s`],
         nova: ["Nova", `var ${NOVA_EVERY}:e krossning rensar alla figurer på skärmen utom bossen`, (n) => `var ${n}:e krossning`],
       },
@@ -307,10 +307,9 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
   const HOW_TO = textFor(TUTORIAL_TEXT, ctx.locale).label;
   const tutoring = status.tutorial !== null && status.tutorial !== "done";
   const choosing = status.offer.length > 0;
-  const score = status.crushed;
   // C3 (2026-10-01): crushed, best and level left the play screen. They are
   // here - on the game-over card, by name - and on the pause card below.
-  const stats = runStats(score, best, status.lv);
+  const stats = runStats(status.crushed, best, status.lv);
   const statWords = { crushed: T.crushed, best: T.best, level: T.level };
   /**
    * THE ONE SCREEN (operator, 2026-10-01, "one-screen start, all four"): the
@@ -478,7 +477,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         )}
         {/* THE HUD, "C3 Big hearts, length right" (operator, 2026-10-01):
             hearts top-left in a big 2x4 block, the length big top-right, the
-            boss row at the bottom, the weapons on the side once owned. Only
+            goal top-centre (round eight), the boss row at the bottom, the weapons on the side once owned. Only
             while a run is live - the title and the entrance own the arena
             otherwise. The boss row steps aside for the tutorial's words and
             the card picker, as the meter it replaces did. */}
@@ -487,6 +486,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
             hearts={heartBlock(status.len, status.peak, status.bite)}
             len={status.len}
             boss={tutoring || choosing ? null : bossRow(status.level, status.meter, status.boss)}
+            goal={tutoring ? null : goalRow(status.crushed, status.ms, status.stage, ctx.locale)}
             cards={tutoring ? [] : WEAPONS.filter((id) => status.taken[id]).map((id) => ({ id, art: CARD_ART[id]() }))}
           />
         )}

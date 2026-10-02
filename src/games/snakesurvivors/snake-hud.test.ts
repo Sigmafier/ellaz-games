@@ -50,15 +50,42 @@ describe("the play screen", () => {
     expect(el.dataset.danger).toBe("false");
   });
 
-  it("a lost heart is an outline, and the last heart turns the block red", () => {
-    const three = hud({ len: MIN_LEN + 2 }).querySelector<HTMLElement>('[data-hud="hearts"]')!;
-    expect(three.querySelectorAll('[data-heart="full"]').length).toBe(3);
-    expect(three.querySelectorAll('[data-heart="empty"]').length).toBe(5);
+  it("a crash drains hearts - full, part, outline - and the last bump turns the block red", () => {
+    // 14 of 26 life: four full hearts, one part heart, three outlines.
+    const half = hud({ len: MIN_LEN + 13 }).querySelector<HTMLElement>('[data-hud="hearts"]')!;
+    expect(half.querySelectorAll('[data-heart="full"]').length).toBe(4);
+    expect(half.querySelectorAll('[data-heart="part"]').length).toBe(1);
+    expect(half.querySelectorAll('[data-heart="empty"]').length).toBe(3);
     unmountComponentAtNode(host);
     host.remove();
     const one = hud({ len: MIN_LEN }).querySelector<HTMLElement>('[data-hud="hearts"]')!;
     expect(one.dataset.danger).toBe("true");
     expect(one.style.borderColor || one.style.border).toMatch(/244, 80, 63|f4503f/i);
+  });
+
+  it("a crash FLASHES the hearts; growing does not", async () => {
+    const calls: unknown[] = [];
+    const proto = HTMLElement.prototype as unknown as { animate?: unknown };
+    const had = proto.animate;
+    proto.animate = function (this: HTMLElement) { calls.push(this.dataset.hud); return {} as Animation; };
+    try {
+      const props = (len: number, peak: number) => ({
+        hearts: heartBlock(len, peak, 2),
+        len,
+        boss: null,
+        cards: [],
+      });
+      mount(createElement(SnakeHud, props(START_LEN, START_LEN)));
+      expect(calls).toEqual([]);
+      render(createElement(SnakeHud, props(START_LEN - 2, START_LEN)), host);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(calls).toEqual(["hearts"]);
+      render(createElement(SnakeHud, props(START_LEN, START_LEN)), host); // a gem regrows it
+      await new Promise((r) => setTimeout(r, 50));
+      expect(calls).toEqual(["hearts"]);
+    } finally {
+      proto.animate = had;
+    }
   });
 
   it("the length top-right, big, with the glyph and no word", () => {
@@ -153,6 +180,6 @@ describe("the game wires it", () => {
     // `endOf` builds them from `runStats`), each labelled by name.
     expect(GAME).toContain("const endNow = endOf(status, best);");
     expect(GAME).toMatch(/tiles: shown\.stats\.map\(\(st\) => \(\{[\s\S]*?label: statWords\[st\.id\]/);
-    expect(GAME).toContain("runStats(score, best, status.lv)");
+    expect(GAME).toContain("runStats(status.crushed, best, status.lv)");
   });
 });

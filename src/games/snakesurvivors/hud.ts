@@ -2,52 +2,66 @@
 // layout is "C3 Big hearts, length right", approved by the operator off a mock
 // on 2026-10-01 ("Life: hearts top left, bigger hearts. Length: top right."):
 //
-//   top-left   a framed block of big hearts, 4 to a row, lost ones as outlines,
-//              the whole block red at the last heart
+//   top-left   a framed block of big hearts, 4 to a row, that drain with every
+//              crash (part hearts, outlines when empty), red at the last bump
 //   top-right  the length, big, with the snake glyph and no word
+//   top-centre the goal (round eight): crushed as the score, the run clock
+//              m:ss, and "BOSS n/3" under them - between the two corners
 //   bottom     the boss meter: icon, bar, "25/50" and "0/10" as icons + numbers
 //   side       the weapons, only once owned
 //
 // Crushed, best and level are NOT drawn in play; they live on the pause card
 // and the game-over card (`runStats` below feeds both). `SnakeHud.tsx` draws it.
 
-import { START_LEN } from "./body";
-import { bossProgress, stageGoal } from "./crowd";
+import { textFor, type AppLocale } from "@i18n/index";
+import { MIN_LEN, START_LEN } from "./body";
+import { HEARTS, bossProgress, stageGoal } from "./crowd";
+import { FX_TEXT } from "./fxText";
 import { hitsLeft } from "./logic";
 import type { LevelKey, Stage } from "./types";
 
 /**
- * The most hearts the block draws. The tail IS the health - a heart is one hit
- * it can still take (`hitsLeft`) - and that is 26 at the start of a run and
- * more once gems, Regrow or Long Body grow it (MAX_LEN 60 plus Long Body's
- * steps). Shield adds no heart: it blocks a bump, it does not lengthen the
- * tail. So above this the block stays full and the exact length, drawn big in
- * the other corner, is the number that keeps counting.
+ * The hearts the block draws: two rows of four. They stand for the WHOLE tail
+ * at its longest this run, so a crash always drains some of them (operator,
+ * 2026-10-02: "i dont see any hearts go down when i crash", then "Hearts
+ * drain"). Before, a heart was one hit the tail could still take, capped at 8 -
+ * and a run starts with 26 hits, so the first ~18 crashes changed nothing.
  */
-export const HEART_CAP = 8;
+export const HEART_CAP = HEARTS;
 /** Hearts per row: 8 is two rows of four. */
 export const HEART_COLS = 4;
 
 export type HeartBlock = {
-  /** Hearts still full. */
+  /** Hearts still completely full. */
   now: number;
-  /** Hearts drawn, full or outline. */
+  /** Hearts drawn, full, part or outline. */
   max: number;
-  /** One entry per heart drawn, true for a full one, in reading order. */
-  cells: boolean[];
-  /** The last heart: the block turns red. */
+  /** Hearts' worth of life left, 0..max - what a crash drains. */
+  fill: number;
+  /** One entry per heart, in reading order: how full it is, 0..1. */
+  cells: number[];
+  /** One more bump ends the run: the block turns red. */
   danger: boolean;
 };
 
 /**
  * The heart block for a tail of `len` that has been as long as `peak`, at
- * `bite` segments a bump. The outline count is set by the run's longest tail,
- * so a hit leaves an outline where a heart was rather than shrinking the block.
+ * `bite` segments a bump. Life is the segments above the shortest tail that
+ * still lives (`MIN_LEN`); the hearts are that share of the longest tail this
+ * run, so growing refills them and every crash drains some. `bite` only says
+ * whether the next bump is the last one.
  */
 export function heartBlock(len: number, peak: number, bite: number, cap = HEART_CAP): HeartBlock {
-  const max = Math.max(1, Math.min(cap, hitsLeft(Math.max(peak, START_LEN), bite)));
-  const now = Math.max(0, Math.min(max, hitsLeft(len, bite)));
-  return { now, max, cells: Array.from({ length: max }, (_, i) => i < now), danger: now <= 1 };
+  const life = Math.max(0, Math.floor(len) - MIN_LEN + 1);
+  const most = Math.max(1, life, Math.floor(Math.max(peak, START_LEN)) - MIN_LEN + 1);
+  const fill = (cap * life) / most;
+  return {
+    now: Math.floor(fill + 1e-9),
+    max: cap,
+    fill,
+    cells: Array.from({ length: cap }, (_, i) => clamp01(fill - i)),
+    danger: life > 0 && hitsLeft(len, bite) <= 1,
+  };
 }
 
 export type BossRow =
@@ -75,6 +89,25 @@ export function bossRow(
     len: at.len != null ? `${meter.len}/${at.len}` : null,
     crushed: `${meter.crushed}/${at.crushed}`,
   };
+}
+
+/**
+ * THE GOAL ROW (round eight, the forum player: "there is no score or time so
+ * the goal is unclear"): the crushed count is the score, the clock is PLAYING
+ * time - `run.t`, which never counts while paused or while a card is up - and
+ * `boss` says which of the three wardens is next.
+ */
+export type GoalRow = { score: number; clock: string; boss: string };
+
+/** ms of play as m:ss. */
+export function clockText(ms: number): string {
+  const s = Math.floor(Math.max(0, ms) / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** The goal row, its "BOSS n/3" said in the run's language (`FX_TEXT`). */
+export function goalRow(crushed: number, ms: number, stage: Stage, locale: AppLocale): GoalRow {
+  return { score: crushed, clock: clockText(ms), boss: textFor(FX_TEXT, locale).boss(stage) };
 }
 
 /** The three numbers that left the play screen, in the order both cards show them. */

@@ -10,6 +10,7 @@ import { bodyColor } from "../snake/draw";
 import { WALL } from "../survivors/world";
 import { BODY_R, HEAD_R } from "./body";
 import { gemReach } from "./merge";
+import { tailHead } from "./twinHead";
 import type { Arena, Kind, Pt, Run } from "./types";
 
 export interface Pen {
@@ -85,18 +86,10 @@ export function drawSnake(g: Pen, run: Run, blink: boolean): void {
   }
   if (run.taken.spikes) drawSpikes(g, run, a);
   if (run.taken.frost) drawFrost(g, run, a);
-  if (run.taken.twinHead) drawTailHead(g, run, a);
-  g.fillStyle(INK.mint, 0.22 * a);
-  g.fillCircle(run.x, run.y, HEAD_R * 1.9);
-  g.fillStyle(INK.mint, a);
-  g.fillCircle(run.x, run.y, HEAD_R);
+  drawTailHead(g, run, a);
+  drawHead(g, run, a);
   if (run.taken.fangs) drawFangs(g, run, a);
-  for (const e of eyesOf(run.x, run.y, run.heading)) {
-    g.fillStyle(INK.eye, a);
-    g.fillCircle(e.x, e.y, 2.6);
-    g.fillStyle(INK.pupil, a);
-    g.fillCircle(e.x + Math.cos(run.heading), e.y + Math.sin(run.heading), 1.3);
-  }
+  drawEyes(g, run, run.heading, a);
 }
 
 /** The spiked tail: gold spikes standing out from the body on both sides. */
@@ -383,24 +376,32 @@ export function drawNova(g: Pen, c: Pt, r: number, k: number): void {
 }
 
 /**
- * Twin Head: the tail end wears a second, smaller head - violet, the tail's
- * own colour - with eyes facing away from the body.
+ * Twin Head (round eight: "pointless-looking"): the tail tip wears a second
+ * head in the HEAD'S OWN LOOK - the mint glow, a head-sized disc and two eyes -
+ * facing away from the body (`tailHead`), so the card reads as what it does.
  */
 export function drawTailHead(g: Pen, run: Run, a: number): void {
-  const n = run.path.length;
-  if (n < 2) return;
-  const t = run.path[n - 1];
-  const q = run.path[n - 2];
-  const heading = Math.atan2(t.y - q.y, t.x - q.x);
-  g.fillStyle(INK.wall, 0.25 * a);
-  g.fillCircle(t.x, t.y, HEAD_R * 1.6);
-  g.fillStyle(bodyColor(1), a);
-  g.fillCircle(t.x, t.y, HEAD_R * 0.85);
-  for (const e of eyesOf(t.x, t.y, heading)) {
+  const t = tailHead(run);
+  if (!t) return;
+  drawHead(g, t, a);
+  drawEyes(g, t, t.heading, a);
+}
+
+/** A head's mint glow and disc. */
+function drawHead(g: Pen, at: Pt, a: number): void {
+  g.fillStyle(INK.mint, 0.22 * a);
+  g.fillCircle(at.x, at.y, HEAD_R * 1.9);
+  g.fillStyle(INK.mint, a);
+  g.fillCircle(at.x, at.y, HEAD_R);
+}
+
+/** The two eyes on a head. */
+function drawEyes(g: Pen, at: Pt, heading: number, a: number): void {
+  for (const e of eyesOf(at.x, at.y, heading)) {
     g.fillStyle(INK.eye, a);
-    g.fillCircle(e.x, e.y, 2.2);
+    g.fillCircle(e.x, e.y, 2.6);
     g.fillStyle(INK.pupil, a);
-    g.fillCircle(e.x + Math.cos(heading), e.y + Math.sin(heading), 1.1);
+    g.fillCircle(e.x + Math.cos(heading), e.y + Math.sin(heading), 1.3);
   }
 }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "@shared/rng";
 import { ringRun } from "./testRing";
 import { HIT_COST, MIN_LEN, START_LEN } from "./body";
-import { BOSS_AT, KINDS, bossHpOf, stageGoal } from "./crowd";
+import { BOSS_AT, KINDS, bossHpOf, hitCost, stageGoal } from "./crowd";
 import { CAPS, WEAPONS, offerCards } from "./cards";
 import { hitsLeft, newRun, pickCard, step } from "./logic";
 import type { Foe, Kind, Run } from "./types";
@@ -125,7 +125,9 @@ describe("hits left, the HUD's hearts", () => {
     for (const len of [4, 9, 16, 28]) {
       const run = quiet(newRun("normal", { w: 420, h: 560 }, fixed));
       run.len = len;
-      for (let k = 0; k < hitsLeft(len); k++) {
+      // Round eight: a bump costs `hitCost` (half a heart on normal, a fifth into stage 2), and the
+      // hearts count at that same cost.
+      for (let k = 0; k < hitsLeft(len, hitCost(run)); k++) {
         expect(run.phase, `len ${len}, hit ${k}`).not.toBe("dead");
         run.blink = 0;
         run.foes = [foe("runner", run.x, run.y)];
@@ -137,17 +139,22 @@ describe("hits left, the HUD's hearts", () => {
 });
 
 describe("a hit", () => {
-  it("costs one segment, then a blink of safety", () => {
+  it("costs one segment in stage 1 on normal and calm, then a blink of safety", () => {
     const run = quiet(newRun("normal", { w: 420, h: 560 }, fixed));
     run.foes = [foe("runner", run.x, run.y)];
     step(run, 16, STILL, fixed);
     expect(HIT_COST).toBe(1);
-    expect(run.len).toBe(START_LEN - HIT_COST);
+    // Round eight: the half-heart hit starts a fifth into stage 2, so stage 1 is one segment.
+    expect(run.len).toBe(START_LEN - 1);
     expect(run.blink).toBeGreaterThan(0);
     expect(run.events.some((e) => e.k === "hit")).toBe(true);
     run.foes = [foe("runner", run.x, run.y)];
     step(run, 16, STILL, fixed);
-    expect(run.len).toBe(START_LEN - HIT_COST);
+    expect(run.len).toBe(START_LEN - 1);
+    const calm = quiet(newRun("calm", { w: 420, h: 560 }, fixed));
+    calm.foes = [foe("runner", calm.x, calm.y)];
+    step(calm, 16, STILL, fixed);
+    expect(calm.len).toBe(START_LEN - HIT_COST);
   });
 
   it("ends the run when the snake drops below the minimum", () => {

@@ -18,7 +18,7 @@ import {
 } from "./cards";
 import { BONUS_GEM, crushFx } from "./crushFx";
 import {
-  KINDS, SAFE_START_MS, SHOT, STAGE_BREATHER_MS, biteCost, isBoss, moveFoes, startBoss, tickMini, tickSpawns, wardenMayCome,
+  KINDS, SAFE_START_MS, SHOT, STAGE_BREATHER_MS, hitCost, isBoss, moveFoes, startBoss, tickMini, tickSpawns, wardenMayCome,
 } from "./crowd";
 import { gemReach, mergeGems } from "./merge";
 import { FLOOR_GEMS, tickFloorGems } from "./floor";
@@ -49,7 +49,7 @@ const PULL_SPEED = 240;
  * How many hits the tail can still take, the one that ends the run included -
  * the number the HUD draws as hearts. Derived from the same two constants the
  * hit uses, so the hearts cannot disagree with the rule that empties them.
- * `cost` is what one bump costs right now (`biteCost`: 2 from stage 2 on wild).
+ * `cost` is what one bump costs right now (`hitCost`: half a heart on normal and wild, from a fifth into stage 2).
  */
 export const hitsLeft = (len: number, cost = HIT_COST) => Math.max(1, Math.ceil((Math.floor(len) - MIN_LEN + 1) / cost));
 
@@ -74,6 +74,7 @@ export function newRun(level: LevelKey, arena: Arena = ARENA, rng: () => number 
     heading: 0,
     path: Array.from({ length: n }, (_, i) => ({ x: x - (i + 1) * SPACING, y })),
     len: START_LEN,
+    peak: START_LEN,
     foes: [], gems: [], nextId: 1,
     t: 0,
     // A first shape a second or so in, jittered so two runs do not open alike.
@@ -144,6 +145,7 @@ export function pickCard(run: Run, id: CardId): void {
 
 function grow(run: Run, by: number): void {
   run.len = Math.min(maxLenOf(run), run.len + by);
+  run.peak = Math.max(run.peak, Math.floor(run.len));
 }
 
 function regrow(run: Run, dt: number): void {
@@ -336,7 +338,8 @@ function headContacts(run: Run, rng: () => number): void {
 
 /**
  * One bump to the head, from a shape or a bolt: the blink starts, and the
- * Shield takes it if it is ready, otherwise it costs `biteCost` segments.
+ * Shield takes it if it is ready, otherwise it costs `hitCost` segments -
+ * half a heart on normal and wild, from a fifth into stage 2 since round eight, today's `biteCost` on calm.
  */
 function takeHit(run: Run, kind: Foe["kind"], x: number, y: number): void {
   run.blink = BLINK_MS;
@@ -345,7 +348,7 @@ function takeHit(run: Run, kind: Foe["kind"], x: number, y: number): void {
     run.shieldIn = shieldEvery(run);
     run.events.push({ k: "shield" });
   } else {
-    run.len = Math.max(0, run.len - biteCost(run));
+    run.len = Math.max(0, run.len - hitCost(run));
     run.events.push({ k: "hit", kind, x, y });
     trimTrail(run);
   }

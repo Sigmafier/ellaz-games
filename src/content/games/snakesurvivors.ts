@@ -38,7 +38,7 @@ export const snakesurvivors: GameContent = {
       body: [
         "יש במשחק הזה מהלך אחד. מציירים עיגול עם עצמכם. מה שנמצא בפנים כשהעיגול נסגר נעלם, ומשאיר אחריו יהלומים.",
 
-        "הזנב הוא החיים, והמספר על המסך הוא פשוט האורך שלכם. הנחש מתחיל ב-28 חוליות. צורה שמגיעה לראש נוגסת לפחות 1 מהן, ואחר כך הנחש מהבהב 1.4 שניות שבהן שום דבר לא נוגע בו - בדיוק מספיק זמן להתרחק ממה שנגס. יורדים מתחת ל-3 חוליות והריצה נגמרת. יהלומים מחזירים אורך וממלאים את הפס שמביא את הקלף הבא: יהלום כחול שווה שליש חוליה, אדום שני שלישים, וצהוב חוליה שלמה. הנחש הכי ארוך שאפשר לגדל הוא 60 חוליות, ונחש ארוך יכול לצייר לולאה רחבה יותר.",
+        "הזנב הוא החיים, והמספר על המסך הוא פשוט האורך שלכם. הנחש מתחיל ב-28 חוליות. צורה שמגיעה לראש נוגסת לפחות 1 מהן, ואחר כך הנחש מהבהב 1.4 שניות שבהן שום דבר לא נוגע בו - בדיוק מספיק זמן להתרחק ממה שנגס. יורדים מתחת ל-3 חוליות והריצה נגמרת. יהלומים מחזירים אורך וממלאים את הפס שמביא את הקלף הבא: יהלום כחול שווה שליש חוליה, אדום שני שלישים, וצהוב חוליה שלמה. הנחש הכי ארוך שאפשר לגדל הוא 100 חוליות ברמה רגילה ובפראית, ו-60 ברגועה, ונחש ארוך יכול לצייר לולאה רחבה יותר.",
 
         "הגוף הוא לא קיר. צורות חוצות אותו בחופשיות, וזה כל הטריק: קהל שרודף אחרי הראש בזמן שאתם מסתובבים חותך פינה ונשאר בתוך העיגול שאתם מציירים. אז סוגרים, ולא צריך לפגוע בזנב בדיוק: ברגע שהראש מגיע למרחק 42 יחידות מהגוף, הלולאה נסגרת, וקו מקווקו מראה איפה. אבל הגודל קובע. לולאה מוחצת רק אם היא סוגרת לפחות 4000 יחידות רבועות, בערך עיגול ברדיוס 36, אז סיבוב צפוף במקום לא מוחץ כלום, והצורות שמתיישבות בתוכו מגיעות בסוף לראש. בגלל זה האורך הוא יותר מחיים: נחש ארוך יכול להרשות לעצמו לולאה רחבה, נחש קצר בקושי מצליח לסגור אחת, וכל יהלום מחזיר קצת מהטווח הזה. סגירה אחת היא מחיצה אחת, וכל צורה בפנים חוטפת ממנה מכה אחת.",
 
@@ -109,7 +109,7 @@ export const snakesurvivors: GameContent = {
       body: [
         "There is one move. Draw a circle with yourself. Whatever is inside when the circle closes is gone, and it leaves gems behind.",
 
-        "Your tail is your health, and the length counter on the screen is simply how long you are. The snake starts at 28 segments. A shape that reaches your head bites off at least 1 of them, and then you blink for 1.4 seconds while nothing can touch you, just long enough to get clear of it. Drop below 3 segments and the run is over. Gems put the length back and fill the bar that brings the next card. A blue gem is worth a third of a segment, a red one two thirds and a yellow one a whole segment. The longest you can grow is 60 segments, and a longer snake can draw a bigger loop.",
+        "Your tail is your health, and the length counter is how long you are. The snake starts at 28 segments. A shape that reaches your head bites off at least 1 of them, and then you blink for 1.4 seconds while nothing can touch you, just long enough to get clear of it. Drop below 3 segments and the run is over. Gems put the length back and fill the bar that brings the next card. A blue gem is worth a third of a segment, a red one two thirds and a yellow one a whole segment. The longest you can grow is 100 segments (60 on Calm), and a longer snake can draw a bigger loop.",
 
         "Your body is not a wall. Shapes cross it freely, and that is the trick: a crowd chasing your head while you circle cuts the corner and ends up inside the circle you are drawing. Close it then.",
 
@@ -180,7 +180,7 @@ export const snakesurvivors: GameContent = {
       body: [
         "Aquí nadie apunta. Tu única arma es el dibujo que haces con tu propio cuerpo, y el único golpe que existe es cerrar el lazo.",
 
-        "La cola es la vida, y el número de la pantalla es simplemente lo larga que eres. La serpiente empieza con 28 segmentos. Una forma que llega a la cabeza se lleva al menos 1, y después parpadeas durante 1,4 segundos en los que nada puede tocarte, justo para salir de allí. Por debajo de 3 segmentos, la partida termina. Las gemas devuelven longitud y llenan la barra que trae la siguiente carta: una azul vale un tercio de segmento, una roja dos tercios y una amarilla un segmento entero. Como mucho llegarás a 60 segmentos, y cuanto más larga, más grande el lazo que puedes dibujar.",
+        "La cola es la vida, y el número de la pantalla es lo larga que eres. La serpiente empieza con 28 segmentos. Una forma que llega a la cabeza se lleva al menos 1, y después parpadeas durante 1,4 segundos en los que nada puede tocarte, justo para salir de allí. Por debajo de 3 segmentos, la partida termina. Las gemas devuelven longitud y llenan la barra que trae la siguiente carta: una azul vale un tercio de segmento, una roja dos tercios y una amarilla un segmento entero. Como mucho llegarás a 100 segmentos (60 en Tranquilo), y cuanto más larga, más grande el lazo que puedes dibujar.",
 
         "Tu cuerpo no es una pared. Las formas lo cruzan sin problema, y ahí está el truco: un grupo que persigue tu cabeza mientras giras acorta por dentro y acaba metido en el círculo que estás dibujando. Entonces cierras, sin tocarte la cola con precisión: en cuanto la cabeza pasa a 42 unidades de tu cuerpo, el lazo se cierra, y una línea discontinua te enseña dónde. Pero el tamaño manda. Un lazo solo aplasta si encierra al menos 4000 unidades cuadradas, más o menos un círculo de radio 36, así que dar vueltas cerradas en el sitio no aplasta nada, y lo que se acomoda dentro de ese giro acaba alcanzándote la cabeza. Por eso la longitud es más que vida: una serpiente larga puede permitirse un lazo amplio, una corta apenas consigue cerrar uno, y cada gema te devuelve parte de ese alcance. Cada cierre es un golpe para todo lo que haya dentro.",
 
@@ -254,7 +254,7 @@ export const snakesurvivors: GameContent = {
     { claim: "A shape that reaches your head bites off at least 1 of them (more in the later stages on Normal and Wild)", source: "src/games/snakesurvivors/crowd.ts" },
     { claim: "Once your head comes within 42 units of your body the loop snaps shut", source: "src/games/snakesurvivors/cards.ts" },
     { claim: "Drop below 3 segments and the run is over", source: "src/games/snakesurvivors/body.ts" },
-    { claim: "The longest you can grow is 60 segments", source: "src/games/snakesurvivors/body.ts" },
+    { claim: "The longest you can grow is 100 segments (60 on Calm)", source: "src/games/snakesurvivors/body.ts" },
     { claim: "you blink for 1.4 seconds while nothing can touch you", source: "src/games/snakesurvivors/logic.ts" },
     { claim: "A blue gem is worth a third of a segment, a red one two thirds and a yellow one a whole segment", source: "src/games/snakesurvivors/logic.ts" },
     {

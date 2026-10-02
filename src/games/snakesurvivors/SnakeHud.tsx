@@ -1,5 +1,5 @@
-import type { ReactElement, ReactNode } from "react";
-import { HEART_COLS, type BossRow, type HeartBlock, type RunStat } from "./hud";
+import { useEffect, useRef, type ReactElement, type ReactNode } from "react";
+import { HEART_COLS, type BossRow, type GoalRow, type HeartBlock, type RunStat } from "./hud";
 
 // Snake Survivors' HUD, drawn ON the arena: "C3 Big hearts, length right",
 // approved off a mock on 2026-10-01 (the operator: "Life: hearts top left,
@@ -26,18 +26,50 @@ const HEART_PATH = "M12 21s-7.5-4.7-7.5-10.1A4.4 4.4 0 0 1 12 8a4.4 4.4 0 0 1 7.
 
 const icon = { width: "1em", height: "1em", display: "block", flex: "0 0 auto" } as const;
 
-const Heart = ({ full }: { full: boolean }) => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" data-heart={full ? "full" : "empty"} style={icon}>
-    <path
-      d={HEART_PATH}
-      fill={full ? RED : "none"}
-      stroke={RED}
-      strokeWidth={full ? 0 : 2}
-      strokeLinejoin="round"
-      opacity={full ? 1 : 0.7}
-    />
-  </svg>
+/**
+ * One heart, `fill` 0..1 full: the outline always, and the red heart over it
+ * cut to `fill` of its width - so a crash that costs part of a heart shows.
+ */
+const Heart = ({ fill }: { fill: number }) => (
+  <span
+    data-heart={fill >= 1 ? "full" : fill <= 0 ? "empty" : "part"}
+    style={{ position: "relative", display: "block", width: "1em", height: "1em" }}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true" style={icon}>
+      <path d={HEART_PATH} fill="none" stroke={RED} strokeWidth={2} strokeLinejoin="round" opacity={0.7} />
+    </svg>
+    {fill > 0 && (
+      <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.round(fill * 100)}%`, overflow: "hidden" }}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" style={icon}>
+          <path d={HEART_PATH} fill={RED} />
+        </svg>
+      </span>
+    )}
+  </span>
 );
+
+/** A crash: the block flashes red and jumps a little (colour only under reduced motion). */
+function useHitFlash(fill: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const was = useRef(fill);
+  useEffect(() => {
+    const el = ref.current;
+    const hit = fill < was.current - 1e-9;
+    was.current = fill;
+    if (!hit || !el || typeof el.animate !== "function") return;
+    const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const pop = still ? "scale(1)" : "scale(1.1)";
+    el.animate(
+      [
+        { boxShadow: "0 0 0 0 rgba(244, 80, 63, 0)", transform: "scale(1)" },
+        { boxShadow: "0 0 0 0.3em rgba(244, 80, 63, 0.9)", transform: pop, offset: 0.3 },
+        { boxShadow: "0 0 0 0 rgba(244, 80, 63, 0)", transform: "scale(1)" },
+      ],
+      { duration: 480, easing: "ease-out" },
+    );
+  }, [fill]);
+  return ref;
+}
 
 /** The length's glyph: a short neon snake. */
 export const snakeIcon = () => (
@@ -103,6 +135,7 @@ export function SnakeHud({
   len,
   boss,
   cards,
+  goal = null,
 }: {
   hearts: HeartBlock;
   len: number;
@@ -110,7 +143,10 @@ export function SnakeHud({
   boss: BossRow | null;
   /** The OWNED weapons' drawings; an empty list draws no column at all. */
   cards: { id: string; art: ReactNode }[];
+  /** The goal row, top-centre (round eight), or null to draw none (the guided run). */
+  goal?: GoalRow | null;
 }) {
+  const heartsRef = useHitFlash(hearts.fill);
   return (
     <div
       aria-hidden="true"
@@ -132,9 +168,11 @@ export function SnakeHud({
         }}
       >
         {/* HEARTS, top-left ALWAYS (physical, not logical: "heart should be on
-            left top corner always"). Two rows of four, big; a lost heart is an
-            outline in its place; the block turns red at the last one. */}
+            left top corner always"). Two rows of four, big; they drain with every
+            crash, part hearts and then outlines, and the block flashes on the
+            hit and turns red when the next bump is the last. */}
         <div
+          ref={heartsRef}
           data-hud="hearts"
           data-danger={hearts.danger ? "true" : "false"}
           style={{
@@ -151,8 +189,8 @@ export function SnakeHud({
             background: hearts.danger ? "rgba(60, 14, 20, 0.92)" : COVER,
           }}
         >
-          {hearts.cells.map((full, i) => (
-            <Heart key={i} full={full} />
+          {hearts.cells.map((fill, i) => (
+            <Heart key={i} fill={fill} />
           ))}
         </div>
 
@@ -187,6 +225,8 @@ export function SnakeHud({
             {len}
           </span>
         </div>
+
+        {goal && <GoalBlock goal={goal} />}
 
         {/* THE WEAPONS, on the side, only once owned - no empty slots. */}
         {cards.length > 0 && (
@@ -266,6 +306,58 @@ export function SnakeHud({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Where the goal row may sit: in the gap between the two corners, with 0.2em of
+ * air each side. MEASURED in Chromium with the shipped Fredoka (2026-10-02, the
+ * HUD rendered at the arena widths of a 390x844 and a 360x780 phone and a PC):
+ * the hearts block ends 10.1em + its 4px border in, and the length's widest
+ * number, "140" (100 and both Long Body cards), starts 7.44-7.49em from the
+ * right. That leaves the goal about 4.1em on a phone - room for "BOSS 3/3"
+ * (3.59em, the widest word) - so the score and the clock wrap onto two lines
+ * there, and sit on one on a PC.
+ */
+export const GOAL_INSET = { left: "calc(10.35em + 4px)", right: "7.75em" } as const;
+
+/**
+ * THE GOAL (round eight): the crushed count as the score and the run clock,
+ * and "BOSS n/3" under them - top-centre, in the gap between the two corners.
+ * The score and the clock wrap onto two lines when the gap is too narrow for
+ * one, so the block never reaches either corner.
+ */
+function GoalBlock({ goal }: { goal: GoalRow }) {
+  return (
+    // The box is placed in the HUD's own em (the insets were measured in it);
+    // only the words inside it are smaller - an em inset on a 0.8em box would
+    // land 20% short of the corners it is measured against.
+    <div data-hud="goal" style={{ position: "absolute", top: "0.5em", left: GOAL_INSET.left, right: GOAL_INSET.right }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "0.25em",
+          fontSize: "0.8em",
+          textAlign: "center",
+          textShadow: "0 2px 6px rgba(11, 14, 34, 0.85)",
+        }}
+      >
+      <span dir="ltr" style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: "0.2em 0.6em" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25em", color: GOLD, whiteSpace: "nowrap" }}>
+          {crushIcon()}
+          <span data-goal="score">{goal.score}</span>
+        </span>
+        <span data-goal="clock" style={{ whiteSpace: "nowrap" }}>
+          {goal.clock}
+        </span>
+      </span>
+      <span data-goal="boss" style={{ color: "#ff7675", whiteSpace: "nowrap", fontSize: "0.85em", letterSpacing: "0.04em" }}>
+        {goal.boss}
+      </span>
       </div>
     </div>
   );
