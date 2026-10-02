@@ -15,25 +15,30 @@ import { describe, expect, it } from "vitest";
 const chrome = readFileSync(new URL("./SurvivorsGame.tsx", import.meta.url), "utf8");
 const scene = readFileSync(new URL("./SurvivorsScene.ts", import.meta.url), "utf8");
 const arcade = readFileSync(new URL("../../ui/ArcadeChrome.tsx", import.meta.url), "utf8");
+// The level-up cards moved to their own file with card option B (2026-10-02):
+// three big cards whose STARS count a weapon's levels and an upgrade's steps.
+const cards = readFileSync(new URL("./LevelCards.tsx", import.meta.url), "utf8");
 // The starting weapon is picked on its own screen since 2026-09-30 (the whole
 // collection, in rarity frames), so the rule about its colours reads that file.
 const pick = readFileSync(new URL("./entrance/WeaponPick.tsx", import.meta.url), "utf8");
 
 describe("the cards say a level the way every other card says a count", () => {
-  it("a weapon LEVEL card draws pips, and never the words 1 -> 2", () => {
+  it("a weapon LEVEL card draws a row (stars since card option B), and never the words 1 -> 2", () => {
     // Operator ruling: *"Some upgrades show like 1->2. Can u do them with the
     // bullets?"*. The arrow is what has to be absent - a pip row added beside a
     // surviving arrow would look right in a diff and wrong on a phone.
-    expect(chrome).not.toContain("&rarr;");
-    expect(chrome).not.toMatch(/\{card\.to - 1\}/);
+    for (const src of [chrome, cards]) {
+      expect(src).not.toContain("&rarr;");
+      expect(src).not.toMatch(/\{card\.to - 1\}/);
+    }
     // And the row is built from the rules' own cap, so a retune redraws it.
-    expect(chrome).toMatch(/Array\.from\(\{ length: WEAPON_LV_MAX \}/);
+    expect(cards).toContain("stars: { on: card.to, of: WEAPON_LV_MAX }");
   });
 
   it("THE CONTROL: the pip row the UPGRADE cards already had is still there", () => {
     // Without this the assertions above are satisfied by a file that lost both
     // rows. Two different lengths, so this cannot be the same line twice.
-    expect(chrome).toMatch(/Array\.from\(\{ length: cap \}/);
+    expect(cards).toContain("of: cap }");
   });
 });
 

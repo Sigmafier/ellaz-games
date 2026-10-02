@@ -10,7 +10,6 @@ import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
 import { shake } from "@juice/index";
 import { SLOTS_MAX } from "./arsenal";
 import { DASH_MS } from "./powers";
-import type { Card } from "./cards";
 import { WEAPON_ART, WEAPON_INK_CSS } from "./weaponArt";
 // NO `DirectionPad` HERE, and that is the point of this game's control.
 // `CLAUDE.md` used to say every game ships the four-arrow pad and never the
@@ -31,9 +30,8 @@ import { measureBoxUnscaled, type ScaleManagerLike } from "@shared/phaserBox";
 // and the arena's size is needed to shape the box before Phaser exists.
 import type { SurvivorsScene, SurvivorsStatus } from "./SurvivorsScene";
 import type { LevelKey, UpgradeId, WeaponId } from "./logic";
-import { ARENA, ARENA_WIDE, RUN_MS, UPGRADE_CAP, UPGRADE_IDS, WEAPON_LV_MAX, type Arena,
+import { ARENA, ARENA_WIDE, RUN_MS, UPGRADE_IDS, type Arena,
 } from "./logic";
-import { UPGRADE_ART } from "./upgradeArt";
 import { phoneArena, phoneBox } from "./phoneArena";
 // THE CAREER (P3, 2026-09-29): everything the career draws lives in its own
 // file; this component only opens it, from the title's Career pill.
@@ -50,6 +48,8 @@ import { balancedLines, titleLines } from "@ui/ArcadeTitle";
 // collection, and a weapon's evolution arrives as a gold card of its own.
 import { WeaponPick } from "./entrance/WeaponPick";
 import { SuperCard } from "./entrance/SuperCard";
+import { LevelCards } from "./LevelCards";
+import { cardWords } from "./cardWords";
 import { weaponWords } from "./entrance/weaponWords";
 import { weaponsOpenIn } from "./weaponPool";
 import type { CareerStore } from "../../shared/career/save";
@@ -112,7 +112,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
   const sceneRef = useRef<Pick<
     SurvivorsScene,
     | "setLevel" | "setPaused" | "restartFromChrome" | "startFromChrome" | "choose"
-    | "setStartWeapon" | "freezeFromChrome" | "startCareer" | "leaveCareer"
+    | "setStartWeapon" | "freezeFromChrome" | "startCareer" | "leaveCareer" | "reroll"
   > | null>(null);
 
   /**
@@ -186,6 +186,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
     phase: "ready",
     paused: false,
     offer: [],
+    rerolls: 0,
     boss: null,
     // Built from the id list rather than typed out, so an eighth upgrade cannot
     // leave a hole here that only shows up as an empty pip row on one card.
@@ -361,7 +362,6 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         hearts: "לבבות",
         pickWeapon: "בחרו נשק",
         newWeapon: "נשק חדש",
-        takesSlot: "תופס תא {n} מתוך 4",
         dash: "זינוק",
         dashReady: "זינוק מוכן",
         freeze: "הקפאה",
@@ -384,7 +384,6 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         hearts: "Hearts",
         pickWeapon: "Pick your weapon",
         newWeapon: "New weapon",
-        takesSlot: "takes slot {n} of 4",
         dash: "Dash",
         dashReady: "Dash ready",
         freeze: "Freeze",
@@ -407,7 +406,6 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         hearts: "Corazones",
         pickWeapon: "Elige tu arma",
         newWeapon: "Arma nueva",
-        takesSlot: "ocupa la ranura {n} de 4",
         dash: "Salto",
         dashReady: "Salto listo",
         freeze: "Congelar",
@@ -430,7 +428,6 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         hearts: "Hjärtan",
         pickWeapon: "Välj ditt vapen",
         newWeapon: "Nytt vapen",
-        takesSlot: "tar plats {n} av 4",
         dash: "Rusning",
         dashReady: "Rusning klar",
         freeze: "Frys",
@@ -439,6 +436,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
     ctx.locale,
   );
 
+  const CW = cardWords(ctx.locale);
   const UP = textFor(
     {
       he: {
@@ -883,212 +881,32 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
 
                 The row is NOT pinned `dir`: in Hebrew it should mirror, and the
                 drawing belongs on the side the reading starts from. */}
-            {status.offer.map((card: Card) => {
-              if (card.kind === "weapon") {
-                const id = card.id;
-                return (
-                  <button
-                    key={`weapon-${id}`}
-                    type="button"
-                    onClick={() => sceneRef.current?.choose(card)}
-                    aria-label={`${T.newWeapon}: ${WN[id][0]}`}
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      minHeight: 64,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "8px 12px",
-                      borderRadius: "var(--radius-2)",
-                      // The weapon's own ink as the border, so the card and the
-                      // thing it adds to the arena read as one weapon.
-                      border: `2px solid ${WEAPON_INK_CSS[id]}`,
-                      background: "rgba(255, 255, 255, 0.1)",
-                      color: "#fff",
-                      font: "inherit",
-                      fontFamily: "Fredoka, inherit",
-                      cursor: "pointer",
-                      touchAction: "manipulation",
-                    }}
-                  >
-                    <span aria-hidden="true" style={{ display: "flex", flex: "0 0 auto", color: WEAPON_INK_CSS[id] }}>
-                      {WEAPON_ART[id](36)}
-                    </span>
-                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3, minWidth: 0 }}>
-                      <span style={{ fontSize: 16, fontWeight: 700, textAlign: "start" }}>{WN[id][0]}</span>
-                      <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.9, textAlign: "start" }}>
-                        {T.takesSlot.replace("{n}", String(status.slots.length + 1))}
-                      </span>
-                    </span>
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        position: "absolute",
-                        insetInlineEnd: 10,
-                        top: -10,
-                        padding: "2px 8px",
-                        borderRadius: "var(--radius-pill)",
-                        background: WEAPON_INK_CSS[id],
-                        color: "#0b0d1f",
-                        fontSize: 11,
-                        fontWeight: 800,
-                        letterSpacing: "0.04em",
-                      }}
-                    >
-                      {T.newWeapon}
-                    </span>
-                  </button>
-                );
-              }
-              // THE EVOLUTION - the SUPER POWER. It arrives alone (cards.ts), so it
-              // is drawn as its own gold card over the whole arena rather than a
-              // row among the upgrades: this is the moment the run was for, and
-              // a card that looked like the routine picks would read as one.
-              // The card covers the "Level up" heading under it.
-              if (card.kind === "evolve") {
-                return (
-                  <SuperCard
-                    key={`evolve-${card.id}`}
-                    id={card.id}
-                    weaponName={WN[card.id][0]}
-                    locale={ctx.locale}
-                    onTake={() => sceneRef.current?.choose(card)}
-                  />
-                );
-              }
-              // A LEVEL for a weapon the run already carries. Rendered from the
-              // weapon's own art and ink, exactly like the new-weapon card above
-              // it, because to a player they are the same object - one adds it,
-              // the other makes it better. Polished in T10; this is the branch
-              // that keeps it honest in the meantime.
-              if (card.kind === "level") {
-                const id = card.id;
-                return (
-                  <button
-                    key={`level-${id}`}
-                    type="button"
-                    onClick={() => sceneRef.current?.choose(card)}
-                    aria-label={`${WN[id][0]} ${card.to}`}
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      minHeight: 64,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "8px 12px",
-                      borderRadius: "var(--radius-2)",
-                      border: `2px solid ${WEAPON_INK_CSS[id]}`,
-                      background: "rgba(255, 255, 255, 0.1)",
-                      color: "#fff",
-                      font: "inherit",
-                      fontFamily: "Fredoka, inherit",
-                      cursor: "pointer",
-                      touchAction: "manipulation",
-                    }}
-                  >
-                    <span aria-hidden="true" style={{ display: "flex", flex: "0 0 auto", color: WEAPON_INK_CSS[id] }}>
-                      {WEAPON_ART[id](36)}
-                    </span>
-                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3, minWidth: 0 }}>
-                      <span style={{ fontSize: 16, fontWeight: 700, textAlign: "start" }}>{WN[id][0]}</span>
-                      {/* PIPS, NOT "1 -> 2". Operator ruling 2026-09-22:
-                          *"Some upgrades show like 1->2. Can u do them with the
-                          bullets?"*
-
-                          Every other card on this screen already says how far
-                          along you are with a row of dots; this one said it with
-                          two digits and an arrow, so the same fact was written
-                          in two languages on one screen. The dots are drawn as
-                          BULLETS rather than circles - a rounded upright capsule
-                          - because this row counts a weapon's levels rather than
-                          an upgrade's steps, and the shape is what tells the two
-                          cards apart now that the fill no longer does.
-
-                          `WEAPON_LV_MAX` is the length, read from the rules, so
-                          a retuned cap redraws the row instead of lying about
-                          it. `card.to` is the level this card WOULD take you to,
-                          so it is filled rather than pending. */}
-                      <span aria-hidden="true" style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                        {Array.from({ length: WEAPON_LV_MAX }, (_, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              width: 5,
-                              height: 11,
-                              borderRadius: "2.5px 2.5px 1.5px 1.5px",
-                              background: i < card.to ? WEAPON_INK_CSS[id] : "rgba(255, 255, 255, 0.25)",
-                            }}
-                          />
-                        ))}
-                      </span>
-                    </span>
-                  </button>
-                );
-              }
-              const id = card.id;
-              const held = status.taken[id];
-              const cap = UPGRADE_CAP[id];
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => sceneRef.current?.choose(card)}
-                  // The pips are a picture of the count, so the count is said
-                  // here too - a screen reader gets the number rather than
-                  // seven anonymous dots.
-                  aria-label={`${UP[id]} ${held}/${cap}`}
-                  style={{
-                    width: "100%",
-                    minHeight: 60,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "8px 12px",
-                    borderRadius: "var(--radius-2)",
-                    border: "2px solid #22e7ff",
-                    background: "rgba(34, 231, 255, 0.12)",
-                    color: "#fff",
-                    font: "inherit",
-                    fontFamily: "Fredoka, inherit",
-                    cursor: "pointer",
-                    touchAction: "manipulation",
-                  }}
-                >
-                  <span aria-hidden="true" style={{ display: "flex", flex: "0 0 auto" }}>
-                    {UPGRADE_ART[id]()}
-                  </span>
-                  <span
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      gap: 5,
-                      minWidth: 0,
-                    }}
-                  >
-                    <span style={{ fontSize: 16, fontWeight: 700, textAlign: "start" }}>{UP[id]}</span>
-                    {/* One pip per level this upgrade allows, filled up to what
-                        the run holds. The cap is read from `UPGRADE_CAP`, so a
-                        retuned cap redraws the row instead of lying about it. */}
-                    <span aria-hidden="true" style={{ display: "flex", gap: 4 }}>
-                      {Array.from({ length: cap }, (_, i) => (
-                        <span
-                          key={i}
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: i < held ? "#d8fbff" : "rgba(216, 251, 255, 0.22)",
-                          }}
-                        />
-                      ))}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+            {/* THE CARDS (operator ruling 2026-10-02, card option B): a super
+                arrives alone over the whole arena; anything else is the three
+                big cards, the counts and the reroll (LevelCards.tsx). */}
+            {status.offer[0]?.kind === "evolve" ? (
+              <SuperCard
+                key={`evolve-${status.offer[0].id}`}
+                id={status.offer[0].id}
+                weaponName={WN[status.offer[0].id][0]}
+                locale={ctx.locale}
+                onTake={() => sceneRef.current?.choose(status.offer[0]!)}
+              />
+            ) : (
+              <LevelCards
+                offer={status.offer}
+                names={WN}
+                ups={UP}
+                words={CW}
+                newWord={T.newWeapon}
+                taken={status.taken}
+                weapons={{ held: status.slots.length, of: SLOTS_MAX }}
+                powers={{ held: UPGRADE_IDS.filter((id) => status.taken[id] > 0).length, of: UPGRADE_IDS.length }}
+                rerolls={status.rerolls}
+                onChoose={(card) => sceneRef.current?.choose(card)}
+                onReroll={() => sceneRef.current?.reroll()}
+              />
+            )}
           </div>
         )}
       </div>

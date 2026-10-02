@@ -184,8 +184,10 @@ describe("a career level goes through the pick", () => {
 
 describe("the SUPER POWER card", () => {
   it("an evolve card is drawn as the gold card", () => {
-    expect(GAME).toMatch(/if \(card\.kind === "evolve"\) \{\s*return \(\s*<SuperCard/);
-    expect(GAME).toMatch(/onTake=\{\(\) => sceneRef\.current\?\.choose\(card\)\}/);
+    // Since card option B (2026-10-02) the overlay branches once: a super offer
+    // draws the gold card, anything else the three big cards (LevelCards.tsx).
+    expect(GAME).toMatch(/status\.offer\[0\]\?\.kind === "evolve" \? \(\s*<SuperCard/);
+    expect(GAME).toMatch(/onTake=\{\(\) => sceneRef\.current\?\.choose\(status\.offer\[0\]!\)\}/);
   });
 
   it("it has one button, Take it, and it takes the card", () => {

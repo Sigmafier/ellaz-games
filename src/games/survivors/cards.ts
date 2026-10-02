@@ -107,3 +107,14 @@ export function applyCard(s: RunState, card: Card): RunState {
   if (s.slots.length < SLOTS_MAX && !holds(s, card.id)) s.slots.push(freshSlot(card.id));
   return s;
 }
+
+/**
+ * THE REROLL (operator ruling 2026-10-02, card option B): one free swap of an
+ * offer per stage. The SCENE keeps the count - the simulation never sees it, so a
+ * run with no reroll pressed is draw-for-draw the run it always was.
+ */
+export const REROLLS_PER_STAGE = 1;
+
+/** A reroll swaps ordinary cards only: a super power is the reward for a kill and is never rerolled. */
+export const canReroll = (offer: readonly Card[], left: number): boolean =>
+  left > 0 && offer.length > 0 && offer.every((c) => c.kind !== "evolve");

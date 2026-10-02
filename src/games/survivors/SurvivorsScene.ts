@@ -29,7 +29,7 @@ import { cameraOf } from "./world";
 import { bladePositions, bladeReach, bladesEvolved, dronePosition, holds } from "./arsenal";
 import { NOVA_FIRE } from "./evolve";
 import { chargeOf, dashReady, triggerFreeze } from "./powers";
-import { applyCard, offerCards, type Card } from "./cards";
+import { REROLLS_PER_STAGE, applyCard, canReroll, offerCards, type Card } from "./cards";
 // THE CAREER (P3): a level is built by `newCareerRun`, and each world looks the way
 // `groundArt.ts` draws it - this file only calls in, so it does not grow a world.
 import { PLAIN_STATS, careerResult, newCareerRun } from "./careerRun";
@@ -82,6 +82,8 @@ export type SurvivorsStatus = {
   paused: boolean;
   /** The cards on offer - upgrades, and a new weapon while a slot is free - or empty. */
   offer: Card[];
+  /** Rerolls left this stage (cards.ts `REROLLS_PER_STAGE`), 0 when the offer cannot be rerolled. */
+  rerolls: number;
   /**
    * The current stage's boss once it is on the board, and null while its swarm
    * phase is still running. The chrome swaps its countdown cell for this: at a
@@ -339,6 +341,9 @@ export class SurvivorsScene extends Phaser.Scene {
   /** The weapon a run starts with, chosen on the entrance. */
   private startWeapon: WeaponId = "bolt";
   private offer: Card[] = [];
+  /** The reroll count and the stage it belongs to - scene state, never the run's (cards.ts). */
+  private rerollsLeft = REROLLS_PER_STAGE;
+  private rerollStage = 0;
   private nextMilestone = MILESTONE_EVERY;
   /** Ground and grid. Drawn ONCE - they never change, and clearing a Graphics
    *  every frame to redraw the same 22 lines was work for nothing. */
@@ -591,7 +596,26 @@ export class SurvivorsScene extends Phaser.Scene {
       phase: this.phase,
       paused: this.paused,
       offer: this.offer,
+      rerolls: canReroll(this.offer, this.rerolls()) ? this.rerolls() : 0,
     });
+  }
+
+  /** Rerolls left, refilled when the run reaches a new stage (or a new run starts). */
+  private rerolls(): number {
+    if (this.rerollStage !== this.run.stage) {
+      this.rerollStage = this.run.stage;
+      this.rerollsLeft = REROLLS_PER_STAGE;
+    }
+    return this.rerollsLeft;
+  }
+
+  /** The cards' REROLL: the same offer rule, drawn again. A super is never rerolled. */
+  reroll() {
+    if (!canReroll(this.offer, this.rerolls())) return;
+    this.rerollsLeft -= 1;
+    this.offer = offerCards(this.run, this.rng);
+    this.ctx.audio.play("pop");
+    this.publish();
   }
 
   /** The chrome's pause button. Only a moving arena can be stopped. */
@@ -722,6 +746,7 @@ export class SurvivorsScene extends Phaser.Scene {
     // otherwise leave a lid over a ready screen nobody can read or reach.
     this.paused = false;
     this.offer = [];
+    this.rerollStage = 0;
     this.nextMilestone = MILESTONE_EVERY;
     this.sparks.length = 0;
     // Beside the sparks and for the same reason: a kill mark left over from the
