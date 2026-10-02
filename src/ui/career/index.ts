@@ -14,5 +14,6 @@ export type { Shelf, VendingShopProps } from "./VendingShop";
 export { Gear, TIER_COLOR } from "./Gear";
 export type { GearScreenProps, StatBar } from "./Gear";
 export type { Currency, Purse } from "./parts";
+export type { ItemInfo } from "./InfoCard";
 export { CareerIcon } from "./icons";
 export { careerWords } from "./words";

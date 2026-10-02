@@ -3,9 +3,12 @@
 // bars. The character is a PROP - each game passes its own - so the kit never
 // knows what a robot or a snake looks like.
 //
-// Tapping a bag item chooses it (it gets the swap badge); tapping it again, or
-// WEAR, puts it on. Wearing what is already worn answers with a wiggle. The
-// rules are `equipItem` in src/shared/career/gear.ts; this file only draws.
+// Tapping a bag item chooses it (it gets the swap badge) and opens its InfoCard:
+// what it adds, the number your slot gives now beside what this piece would give
+// (operator ruling 2026-10-02, "was 22, now 40"), and WEAR. Every slot and every
+// bag piece also prints its number on its face, so nothing found is a mystery.
+// Wearing what is already worn answers with a wiggle. The rules are `equipItem`
+// in src/shared/career/gear.ts; this file only draws.
 
 import { useState } from "react";
 import type { ReactElement, ReactNode } from "react";
@@ -14,6 +17,7 @@ import type { AppLocale } from "@i18n/index";
 import type { BagItemView, GearView, SlotId, SlotView, Tier } from "../../shared/career/gear";
 import type { StatId } from "../../shared/career/stats";
 import { CareerIcon, iconShapes, INK } from "./icons";
+import { InfoCard } from "./InfoCard";
 import { Btn3d, Hud, Screen, useBox, useWiggle } from "./parts";
 import type { Purse } from "./parts";
 import { careerWords } from "./words";
@@ -44,33 +48,36 @@ const STAT_ART: Record<StatId, [string, string]> = {
 };
 
 const num = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+const plus = (n: number): string => `+${num(n)}`;
 
 function SlotTile({ slot, size, w }: { slot: SlotView; size: number; w: CareerWords }): ReactElement {
   const tier = slot.tier;
   const c = tier ? TIER_COLOR[tier] : P.glass20;
   const name = w.slot[slot.id];
   return (
-    <div role="img" aria-label={tier ? `${name}: ${w.tier[tier]}` : name} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+    <div role="img" aria-label={tier ? `${name}: ${w.tier[tier]}, ${plus(slot.value)} ${w.stat[slot.stat]}` : name} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
       <div aria-hidden="true" style={{ fontSize: size * 0.15, fontWeight: 700, letterSpacing: 1, opacity: 0.85, textTransform: "uppercase" }}>{name}</div>
       <div style={{ width: size, height: size, borderRadius: 22, background: P.navyDeep, border: `5px solid ${INK}`, boxShadow: tier === "epic" ? `0 0 22px ${c}99` : undefined, position: "relative", display: "grid", placeItems: "center" }}>
         <div style={{ position: "absolute", inset: 5, border: `6px solid ${c}`, borderRadius: 16 }} />
         <span style={{ opacity: tier ? 1 : 0.3 }}>
           <svg width={size * 0.8} height={size * 0.8} viewBox="-24 -24 48 48" aria-hidden="true" style={{ overflow: "visible" }}><g transform="translate(0 -3)">{iconShapes(SLOT_ICON[slot.id], tier ? ART[slot.id][tier] : undefined)}</g></svg>
         </span>
+        {tier ? <span aria-hidden="true" style={{ position: "absolute", bottom: -44, whiteSpace: "nowrap", fontSize: 16, fontWeight: 700, color: P.sun, direction: "ltr" }}>{plus(slot.value)} <span style={{ color: P.white }}>{w.stat[slot.stat]}</span></span> : null}
         {tier ? <span aria-hidden="true" style={{ position: "absolute", bottom: -15, height: 30, minWidth: 88, padding: "0 8px", borderRadius: 15, background: c, border: `3.5px solid ${INK}`, color: INK, fontSize: 16, fontWeight: 700, display: "grid", placeItems: "center", textTransform: "uppercase" }}>{w.tier[tier]}</span> : null}
       </div>
     </div>
   );
 }
 
-function BagButton(props: { item: BagItemView; size: number; chosen: boolean; wiggling: boolean; w: CareerWords; onPress: () => void }): ReactElement {
+function BagButton(props: { item: BagItemView; stat: StatId; size: number; chosen: boolean; wiggling: boolean; w: CareerWords; onPress: () => void }): ReactElement {
   const { item, size } = props;
-  const label = `${props.w.slot[item.slot]}, ${props.w.tier[item.tier]}${item.worn ? `, ${props.w.worn}` : ""}${item.count > 1 ? ` x${item.count}` : ""}`;
+  const label = `${props.w.slot[item.slot]}, ${props.w.tier[item.tier]}, ${plus(item.value)} ${props.w.stat[props.stat]}${item.worn ? `, ${props.w.worn}` : ""}${item.count > 1 ? ` x${item.count}` : ""}`;
   return (
     <button type="button" aria-label={label} aria-pressed={props.chosen} onClick={props.onPress}
       className={`career-btn${props.wiggling ? " career-wiggle" : ""}`}
       style={{ position: "relative", flex: "none", width: size, height: size, borderRadius: 16, padding: 0, background: props.chosen ? P.navyLit : P.navyDark, border: `5px solid ${TIER_COLOR[item.tier]}`, display: "grid", placeItems: "center" }}>
       <CareerIcon name={SLOT_ICON[item.slot]} size={size * 0.72} color={ART[item.slot][item.tier]} />
+      <span aria-hidden="true" style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", padding: "0 6px", borderRadius: 10, background: P.navyDeep, border: `2.5px solid ${TIER_COLOR[item.tier]}`, fontSize: 14, lineHeight: "18px", fontWeight: 700, color: P.sun, direction: "ltr", whiteSpace: "nowrap" }}>{plus(item.value)}</span>
       {props.chosen ? <span aria-hidden="true" style={{ position: "absolute", top: -12, insetInlineEnd: -12, width: 32, height: 32, borderRadius: 16, background: P.white, border: `3px solid ${INK}`, display: "grid", placeItems: "center" }}><CareerIcon name="swap" size={24} /></span> : null}
       {item.worn ? <span aria-hidden="true" style={{ position: "absolute", bottom: -8, insetInlineStart: -8, width: 20, height: 20, borderRadius: 10, background: P.mint, border: `3px solid ${INK}` }} /> : null}
       {item.count > 1 ? <span aria-hidden="true" style={{ position: "absolute", bottom: 2, insetInlineEnd: 6, fontSize: 15, fontWeight: 700, color: P.white, textShadow: `0 2px 0 ${INK}` }}>x{item.count}</span> : null}
@@ -124,6 +131,7 @@ export function Gear(props: GearScreenProps): ReactElement {
   const dir = DIR[props.locale];
   const [boxRef, box] = useBox<HTMLDivElement>();
   const [chosen, setChosen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
   const [wiggling, wiggle] = useWiggle();
   const pc = box.width > box.height;
   const wear = (key: string | null) => {
@@ -131,10 +139,14 @@ export function Gear(props: GearScreenProps): ReactElement {
     if (!item || item.worn) { wiggle(key ?? "wear"); return; }
     props.onEquip(item.key);
   };
-  const press = (key: string) => (key === chosen ? wear(key) : setChosen(key));
+  const press = (key: string) => { setChosen(key); setOpen(key); };
+  const statOf = (slot: SlotId): StatId => props.view.slots.find((s) => s.id === slot)?.stat ?? "damage";
   const bag = props.view.bag.map((item) => (
-    <BagButton key={item.key} item={item} size={pc ? 76 : 62} chosen={item.key === chosen} wiggling={wiggling === item.key} w={w} onPress={() => press(item.key)} />
+    <BagButton key={item.key} item={item} stat={statOf(item.slot)} size={pc ? 76 : 62} chosen={item.key === chosen} wiggling={wiggling === item.key} w={w} onPress={() => press(item.key)} />
   ));
+  const card = open ? props.view.bag.find((b) => b.key === open) ?? null : null;
+  // en/es/sv write a stat mid-sentence in lower case; Hebrew has no case, so this is a no-op there
+  const lower = (word: string): string => word.toLocaleLowerCase(props.locale);
   const stats = props.stats.map((b) => <StatRow key={b.id} bar={b} w={w} size={pc ? 52 : 42} />);
   return (
     <Screen boxRef={boxRef} background={`radial-gradient(circle at 50% 45%, ${P.navy}, ${P.night})`} dir={dir}>
@@ -144,7 +156,7 @@ export function Gear(props: GearScreenProps): ReactElement {
           <div style={{ display: "grid", placeItems: "center" }}><HeroRing hero={props.hero} slots={props.view.slots} size={400} pc w={w} /></div>
           <div style={{ background: P.shade40, border: `3px solid ${P.glass13}`, borderRadius: 26, padding: "20px 22px", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
             <CareerIcon name="bag" size={44} />
-            <div role="group" aria-label={w.bag} style={{ display: "grid", gridTemplateColumns: "repeat(3, 76px)", gap: 12, overflowY: "auto", padding: 12, flex: 1, alignContent: "start" }}>{bag}</div>
+            <div role="group" aria-label={w.bag} style={{ display: "grid", gridTemplateColumns: "repeat(3, 76px)", columnGap: 12, rowGap: 26, overflowY: "auto", padding: "20px 12px 12px", flex: 1, alignContent: "start" }}>{bag}</div>
             <Btn3d label={w.wear} onPress={() => wear(chosen)} wiggling={wiggling === "wear"} style={{ width: 240, height: 68, borderRadius: 22, background: P.mint, display: "flex", gap: 14, alignItems: "center", justifyContent: "center", fontSize: 28, textTransform: "uppercase" }}>
               <CareerIcon name="swap" size={34} />{w.wear}
             </Btn3d>
@@ -158,6 +170,16 @@ export function Gear(props: GearScreenProps): ReactElement {
         </div>
       )) : null}
       <Hud onBack={props.onBack} backLabel={w.back} purses={props.purses} purseLabel={w.gold} rtl={dir === "rtl"} inset={pc ? 24 : 12} />
+      {card ? (
+        <InfoCard icon={SLOT_ICON[card.slot]} iconColor={ART[card.slot][card.tier]} tone={TIER_COLOR[card.tier]}
+          info={{
+            name: `${w.slot[card.slot]} (${w.tier[card.tier]})`,
+            says: w.gives.replace("{n}", num(card.value)).replace("{stat}", lower(w.stat[statOf(card.slot)])),
+            move: { label: w.stat[statOf(card.slot)], from: plus(props.view.slots.find((s) => s.id === card.slot)?.value ?? 0), to: plus(card.value) },
+          }}
+          backLabel={w.back} onBack={() => setOpen(null)}
+          action={{ label: card.worn ? w.worn : w.wear, wiggling: wiggling === card.key, onPress: () => wear(card.key) }} />
+      ) : null}
     </Screen>
   );
 }

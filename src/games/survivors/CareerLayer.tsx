@@ -44,6 +44,7 @@ import { SLOT_IDS, type SlotId } from "../../shared/career/gear";
 import { CAREER_KEY, NEON_GEAR, NEON_SHOP, STAT_MAX, bankRun, simStats, statsOf, type Settlement } from "./careerRules";
 import { LOOKS, ROW, buyEpic, epicSlotsOwned, payBossDiamond, pressLook, readLooks, shelfRows, type LookId, type LooksSave } from "./diamondShelf";
 import { neonCareerWords } from "./careerWords";
+import { capsuleInfo, vendingInfo } from "./shopInfo";
 import { GoldPill, Intro, Result, SlotPick } from "./careerScreens";
 import { WeaponPick } from "./entrance/WeaponPick";
 import { weaponsOpen } from "./weaponPool";
@@ -213,7 +214,14 @@ export function CareerLayer(props: {
   const kw = kit?.careerWords(ctx.locale);
   const purses = [{ currency: "gold" as const, amount: save.gold }, { currency: "diamond" as const, amount: gems, label: kw?.diamonds, href: CAREER_PAGE }];
   const epicHeld = epicSlotsOwned(save);
-  const shelf = shelfRows(looks, gems, { wear: kw?.wear ?? "Wear", worn: kw?.worn ?? "Wearing", ...w.looks }, epicHeld.length);
+  // What each row adds, in words and numbers (operator ruling 2026-10-02): the
+  // kit draws it under the tile and on the info card a tap opens.
+  const caps = capsuleInfo(w);
+  const capOf: Record<string, keyof typeof caps> = { [ROW.gold]: "gold", [ROW.ice]: "ice", [ROW.epic]: "epic" };
+  const shelf = shelfRows(looks, gems, { wear: kw?.wear ?? "Wear", worn: kw?.worn ?? "Wearing", ...w.looks }, epicHeld.length)
+    .map((row) => ({ ...row, info: caps[capOf[row.id]] }));
+  const vending = kw ? vendingInfo(save, kw.stat, w) : {};
+  const goldRows = shopView(NEON_SHOP, save).map((row) => ({ ...row, info: vending[row.id] }));
   const afterShelf = (r: ReturnType<typeof pressLook>) => {
     setGems(diamonds.count);
     if (!r.ok) return;
@@ -240,7 +248,7 @@ export function CareerLayer(props: {
     const inner = !kit ? (
       <div style={{ width: "100%", height: "100%", background: "#0b0e22" }} />
     ) : screen === "shop" ? (
-      <kit.VendingShop locale={ctx.locale} shelves={[{ currency: "gold", rows: shopView(NEON_SHOP, save) }, { currency: "diamond", rows: shelf }]} purses={purses} hero={hero}
+      <kit.VendingShop locale={ctx.locale} shelves={[{ currency: "gold", rows: goldRows }, { currency: "diamond", rows: shelf }]} purses={purses} hero={hero}
         onBack={() => setScreen("lobby")}
         onBuy={(id) => {
           if (onShelf(id)) return;

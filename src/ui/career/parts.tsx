@@ -72,6 +72,7 @@ export const CAREER_CSS = `
 .career-btn{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .career-btn:focus-visible{outline:4px solid ${P.sun};outline-offset:3px}
 .career-btn:active{translate:0 3px}
+.career-flip:dir(rtl){display:inline-block;transform:scaleX(-1)}
 `;
 
 export const DISPLAY_FONT = "var(--font-display, Fredoka), system-ui, sans-serif";

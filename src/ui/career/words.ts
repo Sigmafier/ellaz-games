@@ -45,6 +45,8 @@ export interface CareerWords {
   slot: { weapon: string; armor: string; ring: string };
   tier: { common: string; rare: string; epic: string };
   stat: { health: string; speed: string; damage: string; magnet: string; luck: string };
+  /** what a gear piece does, on its info card: "{n}" the amount, "{stat}" the stat's word */
+  gives: string;
 }
 
 const WORDS: Record<Locale, CareerWords> = {
@@ -56,6 +58,7 @@ const WORDS: Record<Locale, CareerWords> = {
     slot: { weapon: "Weapon", armor: "Armor", ring: "Ring" },
     tier: { common: "Common", rare: "Rare", epic: "Epic" },
     stat: { health: "Health", speed: "Speed", damage: "Damage", magnet: "Magnet", luck: "Luck" },
+    gives: "Adds {n} to your {stat}.",
   },
   he: {
     play: "שחקו", shop: "חנות", gear: "ציוד", stats: "נתונים", buy: "קנו", wear: "לבשו",
@@ -65,6 +68,7 @@ const WORDS: Record<Locale, CareerWords> = {
     slot: { weapon: "נשק", armor: "שריון", ring: "טבעת" },
     tier: { common: "רגיל", rare: "נדיר", epic: "אגדי" },
     stat: { health: "חיים", speed: "מהירות", damage: "נזק", magnet: "מגנט", luck: "מזל" },
+    gives: "מוסיף {n} ל{stat}.",
   },
   es: {
     play: "Jugar", shop: "Tienda", gear: "Equipo", stats: "Datos", buy: "Comprar", wear: "Poner",
@@ -74,6 +78,7 @@ const WORDS: Record<Locale, CareerWords> = {
     slot: { weapon: "Arma", armor: "Armadura", ring: "Anillo" },
     tier: { common: "Común", rare: "Raro", epic: "Épico" },
     stat: { health: "Vida", speed: "Velocidad", damage: "Daño", magnet: "Imán", luck: "Suerte" },
+    gives: "Suma {n} a tu {stat}.",
   },
   sv: {
     play: "Spela", shop: "Butik", gear: "Prylar", stats: "Statistik", buy: "Köp", wear: "Ta på",
@@ -83,6 +88,7 @@ const WORDS: Record<Locale, CareerWords> = {
     slot: { weapon: "Vapen", armor: "Rustning", ring: "Ring" },
     tier: { common: "Vanlig", rare: "Sällsynt", epic: "Episk" },
     stat: { health: "Hälsa", speed: "Fart", damage: "Skada", magnet: "Magnet", luck: "Tur" },
+    gives: "Ger {n} mer {stat}.",
   },
 };
 

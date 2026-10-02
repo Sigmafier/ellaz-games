@@ -43,7 +43,17 @@ export interface NeonCareerWords {
   quickLine: string;
   /** The mode screen's way back to the title, said to a screen reader. */
   back: string;
+  /**
+   * WHAT EACH SHOP ITEM IS (operator ruling 2026-10-02: "in shop we must know whats
+   * each item or gear adds"). A name and one plain sentence per vending row and
+   * per diamond capsule, drawn on the shop's info card. `shield` is also the word
+   * under the shield row's "+1", which moves no stat bar.
+   */
+  item: Record<ShopItemId, { name: string; says: string }>;
 }
+
+/** Every row the shop sells: the six vending rows and the three diamond capsules. */
+export type ShopItemId = "heart" | "power" | "swift" | "magnet" | "luck" | "shield" | "gold" | "ice" | "epic";
 
 const WORDS: Record<Locale, NeonCareerWords> = {
   en: {
@@ -55,6 +65,17 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     newGear: "New gear", start: "Start",
     looks: { gold: "Gold bot", ice: "Ice bot", epic: "Epic gear" }, diamond: "Diamond",
     tap: "Tap to start", worldN: "World {n}", quickLine: "3 stages, a boss in each", back: "Back",
+    item: {
+      heart: { name: "Extra heart", says: "Start every level with one more heart." },
+      power: { name: "Power", says: "Every weapon hits harder." },
+      swift: { name: "Speed", says: "Your robot runs faster." },
+      magnet: { name: "Magnet", says: "Gems fly to you from further away." },
+      luck: { name: "Luck", says: "Shapes drop more gold." },
+      shield: { name: "Shield", says: "Start every level with a shield that blocks a hit and comes back." },
+      gold: { name: "Gold bot", says: "Your robot turns gold. Just a look - it plays the same." },
+      ice: { name: "Ice bot", says: "Your robot turns ice blue. Just a look - it plays the same." },
+      epic: { name: "Epic gear", says: "Pick a slot - weapon, armor or ring - and get its best piece." },
+    },
   },
   he: {
     career: "קריירה", quick: "ריצה מהירה", menu: "תפריט",
@@ -65,6 +86,17 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     newGear: "ציוד חדש", start: "התחלה",
     looks: { gold: "רובוט זהב", ice: "רובוט קרח", epic: "ציוד אגדי" }, diamond: "יהלום",
     tap: "הקישו כדי להתחיל", worldN: "עולם {n}", quickLine: "3 שלבים, בוס בכל אחד", back: "חזרה",
+    item: {
+      heart: { name: "לב נוסף", says: "כל שלב מתחיל עם עוד לב." },
+      power: { name: "כוח", says: "כל נשק פוגע חזק יותר." },
+      swift: { name: "מהירות", says: "הרובוט שלכם רץ מהר יותר." },
+      magnet: { name: "מגנט", says: "אבני החן עפות אליכם ממרחק גדול יותר." },
+      luck: { name: "מזל", says: "הצורות מפילות יותר זהב." },
+      shield: { name: "מגן", says: "כל שלב מתחיל עם מגן שחוסם מכה וחוזר." },
+      gold: { name: "רובוט זהב", says: "הרובוט שלכם נהיה זהב. רק מראה - המשחק לא משתנה." },
+      ice: { name: "רובוט קרח", says: "הרובוט שלכם נהיה כחול קרח. רק מראה - המשחק לא משתנה." },
+      epic: { name: "ציוד אגדי", says: "בחרו מקום - נשק, שריון או טבעת - וקבלו את החלק הכי טוב שלו." },
+    },
   },
   es: {
     career: "Carrera", quick: "Partida rápida", menu: "Menú",
@@ -75,6 +107,17 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     newGear: "Equipo nuevo", start: "Empezar",
     looks: { gold: "Robot de oro", ice: "Robot de hielo", epic: "Equipo épico" }, diamond: "Diamante",
     tap: "Toca para empezar", worldN: "Mundo {n}", quickLine: "3 fases, un jefe en cada una", back: "Atrás",
+    item: {
+      heart: { name: "Corazón extra", says: "Empiezas cada nivel con un corazón más." },
+      power: { name: "Poder", says: "Todas tus armas golpean más fuerte." },
+      swift: { name: "Velocidad", says: "Tu robot corre más rápido." },
+      magnet: { name: "Imán", says: "Las gemas vuelan hacia ti desde más lejos." },
+      luck: { name: "Suerte", says: "Las formas sueltan más oro." },
+      shield: { name: "Escudo", says: "Empiezas cada nivel con un escudo que para un golpe y vuelve." },
+      gold: { name: "Robot de oro", says: "Tu robot se vuelve de oro. Solo cambia el aspecto." },
+      ice: { name: "Robot de hielo", says: "Tu robot se vuelve azul hielo. Solo cambia el aspecto." },
+      epic: { name: "Equipo épico", says: "Elige una casilla - arma, armadura o anillo - y llévate su mejor pieza." },
+    },
   },
   sv: {
     career: "Karriär", quick: "Snabbspel", menu: "Meny",
@@ -85,6 +128,17 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     newGear: "Ny utrustning", start: "Starta",
     looks: { gold: "Guldrobot", ice: "Isrobot", epic: "Episk utrustning" }, diamond: "Diamant",
     tap: "Tryck för att börja", worldN: "Värld {n}", quickLine: "3 faser, en boss i varje", back: "Tillbaka",
+    item: {
+      heart: { name: "Extra hjärta", says: "Varje nivå börjar med ett hjärta till." },
+      power: { name: "Kraft", says: "Alla vapen slår hårdare." },
+      swift: { name: "Fart", says: "Din robot springer snabbare." },
+      magnet: { name: "Magnet", says: "Ädelstenar flyger till dig från längre bort." },
+      luck: { name: "Tur", says: "Formerna tappar mer guld." },
+      shield: { name: "Sköld", says: "Varje nivå börjar med en sköld som stoppar en träff och kommer tillbaka." },
+      gold: { name: "Guldrobot", says: "Din robot blir guld. Bara utseendet - den spelar likadant." },
+      ice: { name: "Isrobot", says: "Din robot blir isblå. Bara utseendet - den spelar likadant." },
+      epic: { name: "Episk utrustning", says: "Välj en plats - vapen, rustning eller ring - och få dess bästa del." },
+    },
   },
 };
 
