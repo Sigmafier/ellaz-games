@@ -20,6 +20,7 @@
 
 import { mulberry32 } from "@shared/rng";
 import type { EnemyKind, Gem, Pool, RunState, WorldId } from "./types";
+import { drawProps } from "./groundProps";
 import { POOL } from "./twists";
 import { WALL } from "./world";
 
@@ -231,14 +232,28 @@ function lavaFloor(g: Pen, w: number, h: number, r: () => number) {
   wallGlow(g, w, h, k.neonA, 0xffd166);
 }
 
-/** A career world's whole floor, once per level: ground, grid, scenery, the top band and the walls. */
+/**
+ * A world's whole floor, once per level: ground, grid, scenery, the top band, the
+ * props (groundProps.ts) and the walls. The career draws it per world; since
+ * 2026-10-02 the quick run draws it too, one world per stage (`quickWorld`).
+ */
 export function drawWorldGround(g: Pen, world: WorldId, w: number, h: number, seed: number): void {
   const r = mulberry32(seed);
   if (world === "city") cityFloor(g, w, h, r);
   else if (world === "frost") frostFloor(g, w, h, r);
   else lavaFloor(g, w, h, r);
+  drawProps(g, world, w, h, seed, TOP_BAND);
   walls(g, w, h, WORLD_INK[world]);
 }
+
+/**
+ * THE QUICK RUN'S THREE STAGES ARE THE THREE WORLDS (operator ruling 2026-10-02,
+ * floor option B): stage 1 is Neon City, 2 is Frost, 3 is Lava. Only the PICTURE
+ * changes - none of a world's twists (the dark, the ice, the pools) and none of its
+ * tints come with it, so a quick run, calm above all, plays exactly as before.
+ */
+export const QUICK_WORLDS: readonly WorldId[] = ["city", "frost", "lava"];
+export const quickWorld = (stage: number): WorldId => QUICK_WORLDS[Math.min(QUICK_WORLDS.length, Math.max(1, Math.round(stage))) - 1]!;
 
 /** The pools, UNDER the shapes: a dashed warning ring filling up, then the molten pool, then fading. */
 export function drawPools(g: Pen, pools: readonly Pool[], now: number): void {

@@ -25,7 +25,7 @@ import {
   ARENA, GUNS, RULES, TIER, WEAPONS, bossBar, bossOf, newRun, rngFor, runMs, step,
   type Arena, type EnemyKind, type LevelKey, type RunState, type ShotKind, type UpgradeId, type WeaponId, ELITE, radiusOf,
 } from "./logic";
-import { WALL, cameraOf } from "./world";
+import { cameraOf } from "./world";
 import { bladePositions, bladeReach, bladesEvolved, dronePosition, holds } from "./arsenal";
 import { NOVA_FIRE } from "./evolve";
 import { chargeOf, dashReady, triggerFreeze } from "./powers";
@@ -34,7 +34,7 @@ import { applyCard, offerCards, type Card } from "./cards";
 // `groundArt.ts` draws it - this file only calls in, so it does not grow a world.
 import { PLAIN_STATS, careerResult, newCareerRun } from "./careerRun";
 import { LOOKS, type LookId } from "./diamondShelf";
-import { drawCoins, drawDark, drawPools, drawWeather, drawWorldGround, tintFor } from "./groundArt";
+import { drawCoins, drawDark, drawPools, drawWeather, drawWorldGround, quickWorld, tintFor } from "./groundArt";
 import { inDark } from "./twists";
 import type { CareerResult, CareerStats } from "./types";
 
@@ -716,7 +716,7 @@ export class SurvivorsScene extends Phaser.Scene {
       : newRun(this.selectedLevel, this.arena, this.startWeapon);
     // A run's name, so the save can refuse to pay the same run twice.
     this.careerToken = this.careerLevel ? `${this.careerLevel}:${Date.now()}:${++this.runCount}` : "";
-    if (this.groundFor !== (this.run.career?.level ?? "quick")) this.drawGround();
+    if (this.groundFor !== this.groundKey()) this.drawGround();
     this.phase = "ready";
     // A new run is never a paused one: restarting from behind the cover would
     // otherwise leave a lid over a ready screen nobody can read or reach.
@@ -1240,86 +1240,27 @@ export class SurvivorsScene extends Phaser.Scene {
   }
 
   /** The arena floor. Static, so this runs once rather than sixty times a second. */
+  /** Which floor the run stands on: a career level's, or the quick run's stage. */
+  private groundKey(): string {
+    return this.run.career?.level ?? `quick-${this.run.stage}`;
+  }
+
   private drawGround() {
     const g = this.bg;
     const { w, h } = this.run.world;
     g.clear();
     const c = this.run.career;
-    this.groundFor = c?.level ?? "quick";
-    if (c) {
-      drawWorldGround(g, c.world, w, h, c.seed);
-      return;
-    }
-    g.fillStyle(INK.ground, 1);
-    g.fillRect(0, 0, w, h);
-    g.lineStyle(1, INK.grid, 1);
-    // The grid pitch stays 42 units on every floor rather than scaling with it:
-    // it is a sense of SPEED, and with the camera following the robot it is also
-    // what tells a player they are moving at all.
-    for (let x = 42; x < w; x += 42) g.lineBetween(x, 0, x, h);
-    for (let y = 42; y < h; y += 42) g.lineBetween(0, y, w, y);
-    this.drawScenery(g, w, h);
-    this.drawWalls(g, w, h);
-  }
-
-  /**
-   * Scenery you walk over (operator ruling 2026-09-14: decoration, not
-   * obstacles). Seeded, so a floor looks the same every run and a landmark can be
-   * learned. Dim, so nothing here can be mistaken for a shape coming at you, and
-   * sparse near the start so the first seconds read clearly.
-   */
-  private drawScenery(g: Phaser.GameObjects.Graphics, w: number, h: number) {
-    const rnd = rngFor(20260914);
-    const n = Math.round((w * h) / 5200);
-    for (let i = 0; i < n; i++) {
-      const x = rnd() * w;
-      const y = rnd() * h;
-      const k = rnd();
-      if (Math.hypot(x - w / 2, y - h / 2) < 70) continue;
-      if (k < 0.25) {
-        g.fillStyle(SCENERY.crystal, 0.32);
-        g.fillTriangle(x, y - 7, x + 4, y, x, y + 7);
-        g.fillTriangle(x, y - 7, x - 4, y, x, y + 7);
-      } else if (k < 0.5) {
-        g.fillStyle(SCENERY.rock, 1);
-        g.fillRoundedRect(x, y, 10, 7, 2);
-        g.fillRoundedRect(x + 6, y - 4, 8, 6, 2);
-      } else if (k < 0.8) {
-        g.lineStyle(1.6, SCENERY.tuft, 0.55);
-        g.lineBetween(x, y, x - 3, y - 7);
-        g.lineBetween(x, y, x, y - 9);
-        g.lineBetween(x, y, x + 3, y - 7);
-      } else {
-        g.lineStyle(1.6, SCENERY.crack, 1);
-        g.lineBetween(x, y, x + 9, y + 4);
-        g.lineBetween(x + 9, y + 4, x + 14, y + 1);
-        g.lineBetween(x + 14, y + 1, x + 22, y + 7);
-      }
-    }
-  }
-
-  /** The edge of the world: a striped band the robot cannot cross, `WALL` units thick. */
-  private drawWalls(g: Phaser.GameObjects.Graphics, w: number, h: number) {
-    g.fillStyle(SCENERY.wall, 1);
-    g.fillRect(0, 0, w, WALL);
-    g.fillRect(0, h - WALL, w, WALL);
-    g.fillRect(0, 0, WALL, h);
-    g.fillRect(w - WALL, 0, WALL, h);
-    g.fillStyle(SCENERY.stripe, 0.9);
-    for (let x = 0; x < w; x += 16) {
-      g.fillRect(x, 0, 8, WALL);
-      g.fillRect(x, h - WALL, 8, WALL);
-    }
-    for (let y = 0; y < h; y += 16) {
-      g.fillRect(0, y, WALL, 8);
-      g.fillRect(w - WALL, y, WALL, 8);
-    }
-    g.lineStyle(2, SCENERY.edge, 0.9);
-    g.strokeRect(WALL, WALL, w - WALL * 2, h - WALL * 2);
+    this.groundFor = this.groundKey();
+    // Since 2026-10-02 the quick run's stages are the career's worlds (floor
+    // option B, groundArt.ts `quickWorld`): the picture only - no twist, no tint.
+    if (c) drawWorldGround(g, c.world, w, h, c.seed);
+    else drawWorldGround(g, quickWorld(this.run.stage), w, h, 20260914 + this.run.stage);
   }
 
   /** Everything that is still a primitive: the shots, the gems and the sparks. */
   private draw() {
+    // A stage boundary changes the floor (quick run, floor option B).
+    if (this.groundFor !== this.groundKey()) this.drawGround();
     const g = this.fg;
     g.clear();
     const hud = this.hud;

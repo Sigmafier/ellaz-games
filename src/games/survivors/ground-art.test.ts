@@ -3,7 +3,8 @@
 // floor paints and the shapes a twist lays down can be asserted here.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { WORLD_INK, drawCoins, drawDark, drawPools, drawWeather, drawWorldGround, tintFor, type Pen } from "./groundArt";
+import { WORLD_INK, drawCoins, drawDark, drawPools, drawWeather, drawWorldGround, quickWorld, tintFor, type Pen } from "./groundArt";
+import { PROP_CLEAR, drawProps } from "./groundProps";
 import type { Enemy, Pool, RunState } from "./types";
 import { POOL } from "./twists";
 
@@ -122,5 +123,57 @@ describe("the scene still calls the drawing", () => {
     expect(body.length).toBeGreaterThan(100);
     expect(body).not.toMatch(/score/);
     expect(body).toContain("this.onCareerEnd?.(careerResult(this.run), this.careerToken)");
+  });
+});
+
+// FLOOR OPTION B (operator ruling 2026-10-02, "ack B"): every world carries props,
+// and the quick run's three stages are the three worlds.
+describe("each world carries its own props, and the quick run walks through all three", () => {
+  const PROP_INK = { city: 0xffe08a, frost: 0x1f6b5a, lava: 0x3a2622 } as const;
+
+  it("a world's floor draws its own props and no other world's", () => {
+    for (const world of ["city", "frost", "lava"] as const) {
+      const r = recorder();
+      drawWorldGround(r.pen, world, 1944, 1092, 7);
+      expect(r.fills, `${world} drew none of its props`).toContain(PROP_INK[world]);
+      for (const other of ["city", "frost", "lava"] as const) {
+        if (other !== world) expect(r.fills, `${world} drew ${other}'s props`).not.toContain(PROP_INK[other]);
+      }
+    }
+  });
+
+  it("no prop stands where a run starts, so the first seconds read clearly", () => {
+    const pts: [number, number][] = [];
+    const at = (x: number, y: number) => void pts.push([x, y]);
+    const pen: Pen = {
+      fillStyle: () => {}, lineStyle: () => {}, fillGradientStyle: () => {},
+      fillRect: at, fillCircle: at, fillEllipse: at, strokeCircle: at,
+      fillTriangle: (x0, y0) => at(x0, y0), lineBetween: (x0, y0) => at(x0, y0),
+    };
+    for (const world of ["city", "frost", "lava"] as const) for (let seed = 1; seed <= 20; seed++) drawProps(pen, world, 1944, 1092, seed, 64);
+    expect(pts.length).toBeGreaterThan(1000);
+    const nearest = Math.min(...pts.map(([x, y]) => Math.hypot(x - 972, y - 546)));
+    // a prop reaches ~60 units from where it is placed, so its nearest point keeps that much of PROP_CLEAR
+    expect(nearest).toBeGreaterThan(PROP_CLEAR - 65);
+  });
+
+  it("the props are the same every time for the same level", () => {
+    const a = recorder(), b = recorder();
+    drawProps(a.pen, "frost", 1944, 1092, 3, 64);
+    drawProps(b.pen, "frost", 1944, 1092, 3, 64);
+    expect(a.calls).toEqual(b.calls);
+    expect(a.calls.length).toBeGreaterThan(100);
+  });
+
+  it("stage 1 is the city, 2 is frost, 3 is lava - and nothing else", () => {
+    expect([1, 2, 3].map(quickWorld)).toEqual(["city", "frost", "lava"]);
+    expect(quickWorld(0)).toBe("city");
+    expect(quickWorld(9)).toBe("lava");
+  });
+
+  it("the quick run draws its stage's world, and redraws when the stage changes", () => {
+    const src = readFileSync(new URL("./SurvivorsScene.ts", import.meta.url), "utf8");
+    expect(src).toContain("drawWorldGround(g, quickWorld(this.run.stage)");
+    expect(src).toContain("`quick-${this.run.stage}`");
   });
 });
