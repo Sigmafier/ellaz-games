@@ -34,6 +34,7 @@ import { FREEZE_NEED, dashAway, tickPowers } from "./powers";
 import { GUNS, bossHpFor, gunEveryFor, nearestEnemy, radiusOf, spawn, speedOf, summonAt, xpOf } from "./enemies";
 import { WEAPONS, fireSlot, mainSlot, weaponDamage, weaponEvery } from "./weapons";
 import { pulseHalo, zapSlot } from "./arms";
+import { PICKUP_MS, dropFor, tickPickups } from "./pickups";
 import { FINAL, RULES, STAGE_MS, bossKindFor, isLastStage, spawnEvery, stageIsOver, stageMs } from "./stages";
 import { magnetRange, playerSpeed, shieldEvery, shieldReady, xpNeeded } from "./upgrades";
 // THE CAREER (P3). Every call below sits behind `if (s.career)`, so a quick run -
@@ -321,6 +322,10 @@ function damage(s: RunState, e: Enemy, dmg: number, by?: WeaponId) {
     } else s.gems.push({ id: s.nextId++, x: e.x, y: e.y, value: worth });
     // A career kill may drop gold too - on top of the gem, never instead of it.
     if (s.career) careerLoot(s, e);
+    // A MAP PICKUP, sometimes (pickups.ts) - decided by the shape's id, never by
+    // an rng draw, so no random number the run already draws moves.
+    const drop = dropFor(e, e.id === s.boss);
+    if (drop) (s.pickups ??= []).push({ id: s.nextId++, x: e.x, y: e.y, kind: drop, ms: PICKUP_MS });
   }
 }
 
@@ -784,10 +789,12 @@ export function step(
   // further and be caught from further gives back exactly what concentrating it
   // took away, and it is what a heap of gems should do anyway.
   const pull = magnetRange(s);
+  // The MAGNET pickup pulls every gem on the board, from anywhere, fast.
+  const vacuum = (s.vacuum ?? 0) > 0;
   for (const g of s.gems) {
     const d = Math.hypot(s.x - g.x, s.y - g.y) || 1;
-    if (d >= pull * gemReach(g)) continue;
-    const v = Math.max(90, 260 - d) * sec * 1.8;
+    if (!vacuum && d >= pull * gemReach(g)) continue;
+    const v = vacuum ? Math.max(700, d * 2.5) * sec : Math.max(90, 260 - d) * sec * 1.8;
     g.x += ((s.x - g.x) / d) * v;
     g.y += ((s.y - g.y) / d) * v;
   }
@@ -807,6 +814,8 @@ export function step(
   }
   // A career level's gold on the floor, under the same magnet.
   if (s.career) careerCoins(s, pull, sec);
+  // Map pickups: taken on touch, and the magnet's pull counts down.
+  tickPickups(s, dt, PLAYER_R, (e, d) => damage(s, e, d));
 
   // THE NOVA LEAVES BURNING GROUND where each of its fragments dies.
   //

@@ -297,6 +297,7 @@ export type RunEvent =
   | { type: "shot"; weapon: ShotKind; x: number; y: number }
   | { type: "zap"; x: number; y: number; big: boolean }
   | { type: "halo"; x: number; y: number; big: boolean }
+  | { type: "pickup"; kind: "magnet" | "bomb" | "food"; x: number; y: number }
   /** A SHAPE threw one, so the scene can flash its muzzle. */
   | { type: "efire"; kind: EnemyKind; x: number; y: number }
   | { type: "hurt" }

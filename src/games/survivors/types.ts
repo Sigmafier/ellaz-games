@@ -25,6 +25,7 @@ export type * from "./careerTypes";
 
 import type { CareerState } from "./careerTypes";
 import type { Arena, Bolt, Enemy, Fire, Gem, LevelKey, RunEvent, Shot, Slot, UpgradeId, WeaponId } from "./entities";
+import type { Pickup } from "./pickups";
 
 export interface RunState {
   level: LevelKey;
@@ -149,4 +150,7 @@ export interface RunState {
    * ROBOT only - shapes and their shots cross it. Absent or null: no wall.
    */
   ring?: { x: number; y: number; r: number } | null;
+  /** MAP PICKUPS on the floor (pickups.ts), and the magnet's pull still running. */
+  pickups?: Pickup[];
+  vacuum?: number;
 }

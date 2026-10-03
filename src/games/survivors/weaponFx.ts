@@ -119,3 +119,45 @@ export function drawRing(g: Pen, ring: { x: number; y: number; r: number }, now:
     g.fillCircle(ring.x + Math.cos(a) * ring.r, ring.y + Math.sin(a) * ring.r, 3.5);
   }
 }
+
+/**
+ * MAP PICKUPS (pickups.ts): a magnet, a bomb with a lit fuse and a drumstick,
+ * each on a soft glow, bobbing so they read as things to TAKE rather than
+ * scenery, and blinking in their last five seconds.
+ */
+export function drawPickups(g: Pen, pickups: readonly { x: number; y: number; kind: "magnet" | "bomb" | "food"; ms: number }[], now: number): void {
+  for (const p of pickups) {
+    if (p.ms < 5000 && Math.floor(now / 160) % 2 === 0) continue;
+    const y = p.y + Math.sin(now / 220 + p.x) * 3;
+    g.fillStyle(0xffffff, 0.16);
+    g.fillCircle(p.x, y, 17);
+    if (p.kind === "magnet") {
+      g.lineStyle(6, 0xff5c7a, 1);
+      g.lineBetween(p.x - 7, y - 8, p.x - 7, y + 3);
+      g.lineBetween(p.x + 7, y - 8, p.x + 7, y + 3);
+      g.lineBetween(p.x - 7, y + 3, p.x + 7, y + 3);
+      g.fillStyle(0xdfe6e9, 1);
+      g.fillRect(p.x - 10, y - 12, 6, 5);
+      g.fillRect(p.x + 4, y - 12, 6, 5);
+    } else if (p.kind === "bomb") {
+      g.fillStyle(0x241c17, 1);
+      g.fillCircle(p.x, y + 2, 9);
+      // A light rim, or a black bomb vanishes on the night city's floor.
+      g.lineStyle(2, 0xffffff, 0.75);
+      g.strokeCircle(p.x, y + 2, 9);
+      g.fillStyle(0xffffff, 0.35);
+      g.fillCircle(p.x - 3, y - 1, 2.5);
+      g.lineStyle(2, 0xb2bec3, 1);
+      g.lineBetween(p.x + 5, y - 6, p.x + 9, y - 11);
+      g.fillStyle(Math.floor(now / 90) % 2 ? 0xffd166 : 0xff7b00, 1);
+      g.fillCircle(p.x + 10, y - 12, 3);
+    } else {
+      g.fillStyle(0xc77f4a, 1);
+      g.fillEllipse(p.x - 2, y + 1, 18, 13);
+      g.fillStyle(0xfff4e6, 1);
+      g.fillRect(p.x + 5, y - 2, 8, 4);
+      g.fillCircle(p.x + 13, y - 2, 2.5);
+      g.fillCircle(p.x + 13, y + 2, 2.5);
+    }
+  }
+}

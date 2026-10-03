@@ -123,7 +123,7 @@ export const RULES: Record<
     // "the final boss shoots on medium too" rather than "every boss does" - and
     // it is the mildest version of it, because every bolt it throws is still
     // slowed by 0.85 and telegraphed 1.35x as long by the two rows above.
-    bossHp: 1.45, bossShoots: true, xpFirst: 14, xpBase: 1.0, xpRamp: 0.09,
+    bossHp: 1.45, bossShoots: true, xpFirst: 14, xpBase: 1.0, xpRamp: 0.11,
   },
   // A LOT. Eight minutes of swarm, a spitter in the first stage and the lancer's
   // three-bolt fan in the last, bolts that come sooner and faster with less

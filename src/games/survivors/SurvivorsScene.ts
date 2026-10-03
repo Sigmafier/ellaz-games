@@ -35,7 +35,7 @@ import { REROLLS_PER_STAGE, applyCard, canReroll, offerCards, type Card } from "
 import { PLAIN_STATS, careerResult, newCareerRun } from "./careerRun";
 import { LOOKS, type LookId } from "./diamondShelf";
 import { drawCoins, drawDark, drawPools, drawWeather, drawWorldGround, quickWorld, tintFor } from "./groundArt";
-import { HALO_FLASH_MS, ageStrikes, drawBall, drawFlask, drawHalo, drawRing, drawStrikes, type Strike } from "./weaponFx";
+import { HALO_FLASH_MS, ageStrikes, drawBall, drawFlask, drawHalo, drawPickups, drawRing, drawStrikes, type Strike } from "./weaponFx";
 import { haloReach } from "./arms";
 import { inDark } from "./twists";
 import type { CareerResult, CareerStats } from "./types";
@@ -331,6 +331,9 @@ const LASER: Record<WeaponId, { from: number; to: number; ms: number; type: Osci
  * bolt is the shortest because it is a rifle and a rifle's hit is an instant.
  * The two that boom sit between them.
  */
+/** How long the bomb pickup's white flash lasts. */
+const BOMB_FLASH_MS = 260;
+
 const HIT_MS: Record<WeaponId, number> = { blades: 260, burst: 300, drone: 260, arc: 240, bolt: 160, halo: 260, zap: 220, flask: 300, bouncer: 200 };
 
 export class SurvivorsScene extends Phaser.Scene {
@@ -380,6 +383,8 @@ export class SurvivorsScene extends Phaser.Scene {
   private strikes: Strike[] = [];
   /** Time left on the halo's flare after its last pulse. */
   private haloFlash = 0;
+  /** Time left on the bomb pickup's white flash. */
+  private bombFlash = 0;
   private rng: () => number = Math.random;
 
   private ship!: Phaser.GameObjects.Sprite;
@@ -818,6 +823,7 @@ export class SurvivorsScene extends Phaser.Scene {
     step(this.run, delta, input, this.rng);
     this.strikes = ageStrikes(this.strikes, delta);
     this.haloFlash = Math.max(0, this.haloFlash - delta);
+    this.bombFlash = Math.max(0, this.bombFlash - delta);
     this.consume();
     this.drawSparks(delta);
     this.syncSprites(input);
@@ -870,6 +876,11 @@ export class SurvivorsScene extends Phaser.Scene {
           this.nextShotSfx = now + SHOT_SFX_GAP_MS;
         }
         this.attackUntil = now + ATTACK_MS;
+      } else if (e.type === "pickup") {
+        // A map pickup taken: the site's own sounds, each kept to its meaning -
+        // a heart back is a success, a magnet's gem rush is coins, a bomb is a win.
+        this.ctx.audio.play(e.kind === "food" ? "success" : e.kind === "magnet" ? "coin" : "win");
+        if (e.kind === "bomb") this.bombFlash = BOMB_FLASH_MS;
       } else if (e.type === "halo") {
         this.haloFlash = HALO_FLASH_MS;
       } else if (e.type === "zap") {
@@ -1451,6 +1462,12 @@ export class SurvivorsScene extends Phaser.Scene {
     if (halo) drawHalo(g, this.run.x, this.run.y, haloReach(!!halo.evolved), HALO_INK, !!halo.evolved, this.time.now, this.haloFlash / HALO_FLASH_MS);
     drawStrikes(g, this.strikes, ZAP_INK);
     if (this.run.ring) drawRing(g, this.run.ring, this.time.now);
+    if (this.run.pickups?.length) drawPickups(g, this.run.pickups, this.time.now);
+    if (this.bombFlash > 0) {
+      // The bomb: one white flash over the whole view, fading fast.
+      hud.fillStyle(0xffffff, 0.55 * (this.bombFlash / BOMB_FLASH_MS));
+      hud.fillRect(0, 0, this.arena.w, this.arena.h);
+    }
     this.drawDrone(g);
 
     if (this.run.frozen > 0) {
