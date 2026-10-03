@@ -7,6 +7,7 @@ import type { RewardReason, RewardTier } from "./economy";
 import type { ScoreUnit } from "./score";
 import type { SessionPort } from "./session";
 import type { DailyPort } from "./daily";
+import type { VoiceSpec } from "./voice";
 
 export type { RewardReason, RewardTier };
 export type { SessionPort, SessionSpec } from "./session";
@@ -41,6 +42,16 @@ export interface ToneOptions {
   at?: number;
 }
 
+/** How to play a designed voice through `AudioPort.voice()`. */
+export interface VoiceOptions {
+  /** ABSOLUTE AudioContext time to start at (see `time()`). Omitted = now. */
+  at?: number;
+  /** Multiplier on the voice's own level. Default 1. */
+  gain?: number;
+  /** Transpose the whole voice, in semitones. */
+  semitones?: number;
+}
+
 export interface AudioPort {
   readonly muted: boolean;
   toggleMute(): void;
@@ -62,6 +73,13 @@ export interface AudioPort {
    * `unlock()` (silently no-ops rather than throwing).
    */
   tone(opts: ToneOptions): void;
+  /**
+   * Play a designed voice - layered partials, a mallet, the shared room - the
+   * richer sibling of `tone()`: same mute, same clock, same context. A game
+   * that owns its scale builds the spec with `@sdk/note` (a struck note at its
+   * own pitch, cached so a tune replays identically) and hands it here.
+   */
+  voice(spec: VoiceSpec, opts?: VoiceOptions): void;
   /**
    * `AudioContext.currentTime`, or 0 when audio is unavailable. The master clock
    * for rhythm games: schedule with `at: time() + offsetSeconds`. Note this is a

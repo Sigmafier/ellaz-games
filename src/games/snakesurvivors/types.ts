@@ -11,6 +11,8 @@
 //         logic.ts             newRun + step + pickCard
 //           SnakeSurvivorsScene.ts / SnakeSurvivorsGame.tsx
 
+import type { SnakeCareer } from "./careerTypes";
+
 /** A view, in logical units. The canvas is scaled to fit it. */
 export type Arena = { readonly w: number; readonly h: number };
 
@@ -139,6 +141,8 @@ export type Ev =
   | { k: "boss" }
   | { k: "bosshit"; x: number; y: number }
   | { k: "lunge" }
+  /** Career: a gold coin was picked up, worth `v`. */
+  | { k: "gold"; v: number; x: number; y: number }
   /** A boss fell and it was not the last one: the next stage just opened. */
   | { k: "stage"; stage: Stage }
   | { k: "won" }
@@ -217,4 +221,10 @@ export interface Run {
   /** The last stage whose mini-boss has come (0 = none yet). One per stage. */
   mini: number;
   events: Ev[];
+  /**
+   * A CAREER level's own rules and state (snake career, 2026-10-03), laid on by
+   * `newCareerRun`. Absent on a quick run, and every career rule sits behind
+   * `if (run.career)`, so a quick run never reaches one.
+   */
+  career?: SnakeCareer;
 }

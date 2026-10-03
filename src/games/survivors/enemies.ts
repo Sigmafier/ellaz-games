@@ -83,6 +83,15 @@ export const KINDS: Record<EnemyKind, { hp: number; r: number; speed: number; xp
   spitter: { hp: 3, r: 13, speed: 34, xp: 3 },
   lancer: { hp: 8, r: 19, speed: 26, xp: 6 },
 
+  // THE FOUR OF 2026-10-03 (monsters.ts). The splitter is an orb-sized slime that
+  // takes a little more, and its two blobs are small and quick and pop in one hit;
+  // the charger walks like a slow bat until it commits; the bomber is a crab that
+  // means to get close.
+  splitter: { hp: 4, r: 13, speed: 40, xp: 3 },
+  blob: { hp: 1, r: 8, speed: 70, xp: 1 },
+  charger: { hp: 3, r: 10, speed: 50, xp: 3 },
+  bomber: { hp: 4, r: 16, speed: 38, xp: 4 },
+
   // THE THREE BOSSES. Each ends a stage, and none of them can be spawned by the
   // wave clock - see `kindsAt`, which is pinned in both directions.
   //
@@ -231,7 +240,7 @@ export const isBossKind = (k: EnemyKind): boolean => BOSS_KINDS.includes(k);
 /** How far your ship can see a target. Beyond it the shot is saved. */
 export const TARGET_RANGE = 240;
 
-const CAP_ENEMIES = 64;
+export const CAP_ENEMIES = 64;
 
 /**
  * Which kinds the clock has unlocked. Always at least the little fast one.
@@ -295,7 +304,8 @@ export function spawn(s: RunState, rng: () => number) {
   //
   // MEASURED, not chosen: uncapped, a late wild board held 20 to 23 bolts in the
   // air at once and a bot that dodges perfectly died to a hail it could not read.
-  if (GUNS[kind] && s.enemies.reduce((n, q) => n + (GUNS[q.kind] && q.id !== s.boss ? 1 : 0), 0) >= RULES[s.level].shooters) {
+  // A HARD career run carries its own cap (hardTier.ts); every other run reads its row's.
+  if (GUNS[kind] && s.enemies.reduce((n, q) => n + (GUNS[q.kind] && q.id !== s.boss ? 1 : 0), 0) >= (s.career?.shooters ?? RULES[s.level].shooters)) {
     kind = BASE_OF[kind] ?? kind;
   }
   // The elite roll happens for EVERY spawn, including in stage 1 where the

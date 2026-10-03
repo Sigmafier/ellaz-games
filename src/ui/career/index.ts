@@ -6,7 +6,7 @@
 // named `career` branch in vite.config.ts manualChunks and the
 // `**/career-*.js` globIgnores entry are the other two).
 export { TrailMap } from "./TrailMap";
-export type { TrailMapProps } from "./TrailMap";
+export type { MapTier, TrailMapProps } from "./TrailMap";
 export { BoardMap } from "./BoardMap";
 export type { BoardMapProps } from "./BoardMap";
 export { VendingShop } from "./VendingShop";
@@ -17,3 +17,4 @@ export type { Currency, Purse } from "./parts";
 export type { ItemInfo } from "./InfoCard";
 export { CareerIcon } from "./icons";
 export { careerWords } from "./words";
+export type { CareerSkin } from "./skin";

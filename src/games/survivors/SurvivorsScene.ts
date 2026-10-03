@@ -28,7 +28,11 @@ import {
 import { cameraOf } from "./world";
 import { bladePositions, bladeReach, bladesEvolved, dronePosition, holds } from "./arsenal";
 import { NOVA_FIRE } from "./evolve";
-import { chargeOf, dashReady, triggerFreeze } from "./powers";
+import { chargeOf, dashEvery, dashReady, triggerFreeze } from "./powers";
+import { RunFx, type FxHost } from "./runFx";
+import { MONSTER_INK, drawMonsters } from "./monsterFx";
+import { MONSTER_KINDS } from "./monsters";
+import { superHintOf, type SuperHint } from "./superHint";
 import { REROLLS_PER_STAGE, applyCard, canReroll, offerCards, type Card } from "./cards";
 // THE CAREER (P3): a level is built by `newCareerRun`, and each world looks the way
 // `groundArt.ts` draws it - this file only calls in, so it does not grow a world.
@@ -106,6 +110,12 @@ export type SurvivorsStatus = {
   taken: Record<UpgradeId, number>;
   /** A career level's gold picked up so far, or null on a quick run. */
   gold: number | null;
+  /** The carried weapons that have become their SUPER - their HUD slots turn gold. */
+  supers: WeaponId[];
+  /** A weapon one card from its super, for the recipe hint; null otherwise. */
+  hint: SuperHint | null;
+  /** The dash's full recharge on this run - `DASH_MS`, shorter with haste. */
+  dashMs: number;
 };
 
 /** A mid-run ping every this many shapes. A nudge, not an achievement. */
@@ -200,7 +210,7 @@ const ICE = 0x9fe3ff;
  * A Set rather than a flag on `KINDS`, because this is a drawing decision and
  * the simulation is not allowed to hold one.
  */
-const DRESSED = new Set<EnemyKind>(["spitter", "lancer"]);
+const DRESSED = new Set<EnemyKind>(["spitter", "lancer", ...MONSTER_KINDS]);
 /** The world's scenery and walls. Dim on purpose: nothing decorative may read as a shape. */
 const SCENERY = { crystal: 0x6a5cff, rock: 0x262b52, tuft: 0x2f8f73, crack: 0x252a4d, wall: 0x1a1d38, stripe: 0xffb020, edge: 0xffd166 } as const;
 
@@ -235,6 +245,8 @@ const ENEMY_INK: Record<EnemyKind, number> = {
   // one is meant to read as "the thing you have been fighting, grown up".
   warden: 0xff2d6f,
   queen: 0x7b3fe4,
+  // The four of 2026-10-03, each in its own ink (monsterFx.ts).
+  ...MONSTER_INK,
 };
 
 /** Ground and grid at the bottom, the cast in the middle, shots and sparks on top. */
@@ -412,12 +424,27 @@ export class SurvivorsScene extends Phaser.Scene {
   /** Which stick this player chose. Their own setting, on this game's chrome. */
   /** Keys currently down. */
   private keys = new Set<string>();
+  /**
+   * A career screen (the map, the shop, the gear, the weapon pick) is over the
+   * arena. Its canvas still exists under them, and a press on it would start a
+   * run behind the screen - reported 2026-10-02 from the shop. See `setCovered`.
+   */
+  private covered = false;
 
   private onStatus?: (s: SurvivorsStatus) => void;
   /** THE CAREER: which level is being played (null on a quick run), with what, and this run's name. */
   private careerLevel: string | null = null;
   private careerStats: CareerStats = PLAIN_STATS;
   private careerToken = "";
+  /** The run's effects (runFx.ts), and what they may touch of this scene. */
+  private fx = new RunFx();
+  private fxHost: FxHost = {
+    shake: (ms, k) => this.cameras.main.shake(ms, k),
+    flash: (ms, r, g, b) => this.cameras.main.flash(ms, r, g, b),
+    tone: (o) => this.ctx.audio.tone(o),
+  };
+  /** The career level is on the HARD tier (hardTier.ts). */
+  private careerHard = false;
   /** The worn look's colour matrix on the robot, made once and switched on and off. */
   private lookFilter: Phaser.Filters.ColorMatrix | null = null;
   private runCount = 0;
@@ -512,7 +539,7 @@ export class SurvivorsScene extends Phaser.Scene {
     // world point under that thumb moves every frame while the thumb does not,
     // and a stick read in world units would steer by the scroll.
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      if (this.paused) return;
+      if (this.paused || this.covered) return;
       if (this.phase !== "playing") return void this.startFromChrome();
       const o = stickOriginFor(p.x, p.y);
       this.stick = { ox: o.ox, oy: o.oy, px: p.x, py: p.y };
@@ -607,11 +634,14 @@ export class SurvivorsScene extends Phaser.Scene {
       // A career level counts down ITS clock - to the win, or to its boss.
       timeLeft: Math.max(0, (this.run.career ? this.run.career.timeMs : runMs(this.run.level)) - this.run.t),
       gold: this.run.career ? this.run.career.gold : null,
+      supers: this.run.slots.filter((k) => k.evolved).map((k) => k.id),
+      hint: superHintOf(this.run),
+      dashMs: dashEvery(this.run),
       hp: this.run.hp,
       maxHp: this.run.maxHp,
       power: this.run.power,
       slots: this.run.slots.map((k) => k.id),
-      dash: dashReady(this.run),
+      dash: dashReady(this.run, dashEvery(this.run)),
       charge: chargeOf(this.run),
       frozen: this.run.frozen > 0,
       xp: this.run.xp,
@@ -716,8 +746,9 @@ export class SurvivorsScene extends Phaser.Scene {
    * A career level, from the map. The stats are the save's, reduced by
    * `careerRules.simStats`; the run starts at "ready" behind the level banner.
    */
-  startCareer(levelId: string, stats: CareerStats, look: LookId | null = null) {
+  startCareer(levelId: string, stats: CareerStats, look: LookId | null = null, hard = false) {
     this.careerLevel = levelId;
+    this.careerHard = hard;
     this.careerStats = stats;
     this.wearLook(look);
     this.restart();
@@ -751,6 +782,12 @@ export class SurvivorsScene extends Phaser.Scene {
   }
 
   /** Back to the quick run: its own floor, its own rules, untouched. */
+  /** The career layer says whether one of its screens is over the arena. */
+  setCovered(on: boolean) {
+    this.covered = on;
+    if (on) this.stick = null;
+  }
+
   leaveCareer() {
     if (this.careerLevel === null) return;
     this.careerLevel = null;
@@ -760,10 +797,10 @@ export class SurvivorsScene extends Phaser.Scene {
 
   private restart() {
     this.run = this.careerLevel
-      ? newCareerRun(this.careerLevel, this.careerStats, this.arena, this.startWeapon)
+      ? newCareerRun(this.careerLevel, this.careerStats, this.arena, this.startWeapon, this.careerHard)
       : newRun(this.selectedLevel, this.arena, this.startWeapon);
     // A run's name, so the save can refuse to pay the same run twice.
-    this.careerToken = this.careerLevel ? `${this.careerLevel}:${Date.now()}:${++this.runCount}` : "";
+    this.careerToken = this.careerLevel ? `${this.careerLevel}${this.careerHard ? ":hard" : ""}:${Date.now()}:${++this.runCount}` : "";
     if (this.groundFor !== this.groundKey()) this.drawGround();
     this.phase = "ready";
     // A new run is never a paused one: restarting from behind the cover would
@@ -774,6 +811,7 @@ export class SurvivorsScene extends Phaser.Scene {
     this.nextMilestone = MILESTONE_EVERY;
     this.sparks.length = 0;
     this.strikes = [];
+    this.fx.reset();
     // Beside the sparks and for the same reason: a kill mark left over from the
     // last run would be drawn over the first frame of the new one.
     this.hits.length = 0;
@@ -822,6 +860,7 @@ export class SurvivorsScene extends Phaser.Scene {
     const input = this.inputVector();
     step(this.run, delta, input, this.rng);
     this.strikes = ageStrikes(this.strikes, delta);
+    this.fx.tick(delta);
     this.haloFlash = Math.max(0, this.haloFlash - delta);
     this.bombFlash = Math.max(0, this.bombFlash - delta);
     this.consume();
@@ -834,6 +873,8 @@ export class SurvivorsScene extends Phaser.Scene {
   /** Turn what the simulation reported into sparks, sounds and rewards. */
   private consume() {
     for (const e of this.run.events) {
+      // The run's effects (runFx.ts): big deaths, storm arcs, booms, the gem ping.
+      this.fx.consume(e, this.run, this.time.now, this.fxHost);
       if (e.type === "pop") {
         this.burst(e.x, e.y, ENEMY_INK[e.kind]);
         this.layCorpse(e.x, e.y, FOR_ENEMY[e.kind]);
@@ -1410,6 +1451,8 @@ export class SurvivorsScene extends Phaser.Scene {
     // as it dies. Each is drawn in its own ink.
     for (const b of this.run.bolts) {
       const ink = WEAPON_INK[b.kind];
+      // A SUPER's shot is drawn its own way (runFx.ts) - the railgun a beam, the storm an orb.
+      if (this.fx.drawShot(g, b, ink, this.run)) continue;
       if (b.kind === "flask") {
         drawFlask(g, b, ink);
       } else if (b.kind === "bouncer") {
@@ -1461,6 +1504,8 @@ export class SurvivorsScene extends Phaser.Scene {
     const halo = this.run.slots.find((k) => k.id === "halo");
     if (halo) drawHalo(g, this.run.x, this.run.y, haloReach(!!halo.evolved), HALO_INK, !!halo.evolved, this.time.now, this.haloFlash / HALO_FLASH_MS);
     drawStrikes(g, this.strikes, ZAP_INK);
+    this.fx.draw(g, this.run, this.time.now);
+    drawMonsters(g, this.run.enemies, this.time.now);
     if (this.run.ring) drawRing(g, this.run.ring, this.time.now);
     if (this.run.pickups?.length) drawPickups(g, this.run.pickups, this.time.now);
     if (this.bombFlash > 0) {
@@ -1492,6 +1537,7 @@ export class SurvivorsScene extends Phaser.Scene {
 
     // Only mid-run: on the entrance and the end screens it would show through the cover.
     if (this.phase === "playing") this.drawMinimap(hud, cam);
+    this.fx.drawHud(hud, this.run, this.arena.w, this.phase === "playing");
 
     // The boss's health, along the top of the arena. It is a LENGTH, not a
     // colour code - the bar shortens, and nothing in it has to be read as red

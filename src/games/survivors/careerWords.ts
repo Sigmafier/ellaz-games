@@ -43,6 +43,8 @@ export interface NeonCareerWords {
   quickLine: string;
   /** The mode screen's way back to the title, said to a screen reader. */
   back: string;
+  /** THE HARD TIER (hardTier.ts): the map's two-way switch, its ribbon, and what a locked side says. */
+  tier: { normal: string; hard: string; locked: string };
   /**
    * WHAT EACH SHOP ITEM IS (operator ruling 2026-10-02: "in shop we must know whats
    * each item or gear adds"). A name and one plain sentence per vending row and
@@ -65,6 +67,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     newGear: "New gear", start: "Start",
     looks: { gold: "Gold bot", ice: "Ice bot", epic: "Epic gear" }, diamond: "Diamond",
     tap: "Tap to start", worldN: "World {n}", quickLine: "3 stages, a boss in each", back: "Back",
+    tier: { normal: "Normal", hard: "Hard", locked: "Beat this world's boss to open Hard" },
     item: {
       heart: { name: "Extra heart", says: "Start every level with one more heart." },
       power: { name: "Power", says: "Every weapon hits harder." },
@@ -86,6 +89,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     newGear: "ציוד חדש", start: "התחלה",
     looks: { gold: "רובוט זהב", ice: "רובוט קרח", epic: "ציוד אגדי" }, diamond: "יהלום",
     tap: "הקישו כדי להתחיל", worldN: "עולם {n}", quickLine: "3 שלבים, בוס בכל אחד", back: "חזרה",
+    tier: { normal: "רגיל", hard: "קשה", locked: "נצחו את הבוס של העולם כדי לפתוח את קשה" },
     item: {
       heart: { name: "לב נוסף", says: "כל שלב מתחיל עם עוד לב." },
       power: { name: "כוח", says: "כל נשק פוגע חזק יותר." },
@@ -107,6 +111,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     newGear: "Equipo nuevo", start: "Empezar",
     looks: { gold: "Robot de oro", ice: "Robot de hielo", epic: "Equipo épico" }, diamond: "Diamante",
     tap: "Toca para empezar", worldN: "Mundo {n}", quickLine: "3 fases, un jefe en cada una", back: "Atrás",
+    tier: { normal: "Normal", hard: "Difícil", locked: "Vence al jefe de este mundo para abrir Difícil" },
     item: {
       heart: { name: "Corazón extra", says: "Empiezas cada nivel con un corazón más." },
       power: { name: "Poder", says: "Todas tus armas golpean más fuerte." },
@@ -128,6 +133,7 @@ const WORDS: Record<Locale, NeonCareerWords> = {
     newGear: "Ny utrustning", start: "Starta",
     looks: { gold: "Guldrobot", ice: "Isrobot", epic: "Episk utrustning" }, diamond: "Diamant",
     tap: "Tryck för att börja", worldN: "Värld {n}", quickLine: "3 faser, en boss i varje", back: "Tillbaka",
+    tier: { normal: "Normal", hard: "Svår", locked: "Besegra världens boss för att öppna Svår" },
     item: {
       heart: { name: "Extra hjärta", says: "Varje nivå börjar med ett hjärta till." },
       power: { name: "Kraft", says: "Alla vapen slår hårdare." },

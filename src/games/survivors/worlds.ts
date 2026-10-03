@@ -40,6 +40,8 @@ export interface WorldRow {
   coin: number;
   /** Gold for clearing one of its ordinary levels; a boss clear pays double. */
   bonus: number;
+  /** Milliseconds between HORDE RINGS (monsters.ts); 0 in a world that has none. */
+  horde: number;
 }
 
 export interface LevelRow {
@@ -70,16 +72,18 @@ export interface LevelRow {
 // a spitter or a lancer - or a capped wave would send a shape the world never has.
 export const WORLDS: readonly WorldRow[] = [
   {
-    id: "city", base: "calm", twist: "lights", boss: "warden", coin: 1, bonus: 15,
+    id: "city", base: "calm", twist: "lights", boss: "warden", coin: 1, bonus: 15, horde: 0,
     mix: [["runner", 0], ["orb", 12_000], ["brute", 30_000]],
   },
   {
-    id: "frost", base: "normal", twist: "ice", boss: "queen", coin: 2, bonus: 30,
-    mix: [["runner", 0], ["shard", 0], ["orb", 15_000], ["spitter", 25_000]],
+    id: "frost", base: "normal", twist: "ice", boss: "queen", coin: 2, bonus: 30, horde: 0,
+    // The splitter and the charger (2026-10-03) join after the world's own crowd has arrived.
+    mix: [["runner", 0], ["shard", 0], ["orb", 15_000], ["splitter", 20_000], ["spitter", 25_000], ["charger", 35_000]],
   },
   {
-    id: "lava", base: "wild", twist: "pools", boss: "golem", coin: 3, bonus: 45,
-    mix: [["runner", 0], ["shard", 0], ["brute", 8_000], ["orb", 15_000], ["spitter", 25_000], ["lancer", 40_000]],
+    id: "lava", base: "wild", twist: "pools", boss: "golem", coin: 3, bonus: 45, horde: 15_000,
+    // The bomber (2026-10-03) joins with the spitter; the horde ring rides its own clock.
+    mix: [["runner", 0], ["shard", 0], ["brute", 8_000], ["orb", 15_000], ["bomber", 20_000], ["spitter", 25_000], ["lancer", 40_000]],
   },
 ];
 

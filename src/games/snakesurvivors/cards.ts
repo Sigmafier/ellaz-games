@@ -187,10 +187,22 @@ export const SNAP = 42;
 /** What each Lasso level adds to the reach. */
 export const LASSO_STEP = 12;
 
-type Taken = Pick<Run, "taken">;
+type Taken = Pick<Run, "taken" | "career">;
 
-export const speedOf = (r: Taken) => SPEED * (1 + 0.1 * r.taken.swift);
-export const turnOf = (r: Taken) => TURN * (1 + 0.1 * r.taken.swift);
+/**
+ * A career level multiplies both by the snake's SPEED stat, so a faster snake
+ * turns as much tighter and its loops stay the size they were; the desert's sand
+ * slows the move alone (`careerTwists.ts`). A quick run has no career and reads
+ * exactly the line it always did.
+ */
+export const speedOf = (r: Taken) => {
+  const v = SPEED * (1 + 0.1 * r.taken.swift);
+  return r.career ? v * r.career.speed * r.career.slow : v;
+};
+export const turnOf = (r: Taken) => {
+  const v = TURN * (1 + 0.1 * r.taken.swift);
+  return r.career ? v * r.career.speed : v;
+};
 /** How far a gem is pulled from. 0 = only what the head touches. */
 export const pullOf = (r: Taken) => (r.taken.magnet ? 40 + 35 * r.taken.magnet : 0);
 /** The toughest shape a bite kills outright, by its health. 0 = no fangs. */

@@ -153,4 +153,6 @@ export interface RunState {
   /** MAP PICKUPS on the floor (pickups.ts), and the magnet's pull still running. */
   pickups?: Pickup[];
   vacuum?: number;
+  /** REGEN's clock (powers.ts `tickRegen`); absent until the upgrade is taken. */
+  regenMs?: number;
 }

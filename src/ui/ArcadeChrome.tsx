@@ -4,6 +4,7 @@ import { textFor } from "@i18n/index";
 import { DifficultySelector, type DifficultyOption } from "./DifficultySelector";
 import { ArcadeTitle, type ArcadeTitleProps } from "./ArcadeTitle";
 import { notifyRunStart, pageOwnsRestart, setPause, setRestart } from "./gameTools";
+import { usePageScrollLock } from "./pageScrollLock";
 
 /**
  * The arcade HUD: the chrome a SHOWCASE game wears instead of the shared bar.
@@ -225,6 +226,14 @@ export function ArcadeChrome<T extends string>({
     );
     return () => setPause(null);
   }, [hasPause, paused]);
+
+  // THE PAGE HOLDS STILL WHILE A RUN IS LIVE (pageScrollLock.ts). A live run is
+  // the one state with no entrance card AND a pause on offer that is not taken:
+  // every game here passes `entrance` null only mid-run, and `paused` only
+  // while the run is playing. So the title, the shop between waves, the pause
+  // cover, the game-over card - and Neon's career map, which also passes no
+  // entrance but offers no pause - all leave the article reachable.
+  usePageScrollLock(entrance === null && paused === false);
 
   // The arena box's bottom edge inside the panel: the strip a panel-wide
   // entrance keeps clear for the live lane. Layout numbers, never a rect.

@@ -3,7 +3,7 @@
 // Split out of `logic.ts` 2026-09-21, unchanged.
 
 import type { RunState, ShotKind, Slot, WeaponId, WeaponRow } from "./types";
-import { WEAPON_LV_MAX, boltCount, boltDamage, fireEvery } from "./upgrades";
+import { WEAPON_LV_MAX, areaOf, boltCount, boltDamage, fireEvery } from "./upgrades";
 import { EVOLUTIONS, NOVA_FIRE, SWARM_DRONES } from "./evolve";
 import { HALO, THUNDER, ZAP } from "./arms";
 
@@ -224,7 +224,8 @@ function fireFrom(s: RunState, slot: Slot, id: ShotKind, from: { x: number; y: n
     ? pierce + (slot.evolved ? PINBALL_JUMPS : BOUNCER_JUMPS)
     : chain ? Math.max(pierce, STORM_JUMPS) : pierce;
   // Burning ground where the bolt dies: the nova's ring, and every FLASK bottle.
-  const burn = nova ? NOVA_FIRE.r : slot.id === "flask" ? (slot.evolved ? FIRESTORM_FIRE_R : FLASK_FIRE_R) : undefined;
+  const burnR = nova ? NOVA_FIRE.r : slot.id === "flask" ? (slot.evolved ? FIRESTORM_FIRE_R : FLASK_FIRE_R) : undefined;
+  const burn = burnR === undefined ? undefined : burnR * areaOf(s);
 
   for (let i = 0; i < n; i++) {
     if (s.bolts.length >= CAP_BOLTS) break;

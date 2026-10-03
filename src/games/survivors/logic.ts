@@ -30,13 +30,14 @@ import type { Arena, Enemy, EnemyKind, RunState, WeaponId } from "./types";
 import { cameraOf, clampToWorld, dist2, inView, isLeftBehind, keepInRing, ringAround, spawnPoint, worldFor } from "./world";
 import { BLADES, DRONE, bladePositions, holds } from "./arsenal";
 import { CAP_FIRES, NOVA_FIRE, raiseSuper } from "./evolve";
-import { FREEZE_NEED, dashAway, tickPowers } from "./powers";
+import { FREEZE_NEED, dashAway, tickPowers, tickRegen } from "./powers";
+import { moveMonster, splitOnDeath, tickHorde } from "./monsters";
 import { GUNS, bossHpFor, gunEveryFor, nearestEnemy, radiusOf, spawn, speedOf, summonAt, xpOf } from "./enemies";
 import { WEAPONS, fireSlot, mainSlot, weaponDamage, weaponEvery } from "./weapons";
 import { pulseHalo, zapSlot } from "./arms";
 import { PICKUP_MS, dropFor, tickPickups } from "./pickups";
 import { FINAL, RULES, STAGE_MS, bossKindFor, isLastStage, spawnEvery, stageIsOver, stageMs } from "./stages";
-import { magnetRange, playerSpeed, shieldEvery, shieldReady, xpNeeded } from "./upgrades";
+import { areaOf, magnetRange, playerSpeed, shieldEvery, shieldReady, xpNeeded } from "./upgrades";
 // THE CAREER (P3). Every call below sits behind `if (s.career)`, so a quick run -
 // which has no career - runs exactly the lines it ran before, draw for draw.
 import { careerClock, careerCoins, careerEnd, careerLoot, careerTime } from "./careerHooks";
@@ -227,7 +228,7 @@ export function newRun(level: RunState["level"], arena: Arena = ARENA, start: We
     shots: [],
     gems: [],
     fires: [],
-    up: { rapid: 0, power: 0, spread: 0, swift: 0, magnet: 0, heart: 0, pierce: 0, shield: 0, range: 0 },
+    up: { rapid: 0, power: 0, spread: 0, swift: 0, magnet: 0, heart: 0, pierce: 0, shield: 0, range: 0, area: 0, regen: 0, haste: 0 },
     // The MAIN weapon, wearing its rarity's perk (`mainSlot`, `weaponPool.ts`).
     // Calm's default bolt is a common, so this is `freshSlot` plus a flag there.
     slots: [mainSlot(start)],
@@ -285,7 +286,8 @@ function damage(s: RunState, e: Enemy, dmg: number, by?: WeaponId) {
     // near the corpse. A shape killed by a blade is usually also inside a bolt's
     // path, so "what was closest" is a guess the simulation does not have to
     // make: it is the one that knows.
-    s.events.push({ type: "pop", x: e.x, y: e.y, kind: e.kind, ...(by ? { by } : {}) });
+    const big = e.id === s.boss ? "boss" : e.elite ? "elite" : null;
+    s.events.push({ type: "pop", x: e.x, y: e.y, kind: e.kind, ...(by ? { by } : {}), ...(big ? { big } : {}) });
     // `xpOf`, never `KINDS[kind].xp` - an elite's gem is worth ten, and this is
     // the ONE line in the game that mints a gem. Miss it and an elite is six
     // times the work for the same reward, which is worse than not having one.
@@ -322,6 +324,7 @@ function damage(s: RunState, e: Enemy, dmg: number, by?: WeaponId) {
     } else s.gems.push({ id: s.nextId++, x: e.x, y: e.y, value: worth });
     // A career kill may drop gold too - on top of the gem, never instead of it.
     if (s.career) careerLoot(s, e);
+    splitOnDeath(s, e);
     // A MAP PICKUP, sometimes (pickups.ts) - decided by the shape's id, never by
     // an rng draw, so no random number the run already draws moves.
     const drop = dropFor(e, e.id === s.boss);
@@ -527,6 +530,7 @@ export function step(
   if (s.invuln > 0) s.invuln = Math.max(0, s.invuln - dt);
   if (s.shieldCd > 0) s.shieldCd = Math.max(0, s.shieldCd - dt);
   tickPowers(s, dt);
+  tickRegen(s, dt);
   const frozen = s.frozen > 0;
 
   // Steering. The vector arrives in -1..1; normalise it, or a diagonal is faster
@@ -560,6 +564,7 @@ export function step(
       s.spawnIn += spawnEvery(s);
     }
   }
+  if (s.career) tickHorde(s, dt);
 
   // Every carried weapon on its own clock. A slot with nothing in range holds at
   // zero rather than banking shots, so it fires once when a shape walks in, not
@@ -610,6 +615,7 @@ export function step(
       e.wind = 0;
       continue;
     }
+    if (moveMonster(s, e, dt, pace, CAP_SHOTS)) continue;
     tickGun(s, e, dt);
     const isBoss = e.id === s.boss;
     if (isBoss) tickSummon(s, e, dt, rng);
@@ -662,7 +668,7 @@ export function step(
     const dmg = weaponDamage(s, bladeSlot);
     for (const e of s.enemies) {
       if (e.hp <= 0 || (e.bladeCd ?? 0) > 0) continue;
-      const r = radiusOf(e) + BLADES.r;
+      const r = radiusOf(e) + BLADES.r * areaOf(s);
       if (!blades.some((b) => dist2(b.x, b.y, e.x, e.y) <= r * r)) continue;
       damage(s, e, dmg, "blades");
       e.bladeCd = BLADES.hitMs;
@@ -718,6 +724,7 @@ export function step(
         if (b.chain) {
           const next = nearestUnhit(s, b);
           if (next) {
+            s.events.push({ type: "jump", kind: b.kind, x: b.x, y: b.y, tx: next.x, ty: next.y });
             const sp = Math.hypot(b.vx, b.vy) || 1;
             const a2 = Math.atan2(next.y - b.y, next.x - b.x);
             b.vx = Math.cos(a2) * sp;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactElement, type ReactNode } from "react";
-import { HEART_COLS, type BossRow, type GoalRow, type HeartBlock, type RunStat } from "./hud";
+import { HEART_COLS, type BossRow, type CareerGoalRow, type GoalRow, type HeartBlock, type RunStat } from "./hud";
 
 // Snake Survivors' HUD, drawn ON the arena: "C3 Big hearts, length right",
 // approved off a mock on 2026-10-01 (the operator: "Life: hearts top left,
@@ -136,6 +136,7 @@ export function SnakeHud({
   boss,
   cards,
   goal = null,
+  career = null,
 }: {
   hearts: HeartBlock;
   len: number;
@@ -145,6 +146,8 @@ export function SnakeHud({
   cards: { id: string; art: ReactNode }[];
   /** The goal row, top-centre (round eight), or null to draw none (the guided run). */
   goal?: GoalRow | null;
+  /** A career level's goal - "9/15" and the level's name - drawn in the goal's place. */
+  career?: CareerGoalRow | null;
 }) {
   const heartsRef = useHitFlash(hearts.fill);
   return (
@@ -226,7 +229,7 @@ export function SnakeHud({
           </span>
         </div>
 
-        {goal && <GoalBlock goal={goal} />}
+        {career ? <CareerGoal goal={career} /> : goal && <GoalBlock goal={goal} />}
 
         {/* THE WEAPONS, on the side, only once owned - no empty slots. */}
         {cards.length > 0 && (
@@ -358,6 +361,25 @@ function GoalBlock({ goal }: { goal: GoalRow }) {
       <span data-goal="boss" style={{ color: "#ff7675", whiteSpace: "nowrap", fontSize: "0.85em", letterSpacing: "0.04em" }}>
         {goal.boss}
       </span>
+      </div>
+    </div>
+  );
+}
+
+/** The career's goal: crushed toward the target (or BOSS while it is up), and the level's name under it. */
+function CareerGoal({ goal }: { goal: CareerGoalRow }) {
+  return (
+    <div data-hud="goal" style={{ position: "absolute", top: "0.5em", left: GOAL_INSET.left, right: GOAL_INSET.right }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.25em", fontSize: "0.8em", textAlign: "center", textShadow: "0 2px 6px rgba(11, 14, 34, 0.85)" }}>
+        {goal.count ? (
+          <span dir="ltr" data-goal="target" style={{ display: "inline-flex", alignItems: "center", gap: "0.25em", color: GOLD, whiteSpace: "nowrap", fontSize: "1.35em" }}>
+            {crushIcon()}
+            {goal.count}
+          </span>
+        ) : (
+          <span data-goal="boss" style={{ color: "#ff7675", whiteSpace: "nowrap", fontSize: "1.35em", letterSpacing: "0.06em", textTransform: "uppercase" }}>{goal.head}</span>
+        )}
+        <span data-goal="level" style={{ color: MINT, whiteSpace: "nowrap", fontSize: "0.85em", letterSpacing: "0.04em", textTransform: "uppercase" }}>{goal.level}</span>
       </div>
     </div>
   );

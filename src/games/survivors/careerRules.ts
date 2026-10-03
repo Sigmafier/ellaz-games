@@ -18,6 +18,7 @@ import { earnGold, type ShopFile } from "../../shared/career/shop";
 import { careerStats, type StatBlock } from "../../shared/career/stats";
 import type { CareerResult, CareerStats } from "./types";
 import { NEON_CAMPAIGN, levelRow, worldRow } from "./worlds";
+import { HARD, readHard, recordHard, writeHard } from "./hardTier";
 
 export type LevelResult = CareerResult;
 
@@ -114,10 +115,12 @@ export function settle(save: CareerSave, r: CareerResult, rng: () => number): Se
     const kept = Math.floor(Math.max(0, r.gold) / 2);
     return { won: false, stars: 0, gold: kept, bonus: 0, drop: null, save: earnGold(save, kept) };
   }
-  const bonus = clearBonus(r.level);
+  // A HARD clear pays its bonus twice over and records its stars in the hard
+  // save (`bankRun`), never here: the normal map's stars are the normal tier's.
+  const bonus = clearBonus(r.level) * (r.hard ? HARD.gold : 1);
   const gold = Math.max(0, Math.floor(r.gold)) + bonus;
   const stars = starsFor(r.hp, r.maxHp);
-  let next = recordClear(NEON_CAMPAIGN, earnGold(save, gold), r.level, stars);
+  let next = r.hard ? earnGold(save, gold) : recordClear(NEON_CAMPAIGN, earnGold(save, gold), r.level, stars);
   let drop: string | null = null;
   if (levelRow(r.level).boss) drop = rollDrop(BOSS_GEAR, rng);
   else for (let i = 0; i < r.elites && drop === null; i++) if (rng() < ELITE_GEAR_CHANCE) drop = rollDrop(NEON_GEAR, rng);
@@ -143,6 +146,9 @@ export function bankRun(store: CareerStore, token: string, r: CareerResult, rng:
   }
   if (last === token) return null;
   const out = settle(readSave(store, CAREER_KEY), r, rng);
+  // A hard win's stars go to the hard save first - re-recording them is a no-op,
+  // so a run paid again after a refused write cannot over-count anything.
+  if (r.hard && out.won && !writeHard(store, recordHard(out.save, readHard(store), r.level, out.stars))) return out;
   if (!writeSave(store, CAREER_KEY, out.save) || !landed(store, out.save)) return out;
   try {
     store.set(SETTLED_KEY, token);

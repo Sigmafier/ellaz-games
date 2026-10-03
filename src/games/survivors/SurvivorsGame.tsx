@@ -49,11 +49,13 @@ import { balancedLines, titleLines } from "@ui/ArcadeTitle";
 import { WeaponPick } from "./entrance/WeaponPick";
 import { SuperReveal } from "./entrance/GoldChest";
 import { LevelCards } from "./LevelCards";
+import { slotCounts } from "./cards";
 import { cardWords } from "./cardWords";
 import { weaponWords } from "./entrance/weaponWords";
 import { weaponsOpenIn } from "./weaponPool";
 import type { CareerStore } from "../../shared/career/save";
 import { notifyRunStart } from "@ui/gameTools";
+import { SuperHintPill, slotArt } from "./RunExtras";
 import { neonCareerWords } from "./careerWords";
 import type { CareerResult } from "./types";
 
@@ -112,7 +114,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
   const sceneRef = useRef<Pick<
     SurvivorsScene,
     | "setLevel" | "setPaused" | "restartFromChrome" | "startFromChrome" | "choose"
-    | "setStartWeapon" | "freezeFromChrome" | "startCareer" | "leaveCareer" | "reroll"
+    | "setStartWeapon" | "freezeFromChrome" | "startCareer" | "leaveCareer" | "reroll" | "setCovered"
   > | null>(null);
 
   /**
@@ -124,6 +126,8 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
    * screen that sat between them is gone.
    */
   const [mode, setMode] = useState<NeonMode>("title");
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   /** The scene tells the career when a level ends; the career decides what that pays. */
   const careerEndRef = useRef<((r: CareerResult, token: string) => void) | null>(null);
 
@@ -192,6 +196,9 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
     // leave a hole here that only shows up as an empty pip row on one card.
     taken: Object.fromEntries(UPGRADE_IDS.map((id) => [id, 0])) as Record<UpgradeId, number>,
     gold: null,
+    supers: [],
+    hint: null,
+    dashMs: DASH_MS,
   });
   const best = ctx.score?.best(status.level) ?? 0;
 
@@ -315,6 +322,10 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
           // through a REF: this effect depends on `[ctx]` alone, and closing over
           // `level` would either go stale or reboot Phaser on every change.
           scene.setLevel(levelRef.current);
+          // A career screen opened before the engine finished loading never
+          // reached the scene, and every career screen that can be up before a
+          // level starts covers the arena - so the career mode IS the cover here.
+          scene.setCovered(modeRef.current === "career");
           if (pendingPlay.current) {
             pendingPlay.current = false;
             scene.startFromChrome();
@@ -449,6 +460,9 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         pierce: "היריות עוברות דרך",
         shield: "מגן שחוזר",
         range: "רואים רחוק יותר",
+        area: "טווח רחב יותר",
+        regen: "לבבות חוזרים",
+        haste: "זינוק מהיר יותר",
       },
       en: {
         rapid: "Faster shots",
@@ -460,6 +474,9 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         pierce: "Shots pass through",
         shield: "A shield that comes back",
         range: "The gun sees further",
+        area: "Wider reach",
+        regen: "Hearts grow back",
+        haste: "Quicker dash",
       },
       es: {
         rapid: "Disparos más rápidos",
@@ -471,6 +488,9 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         pierce: "Los disparos atraviesan",
         shield: "Un escudo que vuelve",
         range: "El arma ve más lejos",
+        area: "Más alcance",
+        regen: "Corazones que vuelven",
+        haste: "Salto más rápido",
       },
       sv: {
         rapid: "Snabbare skott",
@@ -483,6 +503,9 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         crit: "Slår ibland dubbelt",
         shield: "En sköld som kommer tillbaka",
         range: "Vapnet ser längre",
+        area: "Större räckvidd",
+        regen: "Hjärtan växer tillbaka",
+        haste: "Snabbare rusning",
       },
     },
     ctx.locale,
@@ -593,7 +616,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
         slots: Array.from({ length: SLOTS_MAX }, (_, i) => {
           const id = status.slots[i];
           return id
-            ? { id, art: <span style={{ color: WEAPON_INK_CSS[id], display: "flex" }}>{WEAPON_ART[id](22)}</span> }
+            ? { id, art: slotArt(WEAPON_ART[id](22), WEAPON_INK_CSS[id], status.supers.includes(id)) }
             : { id: "empty", art: null };
         }),
         chip: {
@@ -602,7 +625,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
           text:
             status.dash >= 1
               ? T.dashReady
-              : `${T.dash} ${Math.ceil(((1 - status.dash) * DASH_MS) / 1000)}s`,
+              : `${T.dash} ${Math.ceil(((1 - status.dash) * status.dashMs) / 1000)}s`,
         },
         // NAMED BY THE BOSS THAT IS ACTUALLY THERE. This read `T.golem` while
         // there was one boss, and would have labelled an 80-health warden
@@ -856,6 +879,15 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
             </span>
           </div>
         )}
+        {status.phase === "playing" && !choosing && status.hint && (
+          <SuperHintPill
+            hint={status.hint}
+            lv={CW.lv}
+            partner={UP[status.hint.partner]}
+            superName={weaponWords(ctx.locale).supers[status.hint.weapon][0]}
+            label={weaponWords(ctx.locale).superPower}
+          />
+        )}
         {choosing && (
           <div
             role="group"
@@ -917,8 +949,7 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
                 words={CW}
                 newWord={T.newWeapon}
                 taken={status.taken}
-                weapons={{ held: status.slots.length, of: SLOTS_MAX }}
-                powers={{ held: UPGRADE_IDS.filter((id) => status.taken[id] > 0).length, of: UPGRADE_IDS.length }}
+                {...slotCounts(status.slots, status.taken)}
                 rerolls={status.rerolls}
                 onChoose={(card) => sceneRef.current?.choose(card)}
                 onReroll={() => sceneRef.current?.reroll()}

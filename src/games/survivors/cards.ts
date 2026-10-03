@@ -19,6 +19,7 @@ import { POOL, SLOTS_MAX, holds } from "./arsenal";
 import { WEAPON_LV_MAX, canLevel, freshSlot } from "./weapons";
 import { applyEvolve } from "./evolve";
 import { applyUpgrade, offerUpgrades, type RunState, type UpgradeId, type WeaponId } from "./logic";
+import { PASSIVE_SLOTS, UPGRADE_IDS } from "./upgrades";
 
 export type Card =
   | { kind: "weapon"; id: WeaponId }
@@ -128,3 +129,15 @@ export const GUARANTEED_WEAPONS = 4;
 /** A reroll swaps ordinary cards only: a super power is the reward for a kill and is never rerolled. */
 export const canReroll = (offer: readonly Card[], left: number): boolean =>
   left > 0 && offer.length > 0 && offer.every((c) => c.kind !== "evolve");
+
+/**
+ * The counts the level-up screen shows: weapons held out of `SLOTS_MAX`, powers held
+ * out of `PASSIVE_SLOTS` - the slot LIMITS. Until 2026-10-03 the powers line divided
+ * by the number of power-ups that exist (9, then 12), which no run can ever hold.
+ */
+export function slotCounts(slots: readonly WeaponId[], taken: Record<UpgradeId, number>): { weapons: { held: number; of: number }; powers: { held: number; of: number } } {
+  return {
+    weapons: { held: slots.length, of: SLOTS_MAX },
+    powers: { held: UPGRADE_IDS.filter((id) => (taken[id] ?? 0) > 0).length, of: PASSIVE_SLOTS },
+  };
+}

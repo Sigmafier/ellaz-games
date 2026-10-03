@@ -215,6 +215,10 @@ export const FOR_ENEMY: Record<EnemyKind, CastKey> = {
   // bolt comes out.
   spitter: "slime",
   lancer: "crab",
+  splitter: "slime",
+  blob: "slime",
+  charger: "bat",
+  bomber: "crab",
   warden: "bat",
   queen: "crab",
   golem: "golem",

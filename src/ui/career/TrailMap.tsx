@@ -13,7 +13,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { DIR } from "@i18n/index";
 import type { AppLocale } from "@i18n/index";
-import { currentNode, nodeStates } from "../../shared/career/progress";
+import { nodeStates } from "../../shared/career/progress";
 import type { NodeStateView } from "../../shared/career/progress";
 import { HALO, trailLayout } from "../../shared/career/trail";
 import type { TrailLayout, TrailPoint } from "../../shared/career/trail";
@@ -43,6 +43,25 @@ export interface TrailMapProps {
   onStats?: () => void;
   /** a dot on GEAR: something was found that has not been looked at */
   gearBadge?: boolean;
+  /**
+   * A HARDER TIER, when the game has one (Neon Survival, 2026-10-03): a two-way
+   * switch over the map, the node states the game computes for the tier shown,
+   * and a ribbon on each world that tier is open in. Absent: the map is exactly
+   * the one it always was.
+   */
+  tier?: MapTier;
+}
+
+export interface MapTier {
+  hard: boolean;
+  /** the two switch labels and the ribbon's word */
+  normal: string;
+  label: string;
+  /** the worlds this tier is open in - each gets a ribbon while the tier is shown */
+  open: readonly string[];
+  /** the node states to draw while the tier is shown; the campaign's own rule otherwise */
+  views?: NodeStateView[];
+  onToggle: (hard: boolean) => void;
 }
 
 const STONE = { done: P.mint, now: P.berry, open: P.sand, locked: P.stone } as const;
@@ -105,16 +124,64 @@ function NodeButton(props: { v: NodeStateView; p: TrailPoint; selected: boolean;
   );
 }
 
-function worldLabel(t: TrailLayout, i: number, name: string, kind: string): ReactElement {
+function worldLabel(t: TrailLayout, i: number, name: string, kind: string, ribbon: string | null): ReactElement {
   const band = t.bands[i];
   const [fillInk, edge] = LABEL_INK[asScenery(kind)];
   const common = { fill: fillInk, stroke: edge, strokeWidth: 5, paintOrder: "stroke", fontWeight: 700, letterSpacing: 2 } as const;
   if (t.orientation === "landscape") {
-    return <text key={i} x={band.x + band.width / 2} y={t.insets.top - 30} fontSize={30} textAnchor="middle" {...common}>{name.toUpperCase()}</text>;
+    const x = band.x + band.width / 2;
+    return (
+      <g key={i}>
+        <text x={x} y={t.insets.top - 30} fontSize={30} textAnchor="middle" {...common}>{name.toUpperCase()}</text>
+        {ribbon ? tierRibbon(x, t.insets.top - 12, ribbon, "middle") : null}
+      </g>
+    );
   }
   const boss = t.points.filter((p) => p.world === i).slice(-1)[0];
   const left = !boss || boss.x > t.width / 2;
-  return <text key={i} x={left ? 14 : t.width - 14} y={band.y + 30} fontSize={21} textAnchor={left ? "start" : "end"} {...common} strokeWidth={4}>{name.toUpperCase()}</text>;
+  const x = left ? 14 : t.width - 14;
+  return (
+    <g key={i}>
+      <text x={x} y={band.y + 30} fontSize={21} textAnchor={left ? "start" : "end"} {...common} strokeWidth={4}>{name.toUpperCase()}</text>
+      {ribbon ? tierRibbon(x, band.y + 46, ribbon, left ? "start" : "end") : null}
+    </g>
+  );
+}
+
+/** the HARD ribbon under a world's name: a raspberry tag the label's own width, never a colour alone */
+function tierRibbon(x: number, y: number, word: string, anchor: "start" | "middle" | "end"): ReactElement {
+  const w = word.length * 11 + 26;
+  const left = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
+  return (
+    <g>
+      <path d={`M${left} ${y} h${w} l-8 11 l8 11 h${-w} l8 -11 Z`} fill={P.berry} stroke={INK} strokeWidth={3} strokeLinejoin="round" />
+      <text x={left + w / 2} y={y + 16.5} fontSize={15} textAnchor="middle" fill={P.white} fontWeight={800} letterSpacing={1.5}>{word.toUpperCase()}</text>
+    </g>
+  );
+}
+
+/**
+ * the two-way tier switch: two real buttons, the shown one filled. Placed where no
+ * world's name is: beside BACK on a PC (the labels sit centred over each band), and
+ * just above the dock on a phone (the labels sit at the bands' edges, top to bottom).
+ */
+function TierSwitch({ tier, landscape, inset }: { tier: MapTier; landscape: boolean; inset: number }): ReactElement {
+  const at = landscape
+    ? { top: 12, insetInlineStart: inset + 60 }
+    : { bottom: 112, left: "50%", transform: "translateX(-50%)" };
+  const side = (hard: boolean, label: string) => (
+    <button type="button" aria-pressed={tier.hard === hard} onClick={() => tier.onToggle(hard)} className="career-btn"
+      style={{ minWidth: 92, height: 40, padding: "0 16px", border: 0, borderRadius: 20, fontSize: 16, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase",
+        background: tier.hard === hard ? (hard ? P.berry : P.white) : "transparent", color: tier.hard === hard && !hard ? INK : P.white }}>
+      {label}
+    </button>
+  );
+  return (
+    <div style={{ position: "absolute", zIndex: 30, ...at, display: "flex", gap: 4, padding: 4, borderRadius: 24, background: P.inkVeil, border: `3px solid ${INK}` }}>
+      {side(false, tier.normal)}
+      {side(true, tier.label)}
+    </div>
+  );
 }
 
 function TrailFloor({ t, props }: { t: TrailLayout; props: TrailMapProps }): ReactElement {
@@ -123,7 +190,7 @@ function TrailFloor({ t, props }: { t: TrailLayout; props: TrailMapProps }): Rea
   return (
     <svg width={t.width} height={t.height} viewBox={`0 0 ${t.width} ${t.height}`} aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, display: "block" }}>
       {t.bands.map((b, i) => <Backdrop key={i} kind={asScenery(worlds[i]?.scenery)} rect={b} id={`career-w${i}`} />)}
-      {worlds.map((w, i) => worldLabel(t, i, props.worldNames[w.id] ?? w.id, w.scenery ?? ""))}
+      {worlds.map((w, i) => worldLabel(t, i, props.worldNames[w.id] ?? w.id, w.scenery ?? "", props.tier?.hard && props.tier.open.includes(w.id) ? props.tier.label : null))}
       <path d={path} fill="none" stroke={P.cream} strokeWidth={12} strokeDasharray="2 20" strokeLinecap="round" />
     </svg>
   );
@@ -152,9 +219,12 @@ export function TrailMap(props: TrailMapProps): ReactElement {
   const dir = DIR[props.locale];
   const [boxRef, box] = useBox<HTMLDivElement>();
   const scroller = useRef<HTMLDivElement>(null);
-  const views = useMemo(() => nodeStates(props.campaign, props.save), [props.campaign, props.save]);
-  const now = currentNode(props.campaign, props.save);
-  const [chosen, setChosen] = useState<string>(now?.id ?? views[views.length - 1].node.id);
+  const tierViews = props.tier?.hard ? props.tier.views : undefined;
+  const views = useMemo(() => tierViews ?? nodeStates(props.campaign, props.save), [tierViews, props.campaign, props.save]);
+  const now = views.find((v) => v.state === "now")?.node ?? null;
+  // Where the hero stands first: the level you are up to, else the furthest one open (on a
+  // harder tier the last node can be locked, and a hero on a lock reads as a level to play).
+  const [chosen, setChosen] = useState<string>(now?.id ?? ([...views].reverse().find((v) => v.state !== "locked") ?? views[views.length - 1]).node.id);
   const [wiggling, wiggle] = useWiggle();
   const t = useMemo(() => (box.width > 0 && box.height > 0 ? trailLayout(props.campaign.worlds.map((x) => x.levels.length), box) : null), [box, props.campaign]);
   const at = views.findIndex((v) => v.node.id === chosen);
@@ -191,7 +261,8 @@ export function TrailMap(props: TrailMapProps): ReactElement {
       ) : null}
       {t && t.orientation === "portrait" ? <div aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 150, pointerEvents: "none", background: `linear-gradient(${P.nightClear}, ${P.nightVeil} 45%, ${P.night})` }} /> : null}
       <Hud onBack={props.onBack} backLabel={w.back} purses={props.purses} purseLabel={w.gold} rtl={dir === "rtl"} inset={t?.orientation === "portrait" ? 12 : 24} />
-      {t ? <Dock t={t} w={w} props={props} onPlay={() => props.onPlay(chosen)} /> : null}
+      {props.tier && t ? <TierSwitch tier={props.tier} landscape={t.orientation === "landscape"} inset={t.orientation === "portrait" ? 12 : 24} /> : null}
+      {t ? <Dock t={t} w={w} props={props} onPlay={() => (at >= 0 && views[at].state === "locked" ? wiggle(chosen) : props.onPlay(chosen))} /> : null}
     </Screen>
   );
 }

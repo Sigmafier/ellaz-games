@@ -16,7 +16,7 @@
 
 import type { Enemy, RunState, Slot } from "./types";
 import { radiusOf } from "./enemies";
-import { sightRange } from "./upgrades";
+import { areaOf, sightRange } from "./upgrades";
 import { dist2 } from "./world";
 
 export type Hurt = (e: Enemy, dmg: number) => void;
@@ -38,7 +38,7 @@ export const ZAP = { strikes: 1, every: 1.2 } as const;
 export const THUNDER = { strikes: 4, splash: 34, every: 1.2 } as const;
 
 /** How far the halo reaches, evolved or not - the scene draws this same number. */
-export const haloReach = (evolved: boolean): number => (evolved ? BARRIER.r : HALO.r);
+export const haloReach = (evolved: boolean, s?: Parameters<typeof areaOf>[0]): number => (evolved ? BARRIER.r : HALO.r) * (s ? areaOf(s) : 1);
 
 /**
  * One PULSE of the halo: every shape inside the ring is hurt once. Called on the
@@ -47,7 +47,7 @@ export const haloReach = (evolved: boolean): number => (evolved ? BARRIER.r : HA
  * steps in, which would bring back the untouchable statue.
  */
 export function pulseHalo(s: RunState, slot: Slot, dmg: number, hurt: Hurt): true {
-  const reach = haloReach(!!slot.evolved);
+  const reach = haloReach(!!slot.evolved, s);
   for (const e of s.enemies) {
     if (e.hp <= 0) continue;
     const r = reach + radiusOf(e);
@@ -82,7 +82,7 @@ export function zapSlot(s: RunState, slot: Slot, dmg: number, rng: () => number,
     if (!big) continue;
     for (const o of s.enemies) {
       if (o === e || o.hp <= 0) continue;
-      const r = THUNDER.splash + radiusOf(o);
+      const r = THUNDER.splash * areaOf(s) + radiusOf(o);
       if (dist2(e.x, e.y, o.x, o.y) <= r * r) hurt(o, dmg);
     }
   }

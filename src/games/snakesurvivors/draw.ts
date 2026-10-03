@@ -471,16 +471,22 @@ export interface GroundPen extends Pen {
   lineBetween(x1: number, y1: number, x2: number, y2: number): unknown;
 }
 
+/** A floor's three colours: the ground, its grid and its scattered dots. */
+export interface GroundInk { ground: number; grid: number; dots: number }
+
+/** The quick run's floor - the career's worlds hand their own (`careerScene.ts`). */
+export const QUICK_GROUND: GroundInk = { ground: INK.ground, grid: INK.grid, dots: 0x2a3170 };
+
 /** The floor: a faint grid, scattered dots, and striped walls at the world's edge. */
-export function drawGround(g: GroundPen, world: Arena): void {
+export function drawGround(g: GroundPen, world: Arena, ink: GroundInk = QUICK_GROUND): void {
   const { w, h } = world;
-  g.fillStyle(INK.ground, 1);
+  g.fillStyle(ink.ground, 1);
   g.fillRect(0, 0, w, h);
-  g.lineStyle(1, INK.grid, 1);
+  g.lineStyle(1, ink.grid, 1);
   for (let x = 40; x < w; x += 40) g.lineBetween(x, 0, x, h);
   for (let y = 40; y < h; y += 40) g.lineBetween(0, y, w, y);
   const rnd = mulberry32(20260927);
-  g.fillStyle(0x2a3170, 1);
+  g.fillStyle(ink.dots, 1);
   for (let i = 0; i < (w * h) / 6000; i++) g.fillCircle(rnd() * w, rnd() * h, 1.3);
   g.fillStyle(INK.wall, 0.55);
   for (const [x, y, rw, rh] of [[0, 0, w, WALL], [0, h - WALL, w, WALL], [0, 0, WALL, h], [w - WALL, 0, WALL, h]]) g.fillRect(x, y, rw, rh);

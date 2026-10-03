@@ -158,6 +158,7 @@ export function TablePieces({
   levels,
   level,
   onLevel,
+  levelLabel,
   stats,
   paused,
   onPaused,
@@ -167,6 +168,8 @@ export function TablePieces({
   levels?: Level[];
   level?: string;
   onLevel?: (next: string) => void;
+  /** What the disc picks when it is not a difficulty (GameChrome's `levelLabel`). */
+  levelLabel?: string;
   stats: Stat[];
   paused?: boolean;
   onPaused?: (next: boolean) => void;
@@ -179,7 +182,7 @@ export function TablePieces({
         <button
           type="button"
           className="gt-disc"
-          aria-label={`${t("difficulty")}: ${current.label[locale]}`}
+          aria-label={`${levelLabel ?? t("difficulty")}: ${current.label[locale]}`}
           onClick={() => onLevel(levels[(i + 1) % levels.length].id)}
         >
           <span>{current.label[locale]}</span>

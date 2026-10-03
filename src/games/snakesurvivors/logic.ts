@@ -22,6 +22,8 @@ import {
 } from "./crowd";
 import { gemReach, mergeGems } from "./merge";
 import { FLOOR_GEMS, tickFloorGems } from "./floor";
+// THE CAREER (snake career, 2026-10-03): every call below sits behind `if (run.career)`.
+import { careerBonusHit, careerBossDown, careerCoins, careerEnd, careerLoot, careerPull, careerShield, careerTick } from "./careerHooks";
 import type { Arena, CardId, Foe, LevelKey, Pt, Run, Stage, Steer } from "./types";
 
 export type { Arena, CardId, Foe, LevelKey, Run, Stage, Steer } from "./types";
@@ -109,8 +111,11 @@ export function step(run: Run, dt: number, steer: Steer, rng: () => number = Mat
   run.shieldIn = Math.max(0, run.shieldIn - dt);
 
   advance(run, dt, steer);
-  if (wardenMayCome(run)) startBoss(run, rng);
-  tickMini(run, rng);
+  if (run.career) careerTick(run, dt);
+  else {
+    if (wardenMayCome(run)) startBoss(run, rng);
+    tickMini(run, rng);
+  }
   tickSpawns(run, dt, rng);
   tickFloorGems(run, dt, rng);
   moveFoes(run, dt, rng);
@@ -128,6 +133,8 @@ export function step(run: Run, dt: number, steer: Steer, rng: () => number = Mat
   bolts(run, dt);
   collectGems(run, dt, rng);
 
+  // A career level ends on its crush target, or brings its boss (`careerHooks.ts`).
+  if (run.career) careerEnd(run, rng);
   // Read afresh: a crush or a bite above may have just won the run.
   if ((run.phase as Run["phase"]) !== "won" && run.len < MIN_LEN) {
     run.phase = "dead";
@@ -191,7 +198,8 @@ function kill(run: Run, f: Foe, rng: () => number): void {
     run.gems.push({ x: f.x + (rng() - 0.5) * 14, y: f.y + (rng() - 0.5) * 14, v });
   }
   run.events.push({ k: "ko", kind: f.kind, x: f.x, y: f.y, form: f.form });
-  if (f.kind === "warden") nextStage(run);
+  if (run.career) careerLoot(run, f);
+  if (f.kind === "warden") (run.career ? careerBossDown(run) : nextStage(run));
 }
 
 
@@ -218,6 +226,8 @@ function crush(run: Run, poly: Pt[], rng: () => number, by: "head" | "tail"): vo
       run.events.push({ k: "bosshit", x: f.x, y: f.y });
     }
     wound(run, f, rng);
+    // A career's crush power: a survivor may owe a second hit (`careerBonusHit`).
+    if (run.career && careerBonusHit(run, f)) wound(run, f, rng);
   }
   // Only a loop that CAUGHT something throws the rest back. Firing on every
   // closing held the whole crowd off for ever (see the shockwave tests).
@@ -347,6 +357,9 @@ function takeHit(run: Run, kind: Foe["kind"], x: number, y: number): void {
     // The Shield takes this one: no segment, and it recharges.
     run.shieldIn = shieldEvery(run);
     run.events.push({ k: "shield" });
+  } else if (run.career && careerShield(run)) {
+    // The shop's shield: this one bump is free, once a level.
+    run.events.push({ k: "shield" });
   } else {
     run.len = Math.max(0, run.len - hitCost(run));
     run.events.push({ k: "hit", kind, x, y });
@@ -422,7 +435,7 @@ function spit(run: Run, dt: number, rng: () => number): void {
 export const mergeGuard = (run: Run) => Math.max(pullOf(run), 2 * PICKUP);
 
 function collectGems(run: Run, dt: number, rng: () => number): void {
-  const pull = pullOf(run);
+  const pull = run.career ? careerPull(run, pullOf(run)) : pullOf(run);
   // GEM MERGE (the `doubleGems` card since 2026-10-01): gems near each other
   // slide together and fuse, worth the sum (`merge.ts`). Gems the magnet or the
   // pickup already has are left alone.
@@ -447,6 +460,7 @@ function collectGems(run: Run, dt: number, rng: () => number): void {
     kept.push(g);
   }
   run.gems = kept;
+  if (run.career) careerCoins(run, pull, dt);
   if (run.xp >= run.need && !run.choosing) {
     run.xp -= run.need;
     run.lv += 1;

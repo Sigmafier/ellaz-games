@@ -5,34 +5,39 @@ import { BOARD_CLASS, boardVars, isPcArena } from "@ui/boardSize";
 import { GameChrome } from "@ui/GameChrome";
 import { type DifficultyOption } from "@ui/DifficultySelector";
 import { haptic, popEl } from "@juice/index";
-import { useGameSession, useRememberedLevel, winMoment } from "@shared/index";
+import { playNote } from "@sdk/note";
+import { useGameSession, useRememberedLevel } from "@shared/index";
 import {
   LENGTHS,
-  MILESTONE_EVERY,
   ROWS,
-  STEPS,
   VOICES,
   cellIndex,
   clearTune,
   columnRows,
-  isVoice,
-  milestoneStep,
+  isMusicSnapshot,
   newTune,
+  resumeTune,
   noteCount,
-  pitchFor,
   resize,
-  scoreReport,
   setVoice,
   surprise,
   toggleCell,
+  SNAPSHOT_VERSION,
   type Length,
+  type MusicSnapshot,
   type TuneState,
   type Voice,
 } from "./logic";
+import { STEP_MS, bassFor, noteFor } from "./sound";
 
 // The renderer. Every rule about what a tap DOES lives in logic.ts; this file
-// decides what a tap LOOKS and SOUNDS like, and what the outcomes it reports
-// are worth to the economy.
+// decides what a tap LOOKS and SOUNDS like.
+//
+// NO SCORE AND NO COINS, like `coloring` (operator ruling 2026-10-03, from a
+// player report of 2026-09-14). It used to bank a record of the biggest tune
+// and a coin every six notes, and both were judgements of a thing a child
+// made: the record said busy beats pretty, and the coin paid for busy. What is
+// left on screen is a plain count of the notes in the tune right now.
 //
 // TAP, NEVER DRAG. There is no gesture in this game at all: a square is on or
 // off, the play button is a button, and the three voices are three buttons.
@@ -47,13 +52,22 @@ import {
 
 const LEVEL_OPTIONS: DifficultyOption<Length>[] = [
   { id: "short", label: { he: "קצר", en: "Short", es: "Corta", sv: "Kort" } },
-  { id: "medium", label: { he: "בינוני", en: "Med", es: "Media", sv: "Medel" } },
+  // "Medium", not "Med": the disc has room for the word, and a child reading
+  // "Med" next to "Short" and "Long" is reading an abbreviation for nothing.
+  { id: "medium", label: { he: "בינוני", en: "Medium", es: "Media", sv: "Medel" } },
   { id: "long", label: { he: "ארוך", en: "Long", es: "Larga", sv: "Lång" } },
 ];
 
 // This game's own words, as a locale RECORD rather than a `locale === "he" ?`
 // ternary - promoting a language reds this block by name instead of leaving the
 // game speaking English inside a page that is not.
+/**
+ * What the level picker IS. The three levels are a tune's LENGTH - four, six or
+ * eight beats - and nothing about a longer tune is harder; the chrome's default
+ * word "Difficulty" told a child otherwise (report, 2026-09-14).
+ */
+const LENGTH_LABEL: Record<Locale, string> = { he: "אורך", en: "Length", es: "Duración", sv: "Längd" };
+
 const WORDS: Record<
   Locale,
   {
@@ -139,26 +153,16 @@ const WELL_CELL = "#28315A";
 const WELL_HEAD = "#3B477E";
 
 /**
- * How long one beat lasts.
- *
- * Slow enough that a four-year-old can hear each note as its own thing, and
- * fast enough that eight of them read as a tune rather than as a list. Fixed
- * rather than a control: a tempo slider is a fourth thing on a screen that is
- * already a grid, a play button and three voices.
+ * WHAT A SQUARE SOUNDS LIKE lives in `sound.ts`, and so does the beat length
+ * (`STEP_MS`). Since 2026-10-03 a square is a STRUCK note - round = marimba bar,
+ * soft = kalimba tine, bright = glass - played through `playNote` from
+ * `@sdk/note`, with a quiet bass on beat 1 of every loop. The operator picked
+ * that arm ("struck + bass", arm C) by ear in the listening lab
+ * (`src/lab/musicSound/`) over today's bare oscillator, after a player wrote
+ * "the music feels too empty". One file owns the numbers, so the game and the
+ * lab cannot drift apart.
  */
-const STEP_MS = 320;
-
-/** How long a note rings. Slightly under a beat, so repeats are audible. */
-const NOTE_MS = 260;
-
-/** What each voice id actually IS. `logic.ts` deals in the id and never in this. */
-const VOICE_SPEC: Record<Voice, { type: OscillatorType; gain: number }> = {
-  round: { type: "sine", gain: 0.2 },
-  soft: { type: "triangle", gain: 0.18 },
-  // Quieter on purpose: a square wave carries far more energy in its harmonics,
-  // so matching the others by NUMBER would be a good deal louder by ear.
-  bright: { type: "square", gain: 0.1 },
-};
+const BASS = "downbeat" as const;
 
 /* ------------------------------------------------------------------ glyphs */
 
@@ -197,54 +201,8 @@ const VOICE_D: Record<Voice, string> = {
 
 /* ------------------------------------------------------------- the snapshot */
 
-/**
- * The tune, plus the two things the run has already been PAID for.
- *
- * Both latches travel, and each one is a way to be paid twice if it does not
- * (session-snapshot-convention.md):
- *
- * `paidStep` is the highest milestone this tune has ever reached. It CANNOT be
- * derived from the note count the way `fit` derives its milestone from lines
- * cleared, because lines cleared only ever goes up and a note count goes DOWN
- * every time a child erases something. Erase five notes, leave, come back, add
- * them again - with a derived step, that pays a second coin for the same six
- * notes, once per resume, forever.
- *
- * `bestFired` is the one celebration this toy ever throws: the first time this
- * tune becomes the biggest thing the player has built on this length. Without
- * it, every note past the record is a new record and the confetti fires on
- * every tap.
- */
-interface MusicSession {
-  state: TuneState;
-  paidStep: number;
-  bestFired: boolean;
-}
-
-const SESSION: SessionSpec<MusicSession> = {
-  version: 1,
-  validate: (value): value is MusicSession => {
-    const s = value as Partial<MusicSession> | null;
-    if (typeof s !== "object" || s === null) return false;
-    if (typeof s.bestFired !== "boolean") return false;
-    if (typeof s.paidStep !== "number" || !Number.isFinite(s.paidStep) || s.paidStep < 0) {
-      return false;
-    }
-
-    const t = s.state as Partial<TuneState> | null | undefined;
-    if (typeof t !== "object" || t === null) return false;
-    if (typeof t.level !== "string" || !(t.level in STEPS)) return false;
-    // The grid must match the dimensions the LENGTH declares, not merely the
-    // ones the snapshot claims: the CSS grid is built from the level, so a
-    // tune of some other width renders as a grid whose cells and columns
-    // disagree - a plausible picture with no error anywhere.
-    const steps = STEPS[t.level as Length];
-    if (t.steps !== steps) return false;
-    if (!Array.isArray(t.cells) || t.cells.length !== ROWS * steps) return false;
-    if (!t.cells.every((c) => typeof c === "boolean")) return false;
-    return isVoice(t.voice);
-  },
-};
+/** The tune, and nothing else - see `SNAPSHOT_VERSION` in logic.ts for why. */
+const SESSION: SessionSpec<MusicSnapshot> = { version: SNAPSHOT_VERSION, validate: isMusicSnapshot };
 
 /* ----------------------------------------------------------------- the game */
 
@@ -259,11 +217,12 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
 
   // Read ONCE, before the first render, so a returning child's tune never
   // flashes as an empty grid.
-  const restored = useMemo(() => ctx.session.load(SESSION), [ctx]);
+  // A version-2 save, or a version-1 one from before the toy stopped paying -
+  // the tune comes back either way (`resumeTune`, logic.ts).
+  const restored = useMemo(() => resumeTune((spec) => ctx.session.load(spec)), [ctx]);
   const resume = restored && restored.state.level === level ? restored : undefined;
 
   const [state, setState] = useState<TuneState>(() => resume?.state ?? newTune(level));
-  const [best, setBest] = useState<number | undefined>(() => ctx.score?.best(level));
   const [playing, setPlaying] = useState(false);
   /** Which beat is sounding right now. Renderer-only - see the header. */
   const [head, setHead] = useState<number | null>(null);
@@ -272,8 +231,6 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
   /** The live tune, for the playback loop - so editing does not restart it. */
   const stateRef = useRef(state);
   stateRef.current = state;
-  const paidRef = useRef(resume?.paidStep ?? 0);
-  const bestFiredRef = useRef(resume?.bestFired ?? false);
 
   const T = WORDS[ctx.locale];
   const notes = noteCount(state);
@@ -283,8 +240,7 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
   /** Ring one square. Every note in the app goes through here. */
   const ring = useCallback(
     (row: number, voice: Voice) => {
-      const spec = VOICE_SPEC[voice];
-      ctx.audio.tone({ freq: pitchFor(row), ms: NOTE_MS, type: spec.type, gain: spec.gain });
+      playNote(ctx.audio, noteFor(row, voice));
     },
     [ctx],
   );
@@ -294,8 +250,11 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
     (col: number) => {
       const tune = stateRef.current;
       for (const row of columnRows(tune, col)) ring(row, tune.voice);
+      // The quiet bass under the tune, on beat 1 of each loop (see `sound.ts`).
+      const bass = bassFor(BASS, col);
+      if (bass) playNote(ctx.audio, bass);
     },
-    [ring],
+    [ctx, ring],
   );
 
   // The playhead. A frame loop rather than an interval, and it reads the tune
@@ -336,24 +295,16 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
       // level change as a new deal, and that is right for a puzzle and wrong
       // for a thing somebody made.
       setState((prev) => resize(prev, next));
-      setBest(ctx.score?.best(next));
-      // The record is per length, so this is a different board and its first
-      // new best is a real one. `paidStep` is NOT reset: the notes survived the
-      // resize, so the coins they earned must not be payable twice.
-      bestFiredRef.current = false;
       ctx.analytics.levelStart(next);
     },
     [ctx, setLevel],
   );
 
   // GameChrome's restart button. A deliberate act on an empty-able toy, so it
-  // starts a genuinely new tune - both latches with it, exactly like a new run
-  // in an endless game.
+  // starts a genuinely new tune.
   const restart = useCallback(() => {
     setPlaying(false);
     setState((prev) => clearTune(prev));
-    paidRef.current = 0;
-    bestFiredRef.current = false;
   }, []);
 
   useEffect(() => {
@@ -367,55 +318,7 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
   // ALWAYS live. A tune is never over, so there is nothing to clear - the same
   // answer `coloring` gives, and for the same reason: a finished drawing is not
   // a solved puzzle.
-  useGameSession(
-    ctx,
-    SESSION,
-    () => ({ state, paidStep: paidRef.current, bestFired: bestFiredRef.current }),
-    { live: true },
-  );
-
-  /**
-   * Bank what a tune this size is worth.
-   *
-   * Everything here runs in the HANDLER, never inside a setState updater:
-   * React may run an updater twice, and a doubled `winMoment` is a doubled
-   * grant - real coins, not a stray animation.
-   */
-  const bank = useCallback(
-    (tune: TuneState, at: { x: number; y: number }) => {
-      const report = scoreReport(tune, level);
-      const scored = ctx.score?.report(report);
-      if (scored?.isPersonalBest) setBest(scored.best);
-
-      // A coin every few notes, against the HIGHEST this tune has ever been -
-      // never against the current count, which goes down when a child erases.
-      const step = milestoneStep(report.value);
-      if (step > paidRef.current) {
-        paidRef.current = step;
-        winMoment(ctx, {
-          reason: "milestone",
-          level: `notes-${step * MILESTONE_EVERY}`,
-          at,
-          // This fires every few taps, and a full-screen celebration that fires
-          // every few taps stops being one.
-          confetti: false,
-        });
-      }
-
-      // The one celebration this toy ever throws, latched to once per tune.
-      // There is no `level_complete` here on purpose: nothing is ever finished.
-      //
-      // And NO TIER, which is a statement rather than an omission: a tier is
-      // how hard the thing was, and nothing here can be hard. `economy.ts`
-      // reads a missing tier as the gentlest one, so this pays the least a win
-      // can pay - which is the honest price for a toy that cannot be lost.
-      if (scored?.isPersonalBest && !bestFiredRef.current) {
-        bestFiredRef.current = true;
-        winMoment(ctx, { reason: "personal_best", level: `notes-${report.value}`, at });
-      }
-    },
-    [ctx, level],
-  );
+  useGameSession(ctx, SESSION, () => ({ state }), { live: true });
 
   const onCell = useCallback(
     (index: number, el: HTMLElement) => {
@@ -433,24 +336,15 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
       // silent - there is no sound for a thing that is no longer there.
       if (outcome.kind !== "on") return;
       ring(outcome.row, next.voice);
-
-      const r = el.getBoundingClientRect();
-      bank(next, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
     },
-    [bank, ctx, ring, state],
+    [ctx, ring, state],
   );
 
-  const onSurprise = useCallback(
-    (el: HTMLElement) => {
-      ctx.audio.unlock();
-      const next = surprise(state);
-      setState(next);
-      haptic.tap();
-      const r = el.getBoundingClientRect();
-      bank(next, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
-    },
-    [bank, ctx, state],
-  );
+  const onSurprise = useCallback(() => {
+    ctx.audio.unlock();
+    setState(surprise(state));
+    haptic.tap();
+  }, [ctx, state]);
 
   const onPlay = useCallback(() => {
     // Inside the tap, so iOS opens its gate. Without this the first play of a
@@ -500,12 +394,13 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
   return (
     <GameChrome
       ctx={ctx}
-      stats={[
-        { icon: "layers", label: T.notes, value: notes, record: best ?? "-", compact: true },
-      ]}
+      // The notes in the tune RIGHT NOW, and no record beside them: a count of
+      // what is there, never a best to beat.
+      stats={[{ icon: "layers", label: T.notes, value: notes, compact: true }]}
       levels={LEVEL_OPTIONS}
       level={level}
       onLevel={startLevel}
+      levelLabel={LENGTH_LABEL[ctx.locale]}
       onRestart={restart}
       footer={
         <div
@@ -555,7 +450,7 @@ export function MusicGame({ ctx }: { ctx: GameContext }) {
             <button
               type="button"
               aria-label={T.surprise}
-              onClick={(e) => onSurprise(e.currentTarget)}
+              onClick={onSurprise}
               style={{ ...controlStyle, flex: "0 0 auto" }}
             >
               <Glyph d={SPARK_D} filled />

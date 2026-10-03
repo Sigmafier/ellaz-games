@@ -9,6 +9,7 @@ export type {
   LifecyclePort,
   SfxName,
   ToneOptions,
+  VoiceOptions,
   SpeechPort,
   SpeakOptions,
   AgeBand,

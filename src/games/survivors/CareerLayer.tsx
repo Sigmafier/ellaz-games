@@ -33,6 +33,7 @@ import type { MutableRefObject, ReactElement, RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { GameContext } from "@sdk/index";
 import { notifyRunStart } from "@ui/gameTools";
+import { usePageScrollLock } from "@ui/pageScrollLock";
 import { loadCareerKit } from "../../ui/career/load";
 import { equipItem, gearView } from "../../shared/career/gear";
 import { nodeStates } from "../../shared/career/progress";
@@ -51,6 +52,7 @@ import { weaponsOpen } from "./weaponPool";
 import { RobotFill } from "./castArt";
 import type { CareerResult, CareerStats, UpgradeId, WeaponId } from "./types";
 import { levelRow, NEON_CAMPAIGN } from "./worlds";
+import { hardStates, hardWorlds, readHard, type HardSave } from "./hardTier";
 
 type Kit = Awaited<ReturnType<typeof loadCareerKit>>;
 
@@ -66,10 +68,18 @@ type Screen = "lobby" | "shop" | "gear" | "pick" | "intro" | "run" | "result";
 /** The half of the scene this layer drives. */
 export interface CareerSceneApi {
   /** `look` is the worn diamond look, or null for the plain red robot. */
-  startCareer(levelId: string, stats: CareerStats, look: LookId | null): void;
+  startCareer(levelId: string, stats: CareerStats, look: LookId | null, hard?: boolean): void;
   leaveCareer(): void;
   startFromChrome(): void;
   restartFromChrome(): void;
+  /**
+   * True while a career screen covers the arena: the scene then ignores a press
+   * on its canvas. The map, the shop and the gear screen are a fixed box on
+   * <body>, so the arena is still on the page under them - and before the page
+   * lock below, a drag in the shop scrolled it into view and the next tap there
+   * started a run nobody could see (2026-10-02).
+   */
+  setCovered(on: boolean): void;
 }
 
 /**
@@ -138,6 +148,9 @@ export function CareerLayer(props: {
   const [looks, setLooks] = useState<LooksSave>(() => readLooks(store));
   const [paidGem, setPaidGem] = useState(0);
   const [askSlot, setAskSlot] = useState(false);
+  // THE HARD TIER (hardTier.ts): which tier the map shows, and the hard stars.
+  const [hard, setHard] = useState(false);
+  const [hardSave, setHardSave] = useState<HardSave>(() => readHard(store));
 
   useEffect(() => {
     // The kit's lazily-loaded screens, fetched once. Not an input gate - nothing a
@@ -164,6 +177,7 @@ export function CareerLayer(props: {
     setGems(diamonds.count);
     if (out) {
       setSave(out.save);
+      setHardSave(readHard(store));
       setPaid(out);
       if (out.drop) setGearBadge(true);
       ctx.audio.play(out.won ? "coin" : "pop");
@@ -176,6 +190,20 @@ export function CareerLayer(props: {
   useEffect(() => {
     if (props.phase === "ready" && (screen === "run" || screen === "result")) setScreen("intro");
   }, [props.phase, screen]);
+
+  // THE MAP, THE SHOP, THE GEAR AND THE WEAPON PICK hold the page still and tell
+  // the scene its canvas is covered. Both, because each closes a different half:
+  // the lock stops the drag that exposed the arena, and the cover refuses the
+  // tap if anything else ever exposes it. The banner, the run and the result
+  // card are on the arena itself and need neither.
+  const covering = screen === "lobby" || screen === "shop" || screen === "gear" || screen === "pick";
+  usePageScrollLock(covering);
+  useEffect(() => {
+    props.scene.current?.setCovered(covering);
+  }, [covering, props.scene]);
+  // Leaving the career (Back to the title) unmounts this layer; the scene must
+  // not stay deaf to a canvas that is no longer covered.
+  useEffect(() => () => props.scene.current?.setCovered(false), [props.scene]);
 
   const begin = () => {
     notifyRunStart();
@@ -202,7 +230,7 @@ export function CareerLayer(props: {
   };
   const startLevel = (id: string, weapon: WeaponId) => {
     props.onWeapon(weapon);
-    props.scene.current?.startCareer(id, simStats(save), looks.worn);
+    props.scene.current?.startCareer(id, simStats(save), looks.worn, hard);
     setScreen("intro");
   };
   const toMap = () => {
@@ -243,6 +271,7 @@ export function CareerLayer(props: {
     return false;
   };
   const worldNames = { city: w.world.city, frost: w.world.frost, lava: w.world.lava };
+  const hardOpen = hardWorlds(save);
   const hero = <RobotFill filter={looks.worn ? LOOKS[looks.worn].css : undefined} />;
   if (screen === "lobby" || screen === "shop" || screen === "gear") {
     const inner = !kit ? (
@@ -268,7 +297,8 @@ export function CareerLayer(props: {
           ctx.audio.play("pop");
         }} />
     ) : (
-      <kit.TrailMap locale={ctx.locale} campaign={NEON_CAMPAIGN} save={save} worldNames={worldNames} purses={purses} hero={hero} gearBadge={gearBadge}
+      <kit.TrailMap key={hard ? "hard" : "normal"} locale={ctx.locale} campaign={NEON_CAMPAIGN} save={save} worldNames={worldNames} purses={purses} hero={hero} gearBadge={gearBadge}
+        tier={hardOpen.length > 0 ? { hard, normal: w.tier.normal, label: w.tier.hard, open: hardOpen, views: hard ? hardStates(save, hardSave) : undefined, onToggle: setHard } : undefined}
         onBack={() => {
           props.scene.current?.leaveCareer();
           props.onTitle();
@@ -302,10 +332,10 @@ export function CareerLayer(props: {
   }
   const L = levelRow(level);
   if (screen === "intro") {
-    const inWorld = nodeStates(NEON_CAMPAIGN, save).filter((v) => v.node.world === L.world);
+    const inWorld = (hard ? hardStates(save, hardSave) : nodeStates(NEON_CAMPAIGN, save)).filter((v) => v.node.world === L.world);
     return (
       <Intro world={L.world} name={w.world[L.world]} twist={w.twist[L.world]} number={L.boss ? null : inWorld.find((v) => v.node.id === level)?.node.number ?? 1}
-        bossWord={kit ? kit.careerWords(ctx.locale).boss : "Boss"} levelWord={w.level}
+        bossWord={kit ? kit.careerWords(ctx.locale).boss : "Boss"} levelWord={w.level} tag={hard ? w.tier.hard : undefined}
         dots={{ states: inWorld.map((v) => (v.node.id === level ? "now" : v.state === "done" ? "done" : "todo")) }}
         onStart={begin} />
     );

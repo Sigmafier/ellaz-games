@@ -12,6 +12,7 @@ import { spawnPoint } from "../survivors/world";
 import { LUNGE } from "./chase";
 import { KINDS, LEVELS, MINI_AT, MINI_HP, STAGE_CROWD, bossDue, bossHpOf, crowdAt, isBoss, stageProgress } from "./tuning";
 import type { Sent } from "./tuning";
+import { careerKinds, careerSpawnEvery } from "./careerCrowd";
 import type { Foe, Kind, Run, Stage } from "./types";
 
 export * from "./tuning";
@@ -32,6 +33,8 @@ const progress = (run: Run) => Math.min(1, run.t / LEVELS[run.level].rampMs);
  *  join point rises with the stage (`STAGE_CROWD`), the dasher and the shooter
  *  come with their stage (`JOINS_STAGE`). */
 export function kindsAt(run: Run): Sent[] {
+  // A career level sends its world's own shapes (`careerCrowd.ts`).
+  if (run.career) return careerKinds(run.career, run.crushed) as Sent[];
   const p = progress(run);
   const out: Sent[] = (Object.keys(JOINS) as ("runner" | "orb")[]).filter((k) => p >= JOINS[k]);
   if (p >= STAGE_CROWD[run.stage].brute) out.push("brute");
@@ -43,6 +46,7 @@ export function kindsAt(run: Run): Sent[] {
  *  (and while the warden waits for the mini-boss, `wardenWaiting`), and
  *  multiplied per stage by `STAGE_CROWD.spawn` - under 1 from stage 2, so faster. */
 export function spawnEvery(run: Run): number {
+  if (run.career) return careerSpawnEvery(run.career, run.crushed);
   const L = LEVELS[run.level];
   const base = L.spawnMs + (L.floorMs - L.spawnMs) * progress(run);
   const staged = base * crowdAt(run).spawn;

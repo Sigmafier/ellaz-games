@@ -6,6 +6,7 @@ import { GameChrome } from "@ui/GameChrome";
 import { DirectionPad } from "@ui/DirectionPad";
 import { BoardStick } from "@ui/BoardStick";
 import { ControlModePicker } from "@ui/ControlModePicker";
+import { usePageScrollLock } from "@ui/pageScrollLock";
 // The MODULES, not the `@shared/index` barrel, as in the classic.
 import { useControlMode, type ControlMode } from "@shared/useControlMode";
 import { ArcadeTitle, balancedLines, type ArcadeTitleProps } from "@ui/ArcadeTitle";
@@ -41,6 +42,13 @@ export function SnakeArenaGame({ ctx }: { ctx: GameContext }) {
   const { level, map, colour, humans } = c.choices;
   useEffect(() => sceneRef.current?.setChoices({ level, map, colour, humans }), [sceneRef, level, map, colour, humans]);
   const runs = s.phase === "playing" || s.phase === "watch";
+  // The page holds still while the player is STEERING - a thumb that slips off
+  // the board onto the pad or the band must not scroll the ~9000px page under
+  // the round (pageScrollLock.ts). "aim" counts: PLAY deals the board and waits
+  // for the first direction, and that first swipe is a steer. Not while
+  // watching after going out, not on pause, never on the title or the
+  // round-over card: the article stays one drag away whenever nobody steers.
+  usePageScrollLock((s.phase === "aim" || s.phase === "playing") && !s.paused);
   const cast: Cast = { colors: s.colors, humans: s.humans };
   const pick: TitleChoicesProps = {
     w,

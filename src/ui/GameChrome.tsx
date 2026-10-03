@@ -248,6 +248,7 @@ export function GameChrome<T extends string>({
   levels,
   level,
   onLevel,
+  levelLabel,
   onRestart,
   paused,
   onPaused,
@@ -264,6 +265,13 @@ export function GameChrome<T extends string>({
   level?: T;
   /** Called with the NEXT level. The toggle owns the cycling, not the game. */
   onLevel?: (next: T) => void;
+  /**
+   * What the level picker IS, already localised - for a game whose levels are
+   * not a difficulty. Music Box's are a tune's LENGTH, and a child was told
+   * "Difficulty: Short" for a toy where nothing can be hard (report, 2026-09-14).
+   * Absent, the picker reads the dictionary's "Difficulty" exactly as before.
+   */
+  levelLabel?: string;
   onRestart: () => void;
   /**
    * Opt into the pause control. Only a game that KEEPS RUNNING while nobody is
@@ -512,6 +520,7 @@ export function GameChrome<T extends string>({
             levels={levels}
             level={level}
             onLevel={onLevel as ((next: string) => void) | undefined}
+            levelLabel={levelLabel}
             stats={numbersOnBoard ? [] : stats}
             paused={paused}
             onPaused={onPaused}
@@ -608,7 +617,7 @@ export function GameChrome<T extends string>({
             <button
               type="button"
               className="gc-cell gc-level"
-              aria-label={`${t("difficulty")}: ${current.label[ctx.locale]}`}
+              aria-label={`${levelLabel ?? t("difficulty")}: ${current.label[ctx.locale]}`}
               onClick={() => onLevel(levels[(i + 1) % levels.length].id)}
               style={{
                 height: TAP_CSS,
@@ -661,7 +670,7 @@ export function GameChrome<T extends string>({
             >
               <span className="gc-text" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.12, minWidth: 0, maxWidth: "100%" }}>
                 <span className="gc-label" style={{ fontSize: LABEL_SIZE, fontWeight: 800, color: "var(--text-dim)" }}>
-                  {t("difficulty")}
+                  {levelLabel ?? t("difficulty")}
                 </span>
                 {/* nowrap + ellipsis, and both are load-bearing. A long label
                     (sudoku's "Animals 4x4") does not clip and does not overflow

@@ -100,6 +100,13 @@ export interface CareerState {
   shadeY: number;
   /** The level's own layout seed, from its id, so a level looks the same every time. */
   seed: number;
+  /** LAVA's HORDE RING (monsters.ts): milliseconds until the next one; Infinity in a world without it. */
+  hordeIn: number;
+  hordeEvery: number;
+  /** HARD TIER (hardTier.ts): present only on a hard run, so a normal run's state is the one it always was. */
+  hard?: true;
+  /** A hard run's gun cap, in place of its base row's. Absent on a normal run. */
+  shooters?: number;
 }
 
 /** What a finished career level reports, to be banked into the save once. */
@@ -113,4 +120,6 @@ export interface CareerResult {
   gold: number;
   /** Elites killed - each is a small chance at gear. */
   elites: number;
+  /** Played on the HARD tier. Absent on a normal level. */
+  hard?: true;
 }

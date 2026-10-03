@@ -6,6 +6,7 @@
 // importer reads them from `./crowd` exactly as before.
 
 import { HIT_COST, MIN_LEN, START_LEN } from "./body";
+import { careerCrowd, careerHitCost } from "./careerCrowd";
 import type { Kind, LevelKey, Run, Stage } from "./types";
 
 /**
@@ -167,7 +168,9 @@ export const biteCost = (run: Pick<Run, "level" | "stage" | "len" | "crushed" | 
 export const HEARTS = 8;
 /** A hit, once stage 2 is `BITE_FROM` under way, costs 1 / HIT_PART of a heart. */
 export const HIT_PART = 2;
-export function hitCost(run: Pick<Run, "level" | "stage" | "len" | "crushed" | "phase" | "peak">): number {
+export function hitCost(run: Pick<Run, "level" | "stage" | "len" | "crushed" | "phase" | "peak" | "career">): number {
+  // A career level costs its own bite (`careerWorlds.ts`); the quick run below is untouched.
+  if (run.career) return careerHitCost(run.career);
   const today = biteCost(run);
   if (run.level === "calm") return today;
   if (run.stage === 1 || (run.stage === 2 && stageProgress(run) < BITE_FROM)) return today;
@@ -308,7 +311,9 @@ const anchor = (level: LevelKey, stage: Stage) => ({
 });
 
 /** The crowd's numbers RIGHT NOW: cap and spawn multipliers, the health multiplier, and the pace. */
-export function crowdAt(run: Pick<Run, "len" | "crushed" | "stage" | "level" | "phase">): { cap: number; spawn: number; hp: number; pace: number } {
+export function crowdAt(run: Pick<Run, "len" | "crushed" | "stage" | "level" | "phase" | "career">): { cap: number; spawn: number; hp: number; pace: number } {
+  // A career level's crowd is its own row (`careerCrowd.ts`); the quick run below is untouched.
+  if (run.career) return careerCrowd(run.career, LEVELS[run.level].cap);
   const p = stageProgress(run);
   const cur = anchor(run.level, run.stage);
   const prev = run.stage === 1 ? cur : anchor(run.level, (run.stage - 1) as Stage);

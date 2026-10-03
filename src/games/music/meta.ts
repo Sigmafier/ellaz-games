@@ -29,10 +29,8 @@ export const meta: GameMeta = {
   tier: "simple",
   layout: "table",
   ownsChrome: true,
-  // Points: how many notes are in the biggest tune this player has built. It
-  // measures the SIZE of what they made and never whether the music is any
-  // good - that judgement is why `coloring` has no record at all. The unit is
-  // declared HERE because only the VALUE of a record is persisted;
-  // `score-unit-declared.test.ts` pins this to the `unit:` logic.ts reports.
-  scoreUnit: "points",
+  // NO `scoreUnit`, and on purpose (operator ruling 2026-10-03): like
+  // `coloring`, this toy keeps no record and pays no coins - ranking a tune a
+  // child made is judging it. `score-unit-declared.test.ts` names this game
+  // beside coloring, so adding a unit back reds a test somebody has to delete.
 };

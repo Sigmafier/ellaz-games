@@ -25,6 +25,8 @@ export interface CardWords {
   reroll: string;
   /** "{n}" rerolls left this stage. */
   left: string;
+  /** The recipe hint's level, short: "Lv{n}" in "Lv4 + Spread = Storm". */
+  lv: string;
 }
 
 const WORDS: Record<Locale, CardWords> = {
@@ -39,12 +41,16 @@ const WORDS: Record<Locale, CardWords> = {
       pierce: "Shots go through one more shape.",
       shield: "Blocks a hit, then comes back - sooner each level.",
       range: "Your weapons aim at shapes further away.",
+      area: "Blades, halo, fire and thunder reach further.",
+      regen: "A lost heart grows back - sooner each level.",
+      haste: "Your dash comes back sooner.",
     },
     level: "Hits harder and faster.",
     weapons: "Weapons {n} of {of}",
     powers: "Powers {n} of {of}",
     reroll: "Reroll",
     left: "{n} left",
+    lv: "Lv{n}",
   },
   he: {
     says: {
@@ -57,12 +63,16 @@ const WORDS: Record<Locale, CardWords> = {
       pierce: "היריות עוברות דרך עוד צורה.",
       shield: "חוסם מכה וחוזר - מהר יותר בכל שלב.",
       range: "הנשקים מכוונים לצורות רחוקות יותר.",
+      area: "להבים, הילה, אש ורעם מגיעים רחוק יותר.",
+      regen: "לב שאבד צומח בחזרה - מהר יותר בכל שלב.",
+      haste: "הזינוק חוזר מהר יותר.",
     },
     level: "פוגע חזק ומהר יותר.",
     weapons: "נשקים {n} מתוך {of}",
     powers: "כוחות {n} מתוך {of}",
     reroll: "הגרלה חדשה",
     left: "נשאר {n}",
+    lv: "שלב {n}",
   },
   es: {
     says: {
@@ -75,12 +85,16 @@ const WORDS: Record<Locale, CardWords> = {
       pierce: "Los disparos atraviesan una forma más.",
       shield: "Para un golpe y vuelve, antes en cada nivel.",
       range: "Tus armas apuntan a formas más lejanas.",
+      area: "Cuchillas, aura, fuego y trueno llegan más lejos.",
+      regen: "Un corazón perdido vuelve a crecer, antes en cada nivel.",
+      haste: "Tu salto vuelve antes.",
     },
     level: "Golpea más fuerte y más rápido.",
     weapons: "Armas {n} de {of}",
     powers: "Poderes {n} de {of}",
     reroll: "Cambiar",
     left: "quedan {n}",
+    lv: "Nv{n}",
   },
   sv: {
     says: {
@@ -93,12 +107,16 @@ const WORDS: Record<Locale, CardWords> = {
       pierce: "Skotten går igenom en form till.",
       shield: "Stoppar en träff och kommer tillbaka, snabbare för varje nivå.",
       range: "Dina vapen siktar på former längre bort.",
+      area: "Blad, gloria, eld och åska når längre.",
+      regen: "Ett förlorat hjärta växer tillbaka, snabbare för varje nivå.",
+      haste: "Din rusning kommer tillbaka snabbare.",
     },
     level: "Slår hårdare och snabbare.",
     weapons: "Vapen {n} av {of}",
     powers: "Krafter {n} av {of}",
     reroll: "Slå om",
     left: "{n} kvar",
+    lv: "Nv{n}",
   },
 };
 

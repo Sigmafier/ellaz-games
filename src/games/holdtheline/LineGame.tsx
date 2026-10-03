@@ -64,6 +64,13 @@ const T = {
   fell: { he: "הבית נפל", en: "The keep fell", es: "La fortaleza cayó", sv: "Fästet föll" },
   won: { he: "החזקתם את הקו!", en: "You held the line!", es: "¡Aguantaste!", sv: "Ni höll linjen!" },
   overtime: { he: "תוספת זמן", en: "Overtime", es: "Tiempo extra", sv: "Övertid" },
+  // The title's hint on a narrow portrait screen (`ROTATE_HINT`).
+  rotate: {
+    he: "סובבו את המסך לתצוגה גדולה יותר",
+    en: "Rotate for a bigger view",
+    es: "Gira la pantalla para verlo más grande",
+    sv: "Vrid skärmen för en större bild",
+  },
   tagline: {
     he: "המצודה משמאל. הם באים מימין.",
     en: "Your keep is on the left. They come from the right.",
@@ -74,6 +81,30 @@ const T = {
 
 const say = (ctx: GameContext, k: keyof typeof T): string =>
   (T[k] as Record<string, string>)[ctx.locale] ?? T[k].en;
+
+/**
+ * WHEN THE TITLE ASKS FOR A TURN: a portrait screen under 600px wide. The lane is
+ * 900 units, so there it is drawn under 0.66x - the same line at which the cast
+ * starts being drawn bigger (`narrowBoost`) - and turning the phone is the one
+ * thing that makes the whole lane bigger without changing the game. A media
+ * query, LIVE: the hint goes the moment the phone is turned, and comes back if
+ * it is turned upright again on the title.
+ */
+const ROTATE_HINT = "(orientation: portrait) and (max-width: 599px)";
+
+/** True while `query` matches; follows the window. */
+function useMatches(query: string): boolean {
+  const [on, setOn] = useState(() => typeof matchMedia === "function" && matchMedia(query).matches);
+  useEffect(() => {
+    if (typeof matchMedia !== "function") return undefined;
+    const mq = matchMedia(query);
+    const read = () => setOn(mq.matches);
+    read();
+    mq.addEventListener("change", read);
+    return () => mq.removeEventListener("change", read);
+  }, [query]);
+  return on;
+}
 
 /** The keep-fell card's three tile words. */
 const TILE = {
@@ -130,6 +161,7 @@ export function LineGame({ ctx }: { ctx: GameContext }) {
    * game panel (the approved mock) with the live lane as its art strip on top.
    */
   const [pc] = useState(isPcArena);
+  const askTurn = useMatches(ROTATE_HINT);
 
   /**
    * The lane shape, picked ONCE at mount and handed to the simulation.
@@ -421,6 +453,7 @@ export function LineGame({ ctx }: { ctx: GameContext }) {
             nameFs: face === "title" ? [44, 70] : [30, 46],
             top: [0.06, 0.058],
             tagline: face === "title" ? say(ctx, "tagline") : undefined,
+            hint: face === "title" && askTurn ? say(ctx, "rotate") : undefined,
             result: r.wonAt > 0 && r.wave === CAMPAIGN_WAVES + 1 ? say(ctx, "won") : undefined,
             pick: shop,
             action: face === "title" ? say(ctx, "play") : say(ctx, "send"),

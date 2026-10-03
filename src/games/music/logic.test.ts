@@ -1,25 +1,29 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { SESSION_KEY, createSessionPort } from "@sdk/session";
+import type { SaveStore } from "@sdk/types";
 import { PENTATONIC } from "@shared/notes";
 import { mulberry32, seedFrom } from "@shared/rng";
 import {
   LENGTHS,
-  MILESTONE_EVERY,
   ROWS,
   STEPS,
   VOICES,
   cellIndex,
   clearTune,
   columnRows,
+  isMusicSnapshot,
   isVoice,
-  milestoneStep,
   newTune,
   noteCount,
   pitchFor,
   resize,
-  scoreReport,
   setVoice,
   surprise,
   toggleCell,
+  resumeTune,
+  LEGACY_SNAPSHOT_VERSION,
+  SNAPSHOT_VERSION,
   type TuneState,
 } from "./logic";
 
@@ -233,28 +237,127 @@ describe("clearing", () => {
   });
 });
 
-describe("what the record measures", () => {
-  it("counts the notes in the tune", () => {
-    const tune = tuneFrom(["x.x.", "....", ".x..", "....", "....", "...x"]);
-    expect(scoreReport(tune, "short")).toEqual({ value: 4, unit: "points", board: "short" });
+describe("no record and no coins, like coloring", () => {
+  it("has nothing left to report a score or a milestone with", async () => {
+    // The pure module IS the toy's rules; if a scoring helper comes back it
+    // comes back here, and this names the ruling it would be undoing.
+    const logic: Record<string, unknown> = await import("./logic");
+    for (const gone of ["scoreReport", "milestoneStep", "MILESTONE_EVERY"]) {
+      expect(logic[gone], `${gone} is back`).toBeUndefined();
+    }
+  });
+});
+
+describe("the renderer pays nothing and ranks nothing", () => {
+  const game = readFileSync(new URL("./MusicGame.tsx", import.meta.url), "utf8");
+
+  it("never calls winMoment, the score port or the rewards port", () => {
+    expect(game).not.toMatch(/winMoment|ctx\.score|ctx\.rewards/);
   });
 
-  it("reports points, so a bigger tune ranks higher", () => {
-    // It measures the SIZE of what a child built, never whether the music is
-    // any good - that judgement is the reason `coloring` has no record at all.
-    // The unit is the whole ranking decision and `src/sdk/score.ts` is the only
-    // thing that reads it; `score-unit-declared.test.ts` pins it to meta.ts.
-    expect(scoreReport(newTune("short"), "short").unit).toBe("points");
+  it("shows the notes in the tune with no record beside them", () => {
+    expect(game).toMatch(/stats=\{\[\{ icon: "layers", label: T\.notes, value: notes, compact: true \}\]\}/);
+  });
+});
+
+describe("the picker says what it picks", () => {
+  const game = readFileSync(new URL("./MusicGame.tsx", import.meta.url), "utf8");
+
+  it("is named Length, in every language the game ships, never Difficulty", () => {
+    const row = game.match(/const LENGTH_LABEL: Record<Locale, string> = \{([^}]*)\}/)?.[1] ?? "";
+    expect(row).toContain('en: "Length"');
+    for (const l of ["he", "en", "es", "sv"]) expect(row, l).toMatch(new RegExp(`\\b${l}: "[^"]+"`));
+    expect(game).toMatch(/levelLabel=\{LENGTH_LABEL\[ctx\.locale\]\}/);
   });
 
-  it("hands out a coin every few notes, and never for the same note twice", () => {
-    expect(milestoneStep(0)).toBe(0);
-    expect(milestoneStep(MILESTONE_EVERY - 1)).toBe(0);
-    expect(milestoneStep(MILESTONE_EVERY)).toBe(1);
-    expect(milestoneStep(MILESTONE_EVERY * 3 + 2)).toBe(3);
-    // Erasing walks it back down, which is exactly why the renderer stores the
-    // HIGHEST step it has ever paid rather than deriving one from the count.
-    // Without that, erasing five notes and adding them again would pay twice.
-    expect(milestoneStep(MILESTONE_EVERY)).toBeGreaterThan(milestoneStep(MILESTONE_EVERY - 1));
+  it("spells the middle length out: Medium, not Med", () => {
+    expect(game).toMatch(/\{ id: "medium", label: \{ he: "[^"]+", en: "Medium",/);
+  });
+});
+
+describe("the save", () => {
+  const tune = tuneFrom(["x.x.", "....", ".x..", "....", "....", "...x"]);
+
+  it("is version 2, so ctx.session discards what a paying build wrote", () => {
+    expect(SNAPSHOT_VERSION).toBe(2);
+  });
+
+  it("takes a tune of the right size, and nothing else", () => {
+    expect(isMusicSnapshot({ state: tune })).toBe(true);
+    expect(isMusicSnapshot({ state: newTune("long", "bright") })).toBe(true);
+  });
+
+  it("still reads the tune out of an old-shaped record without throwing - the extra latches are ignored", () => {
+    // What version 1 wrote. The version check refuses it first in practice;
+    // this is the shape check alone, which must never throw on it.
+    expect(isMusicSnapshot({ state: tune, paidStep: 3, bestFired: true })).toBe(true);
+  });
+
+  it("refuses anything it cannot draw, without throwing", () => {
+    for (const bad of [
+      null,
+      undefined,
+      42,
+      "tune",
+      {},
+      { state: null },
+      { state: { ...tune, level: "huge" } },
+      { state: { ...tune, level: "toString" } },
+      { state: { ...tune, steps: 8 } },
+      { state: { ...tune, cells: tune.cells.slice(1) } },
+      { state: { ...tune, cells: tune.cells.map(() => 1) } },
+      { state: { ...tune, voice: "kazoo" } },
+    ]) {
+      expect(() => isMusicSnapshot(bad)).not.toThrow();
+      expect(isMusicSnapshot(bad), JSON.stringify(bad)).toBe(false);
+    }
+  });
+});
+
+describe("a tune saved before the update comes back (operator: keep old tunes)", () => {
+  /** A real save store, the shape `ctx.storage` hands the session port. */
+  const store = (seed: Record<string, unknown>): SaveStore => {
+    const raw: Record<string, unknown> = { ...seed };
+    return {
+      get: <T,>(key: string, fallback: T): T => (key in raw ? raw[key] : fallback) as T,
+      set: <T,>(key: string, value: T): void => {
+        raw[key] = value;
+      },
+      remove: (key: string): void => {
+        delete raw[key];
+      },
+    } as SaveStore;
+  };
+  const NOW = 1_790_000_000_000;
+  const tune = tuneFrom(["x.x.x.", "......", ".x..x.", "......", "...x..", "x....x"], "soft");
+  const port = (envelope: unknown) => createSessionPort(store({ [SESSION_KEY]: envelope }), { now: () => NOW });
+  const load = (envelope: unknown) => resumeTune((spec) => port(envelope).load(spec));
+
+  it("restores the same grid from what a paying build really wrote (version 1, with its latches)", () => {
+    // The envelope `session.ts` writes, around the snapshot MusicGame v1 wrote.
+    const v1 = { v: LEGACY_SNAPSHOT_VERSION, at: NOW - 60_000, s: { state: tune, paidStep: 3, bestFired: true } };
+    const back = load(v1);
+    expect(back?.state.cells).toEqual(tune.cells);
+    expect(back?.state.level).toBe("medium");
+    expect(back?.state.voice).toBe("soft");
+  });
+
+  it("drops the old score latches on the way in", () => {
+    const back = load({ v: 1, at: NOW, s: { state: tune, paidStep: 3, bestFired: true } });
+    expect(Object.keys(back ?? {})).toEqual(["state"]);
+  });
+
+  it("reads its own version-2 save", () => {
+    expect(load({ v: SNAPSHOT_VERSION, at: NOW, s: { state: tune } })?.state.cells).toEqual(tune.cells);
+  });
+
+  it("still refuses a version it never wrote, and a v1 save whose grid is broken", () => {
+    expect(load({ v: 3, at: NOW, s: { state: tune } })).toBeUndefined();
+    expect(load({ v: 1, at: NOW, s: { state: { ...tune, cells: tune.cells.slice(2) }, paidStep: 0, bestFired: false } })).toBeUndefined();
+  });
+
+  it("the game reads through resumeTune, so the fallback is really on the load path", () => {
+    const game = readFileSync(new URL("./MusicGame.tsx", import.meta.url), "utf8");
+    expect(game).toContain("resumeTune((spec) => ctx.session.load(spec))");
   });
 });

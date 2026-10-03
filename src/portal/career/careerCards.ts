@@ -1,15 +1,17 @@
 // THE CAREER PAGE'S CARDS: what a career game's own save says, as the page draws
 // it. Pure - the stores are injected, so the tests read real saves off a map.
 //
-// Only Neon Survival has a career today (the plan's P3). Its save is the kit's
-// career record under Neon's own game storage (`createSaveStore("survivors")`,
-// key `career`); "where you are" is the kit's own `currentNode` over the same
-// campaign the lobby draws. No save is an honest NOT STARTED card - never a
-// number the device does not hold.
+// Two careers today: Neon Survival (the plan's P3) and Snake Survivors (snake
+// career, 2026-10-03). Each save is the kit's career record under the game's own
+// storage (`createSaveStore(<game id>)`, key `career`); "where you are" is the
+// kit's own `currentNode` over the same campaign that game's lobby draws. No save
+// is an honest NOT STARTED card - never a number the device does not hold.
 
 import { currentNode, nodeStates } from "../../shared/career/progress";
 import { readSave, type CareerStore } from "../../shared/career/save";
 import { NEON_CAMPAIGN } from "../../games/survivors/worlds";
+import { SNAKE_CAMPAIGN } from "../../games/snakesurvivors/careerWorlds";
+import type { CampaignFile } from "../../shared/career/campaign";
 
 /** Every distinct gear piece a career can own: three slots, three tiers. */
 export const GEAR_KINDS = 9;
@@ -32,22 +34,28 @@ export interface CareerCardView {
   gear: number;
 }
 
-/** Neon Survival's card, from the save its lobby writes. */
-export function neonCard(store: CareerStore): CareerCardView {
+/** One career game's card, from the save its lobby writes under `career`. */
+function careerCard(id: string, campaign: CampaignFile, store: CareerStore): CareerCardView {
   const started = typeof store.get("career") === "string";
   const save = readSave(store, "career");
-  const states = nodeStates(NEON_CAMPAIGN, save);
+  const states = nodeStates(campaign, save);
   const done = states.filter((v) => v.state === "done").length;
-  const now = currentNode(NEON_CAMPAIGN, save);
+  const now = currentNode(campaign, save);
   return {
-    id: "survivors",
+    id,
     started,
     world: now ? now.world : null,
     level: now ? now.number : null,
     boss: now ? now.boss : false,
-    of: NEON_CAMPAIGN.worlds[0]?.levels.length ?? 0,
+    of: campaign.worlds[0]?.levels.length ?? 0,
     progress: states.length ? done / states.length : 0,
     gold: save.gold,
     gear: new Set(save.gear.owned).size,
   };
 }
+
+/** Neon Survival's card, from the save its lobby writes. */
+export const neonCard = (store: CareerStore): CareerCardView => careerCard("survivors", NEON_CAMPAIGN, store);
+
+/** Snake Survivors' card, from the save its lobby writes. */
+export const snakeCard = (store: CareerStore): CareerCardView => careerCard("snakesurvivors", SNAKE_CAMPAIGN, store);

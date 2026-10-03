@@ -16,10 +16,11 @@ import { musicFr } from "./fr/music";
  * scale makes every combination consonant - by measuring all fifteen pairs of
  * notes in semitones and looking for a semitone or a tritone. Neither is there.
  *
- * The admission is in the code rather than in an opinion: the record counts
- * NOTES, so the largest possible one is every square lit, which is a wall of
- * sound. Measuring quality would mean ranking what a child made, which is the
- * reason `coloring` carries no record at all.
+ * The admission is in the code rather than in an opinion: there is no number
+ * to chase. Like `coloring`, the game keeps no record, no points and no coins,
+ * and nothing celebrates. All that is on screen is a live count of the notes in
+ * the current tune, with no best beside it. Ranking what a child made would be
+ * judging it, and paying per note would reward busy over good.
  *
  * The three languages are written, not translated. They open differently, run
  * to different lengths and make different asides, because a translation carries
@@ -47,7 +48,7 @@ export const music: GameContent = {
 
         "כפתור ההפתעה מדליק תו אחד בכל פעימה, כלומר מנגינה. בלוח הארוך הוא מגיע ל-1,679,616 מנגינות שונות, ומשם ממשיכים ביד. בלוח הקצר יש לו רק 1,296, אז מי שלוחץ עליו שוב ושוב יתחיל לפגוש חזרות די מהר.",
 
-        "וההודאה, והיא כתובה בקוד ולא בדעה: השיא סופר תווים ולא איכות. המספר הגדול ביותר שאפשר להגיע אליו הוא 48, כלומר להדליק כל ריבוע על הלוח הארוך, וזה קיר של צליל ולא מנגינה. אז המספר הזה מתגמל עמוס על פני יפה. ידענו ובחרנו בו: הדרך היחידה למדוד איכות היא לשפוט את מה שילד הרגע עשה, וזו בדיוק הסיבה שלמשחק הצביעה שלנו אין שיא בכלל.",
+        "וההודאה, והיא כתובה בקוד ולא בדעה: אין כאן יותר שום מספר לרדוף אחריו: אין שיא לשבור ואין מטבע על הוספת תו. הדבר היחיד שמופיע על המסך הוא ספירה חיה של התווים במנגינה כרגע, בלי שיא לידה. זו החלטה ולא הזנחה, והיא אותה החלטה שקיבל משחק הצביעה שלנו: הדרך היחידה למדוד איכות היא לשפוט את מה שילד הרגע עשה, ולשלם על כל תו היה מתגמל עמוס על פני יפה.",
 
         "והחלפת אורך לא מוחקת כלום. הלוח מתרחב או מתכווץ והתווים נשארים איפה שהיו, כי מנגינה היא דבר שמישהו הכין ולא לוח שצריך לחלק מחדש. קיצור משמונה פעימות לארבע משאיר בערך מחצית מהתווים.",
       ],
@@ -157,8 +158,8 @@ export const music: GameContent = {
           a: "281,474,976,710,656 בלוח של שמונה פעימות, כי 48 ריבועים דלוקים או כבויים בנפרד. כפתור ההפתעה לבדו מגיע ל-1,679,616 מהן.",
         },
         {
-          q: "איך מרוויחים מטבעות?",
-          a: "מטבע על כל שישה תווים שהמנגינה גדלה בהם. מחיקת תווים לא לוקחת מטבע שכבר ניתן, והוספה חוזרת של אותם תווים לא משלמת פעמיים.",
+          q: "יש ניקוד או מטבעות?",
+          a: "לא. כמו משחק הצביעה שלנו, אין כאן שיא ואין מטבעות: לדרג מנגינה שילד הכין זה לשפוט אותה, ותשלום על כל תו היה מתגמל עמוס על פני יפה. המספר היחיד על המסך הוא כמה תווים יש במנגינה כרגע.",
         },
         {
           q: "אפשר להקליט או להוריד את המנגינה?",
@@ -175,8 +176,8 @@ export const music: GameContent = {
           a: "לא. זה רץ בדפדפן, ואחרי ביקור אחד הוא נשמר במכשיר ועובד גם בלי קליטה.",
         },
         {
-          q: "איך השיא נמדד?",
-          a: "במספר התווים שבמנגינה הגדולה ביותר שנבנתה, בנפרד לכל אורך. הוא מודד כמה נעשה ולא כמה זה יפה, וזו החלטה ולא הזנחה.",
+          q: "מה המספר שמופיע על המסך?",
+          a: "ספירה חיה של התווים במנגינה הנוכחית. היא עולה כשמדליקים ריבוע ויורדת כשמכבים אותו, ואין לידה שום שיא להשוות אליו. היא מראה כמה יש על הלוח ולא כמה זה יפה, וזו החלטה ולא הזנחה.",
         },
       ],
 
@@ -198,7 +199,7 @@ export const music: GameContent = {
 
         "The surprise button lights one note per beat. A melody, then. It reaches 1,679,616 of them on the long grid, and you carry on by hand from wherever it drops you.",
 
-        "Now the honest bit, and it is in the code rather than in an opinion. The record counts notes and never quality. Busy beats pretty. The biggest number anybody can reach is 48, which means every square lit on the long grid, and that is a wall of sound rather than a tune. So the number rewards busy over good, and we knew that when we chose it. The only way to measure quality is to sit in judgement on the thing a child has just made, which is exactly the reason our colouring game keeps no record at all.",
+        "Now the honest bit, and it is in the code rather than in an opinion. There is no number to chase any more: no record to beat, and no coin for adding a note. The only figure on screen is a live count of the notes in the tune right now, with no best beside it. That is a decision rather than an oversight, and it is the same one our colouring game made: the only way to measure quality is to sit in judgement on the thing a child has just made, and paying by the note would reward busy over good.",
       ],
 
       howToPlay: [
@@ -294,8 +295,8 @@ export const music: GameContent = {
           a: "281,474,976,710,656 on an eight-beat grid, because 48 squares are each on or off. The surprise button on its own reaches 1,679,616 of those.",
         },
         {
-          q: "How do you earn coins?",
-          a: "One coin for every six notes the tune grows by. Erasing does not take back a coin already given, and re-adding the same notes does not pay twice.",
+          q: "Does it keep a score or pay coins?",
+          a: "No. Like our colouring game, it keeps no record and pays no coins: ranking a tune a child made would be judging it, and paying per note would reward busy over good. The only number on screen is how many notes the tune has right now.",
         },
         {
           q: "Can I record or download the tune?",
@@ -312,8 +313,8 @@ export const music: GameContent = {
           a: "No. It runs in the browser, and after one visit it is stored on the device and works with no signal.",
         },
         {
-          q: "How is the record measured?",
-          a: "By how many notes are in the biggest tune built, kept separately for each length. It measures how much was made rather than how good it is, and that is a decision rather than an oversight.",
+          q: "What is the number on the screen?",
+          a: "A live count of the notes in the tune you are looking at. It goes up when you light a square and down when you switch one off, and there is no best beside it. It shows how much is on the grid rather than how good it is, and that is a decision rather than an oversight.",
         },
       ],
 
@@ -335,7 +336,7 @@ export const music: GameContent = {
 
         "El botón de la sorpresa enciende una nota por tiempo. Una melodía, pues. En la rejilla larga alcanza 1.679.616 melodías distintas; en la corta solo 1.296, así que pulsarlo muchas veces seguidas empieza a repetir enseguida.",
 
-        "Y la parte honesta, que está en el código y no en una opinión: el récord cuenta notas y nunca calidad. El número más alto al que se puede llegar es 48, es decir encender cada cuadro de la rejilla larga, y eso es un muro de sonido antes que una melodía. De modo que ese número premia lo cargado por encima de lo bonito. Lo sabíamos al elegirlo. La única forma de medir la calidad es juzgar lo que un niño acaba de hacer, y esa es exactamente la razón de que nuestro juego de colorear no lleve ningún récord.",
+        "Y la parte honesta, que está en el código y no en una opinión: ya no hay ningún número que perseguir. No hay récord, ni puntos, ni monedas, ni celebración cuando la rejilla se llena. Lo único que aparece en pantalla es la cuenta en vivo de las notas que tiene la melodía ahora mismo, sin ningún mejor marcador al lado. Es una decisión y no un descuido, la misma que tomó nuestro juego de colorear: la única forma de medir la calidad es juzgar lo que un niño acaba de hacer, y pagar por cada nota premiaría lo cargado por encima de lo bonito.",
 
         "Cambiar de longitud no borra nada. La rejilla se estira o se encoge y las notas siguen donde estaban, porque una melodía es algo que alguien hizo. Pasar de ocho tiempos a cuatro conserva alrededor de la mitad.",
       ],
@@ -433,8 +434,8 @@ export const music: GameContent = {
           a: "281.474.976.710.656 en una rejilla de ocho tiempos, porque son 48 cuadros encendidos o apagados por separado. El botón de la sorpresa por sí solo llega a 1.679.616.",
         },
         {
-          q: "¿Cómo se ganan monedas?",
-          a: "Una moneda por cada seis notas que crece la melodía. Borrar no retira una moneda ya dada, y volver a poner esas notas no paga dos veces.",
+          q: "¿Lleva puntuación o da monedas?",
+          a: "No. Igual que nuestro juego de colorear, no guarda récord ni da monedas: clasificar una melodía que ha hecho un niño sería juzgarla, y pagar por cada nota premiaría lo cargado antes que lo bueno. El único número en pantalla es cuántas notas tiene la melodía ahora mismo.",
         },
         {
           q: "¿Se puede grabar o descargar la melodía?",
@@ -451,8 +452,8 @@ export const music: GameContent = {
           a: "No. Funciona en el navegador y, tras una visita, queda guardado en el aparato y va sin cobertura.",
         },
         {
-          q: "¿Cómo se mide el récord?",
-          a: "Por cuántas notas tiene la melodía más grande construida, guardado aparte para cada longitud. Mide cuánto se hizo y no lo bueno que es, y eso es una decisión y no un descuido.",
+          q: "¿Qué es el número que sale en pantalla?",
+          a: "La cuenta en vivo de las notas de la melodía que tienes delante. Sube al encender un cuadro y baja al apagarlo, y no hay ningún mejor marcador al lado. Dice cuánto hay en la rejilla y no lo bueno que es, y eso es una decisión y no un descuido.",
         },
       ],
 
@@ -483,11 +484,11 @@ export const music: GameContent = {
       source: "scripts/sim/music-tunes.mjs",
     },
     {
-      claim: "48 squares is the largest record possible, and a full grid is worth 8 coins",
-      source: "scripts/sim/music-tunes.mjs",
+      claim: "the longest grid is six rows by eight beats, which is 48 squares",
+      source: "src/games/music/logic.ts",
     },
     {
-      claim: "six rows of notes, four to eight beats, and a coin every six notes",
+      claim: "six rows of notes, and a length of four, six or eight beats",
       source: "src/games/music/logic.ts",
     },
     {
@@ -497,10 +498,6 @@ export const music: GameContent = {
     {
       claim: "three voices, one row colour per note, and every square labelled by beat and state",
       source: "src/games/music/MusicGame.tsx",
-    },
-    {
-      claim: "the record is points, where more is better, scoped per length",
-      source: "src/sdk/score.ts",
     },
   ],
 };

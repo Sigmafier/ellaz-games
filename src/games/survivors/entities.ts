@@ -27,6 +27,13 @@ export type EnemyKind =
   // wave is still the crowd the stage asked for, with no more guns in it.
   | "spitter"
   | "lancer"
+  // FOUR MONSTERS on sheets that already ship (operator ruling 2026-10-03,
+  // monsters.ts): a slime that splits, the two small slimes it splits into, a bat
+  // that charges and a crab with a fuse.
+  | "splitter"
+  | "blob"
+  | "charger"
+  | "bomber"
   | "warden"
   | "queen"
   | "golem";
@@ -60,7 +67,12 @@ export type UpgradeId =
   | "heart"
   | "pierce"
   | "shield"
-  | "range";
+  | "range"
+  // THREE MORE (operator ruling 2026-10-03, "3 powers"): a wider reach for every
+  // weapon that hurts an AREA, a heart back on a clock, a dash that comes back sooner.
+  | "area"
+  | "regen"
+  | "haste";
 
 export interface Enemy {
   id: number;
@@ -120,6 +132,16 @@ export interface Enemy {
    * an instant kill wearing a slower name.
    */
   burnCd?: number;
+  /**
+   * THE CHARGER (monsters.ts): milliseconds of dash left, the line it locked when
+   * its wind-up began, and its rest before the next one. THE BOMBER: its fuse.
+   * Optional, so no other shape carries a field for a thing it cannot do.
+   */
+  dash?: number;
+  dx?: number;
+  dy?: number;
+  chargeCd?: number;
+  fuse?: number;
 }
 
 /**
@@ -292,7 +314,9 @@ export type RunEvent =
    * a new damage source cannot make the scene throw - it simply looks ordinary
    * until somebody gives it a look of its own.
    */
-  | { type: "pop"; x: number; y: number; kind: EnemyKind; by?: WeaponId }
+  | { type: "pop"; x: number; y: number; kind: EnemyKind; by?: WeaponId; big?: "boss" | "elite" }
+  /** A chaining shot (the storm, the bouncer) jumped from one shape to the next - for the arc the scene draws. */
+  | { type: "jump"; kind: ShotKind; x: number; y: number; tx: number; ty: number }
   /** A shot left the ship. Carries WHICH weapon, so the scene can sound it. */
   | { type: "shot"; weapon: ShotKind; x: number; y: number }
   | { type: "zap"; x: number; y: number; big: boolean }
@@ -313,6 +337,12 @@ export type RunEvent =
   | { type: "boss"; stage: number; kind: EnemyKind }
   /** The final boss called shapes in. `n` is how many really arrived, never how many it asked for. */
   | { type: "summon"; x: number; y: number; n: number }
+  /** A bomber burst (monsters.ts) - the ring of shots is already in the air. */
+  | { type: "boom"; x: number; y: number }
+  /** A horde ring closed around the robot: `n` shapes really arrived. */
+  | { type: "horde"; x: number; y: number; n: number }
+  /** REGEN handed a heart back. */
+  | { type: "regen" }
   /** A stage boss fell and the next stage has begun. Never fires for stage 3 - that is `won`. */
   | { type: "stage"; n: number }
   | { type: "levelup" }

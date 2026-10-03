@@ -152,3 +152,29 @@ export function drawScale(part: WalkerKind | "defender"): number {
   const m = CAST[key].manifest;
   return nativeScale(m) * (radiusOf(part) / radiusOf(SHEET_NATIVE[key]));
 }
+
+/**
+ * HOW MUCH BIGGER THE FIGHT IS DRAWN ON A LANE SHOWN SMALL - a picture size,
+ * never a rule.
+ *
+ * Reported from a phone and measured 2026-10-03: the lane is 900 units wide and
+ * a 390x844 portrait phone draws it 374px across, about 0.42x, so a runner is a
+ * dozen pixels tall and the aim ring a speck on a strip that is three-quarters
+ * empty. The operator picked "bigger + rotate hint" over a shorter phone lane,
+ * because a shorter lane is a DIFFICULTY change and this is not one.
+ *
+ * So the walkers, the aim ring, the shots and the hit flashes are DRAWN up to
+ * 1.6x bigger, and nothing they collide with moves: `KIND[...].radius`, the
+ * shot paths and every wave stay exactly as `logic.ts` has them, which is why
+ * this takes the SHOWN scale (canvas CSS width / lane width) and nothing from
+ * the run. Continuous rather than a breakpoint, so a window dragged wider never
+ * makes the cast jump: full size from 0.66 up (a lane shown 594px or wider),
+ * 1.6x at 0.41 and below, and in between it grows as the lane shrinks.
+ */
+export const NARROW_MAX = 1.6;
+const NARROW_FROM = 0.66;
+
+export function narrowBoost(shown: number): number {
+  if (!(shown > 0) || !Number.isFinite(shown)) return 1;
+  return Math.min(NARROW_MAX, Math.max(1, NARROW_FROM / shown));
+}

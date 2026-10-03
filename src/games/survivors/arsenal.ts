@@ -11,6 +11,7 @@
 
 import type { RunState, WeaponId } from "./types";
 import { SAW_REACH } from "./evolve";
+import { areaOf } from "./upgrades";
 
 /** How many weapons a run can carry. */
 export const SLOTS_MAX = 6;
@@ -75,9 +76,10 @@ export const holds = (s: Pick<RunState, "slots">, id: WeaponId): boolean => s.sl
  * the wrap, which a sawtooth on the raw angle would have: the blades would snap
  * back to the robot every two seconds instead of returning to it.
  */
-export function bladeReach(s: Pick<RunState, "bladeAngle">, evolved: boolean): number {
-  if (!evolved) return BLADES.radius;
-  return BLADES.radius + (SAW_REACH * (1 - Math.cos(s.bladeAngle))) / 2;
+export function bladeReach(s: Pick<RunState, "bladeAngle"> & { up?: Partial<RunState["up"]> }, evolved: boolean): number {
+  const area = areaOf(s);
+  if (!evolved) return BLADES.radius * area;
+  return (BLADES.radius + (SAW_REACH * (1 - Math.cos(s.bladeAngle))) / 2) * area;
 }
 
 /**

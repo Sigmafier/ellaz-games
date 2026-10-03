@@ -10,7 +10,7 @@
 
 import type { ReactElement } from "react";
 
-export type SceneryKind = "city" | "frost" | "lava" | "plain";
+export type SceneryKind = "city" | "frost" | "lava" | "plain" | "garden" | "desert" | "cave";
 
 export interface Rect { x: number; y: number; width: number; height: number }
 
@@ -19,6 +19,9 @@ const SKY: Record<SceneryKind, [string, string]> = {
   frost: ["#a9dcff", "#3a7bd5"],
   lava: ["#2a0a0a", "#8a2a0a"],
   plain: ["#232a6b", "#0b0e22"],
+  garden: ["#8fd99a", "#2f8a4c"],
+  desert: ["#ffe1a8", "#e3a253"],
+  cave: ["#120e1f", "#2a2142"],
 };
 
 /** the ink a world's name is written in over its own sky, and the outline under it */
@@ -27,10 +30,13 @@ export const LABEL_INK: Record<SceneryKind, [string, string]> = {
   frost: ["#0d3357", "#ffffff"],
   lava: ["#ffd1b3", "#241c17"],
   plain: ["#ffffff", "#241c17"],
+  garden: ["#ffffff", "#1b3a24"],
+  desert: ["#5a2e0a", "#ffffff"],
+  cave: ["#e6dcff", "#120e1f"],
 };
 
 export const asScenery = (name: string | undefined): SceneryKind =>
-  name === "city" || name === "frost" || name === "lava" ? name : "plain";
+  name === "city" || name === "frost" || name === "lava" || name === "garden" || name === "desert" || name === "cave" ? name : "plain";
 
 function skyline(r: Rect): ReactElement[] {
   const out: ReactElement[] = [];
@@ -84,7 +90,62 @@ function volcano(r: Rect): ReactElement[] {
   return out;
 }
 
-const SHAPES: Record<SceneryKind, (r: Rect) => ReactElement[]> = { city: skyline, frost: peaks, lava: volcano, plain: () => [] };
+// Snake Survivors' three worlds (snake career, 2026-10-03): a garden of hills and
+// flowers, desert dunes under a sun, and a cave of stalactites and glowing crystals.
+function garden(r: Rect): ReactElement[] {
+  const out: ReactElement[] = [];
+  const base = r.y + r.height;
+  const n = Math.max(3, Math.round(r.width / 140));
+  for (let i = 0; i < n; i++) {
+    const cx = r.x + ((i + 0.5) * r.width) / n, rx = r.width / n * 0.8, ry = Math.min(r.height * 0.22, 90);
+    out.push(<ellipse key={`h${i}`} cx={cx} cy={base} rx={rx} ry={ry} fill={i % 2 ? "#2a7a43" : "#3c9a55"} />);
+  }
+  for (let i = 0; i < 30; i++) {
+    const x = r.x + ((i * 97) % Math.max(1, r.width)), y = r.y + r.height * 0.15 + ((i * 61) % Math.max(1, r.height * 0.8));
+    out.push(<circle key={`f${i}`} cx={x} cy={y} r={3 + (i % 2)} fill={["#ff8fc8", "#ffd166", "#ffffff"][i % 3]} opacity={0.9} />);
+  }
+  return out;
+}
+
+function dunes(r: Rect): ReactElement[] {
+  const out: ReactElement[] = [];
+  const k = Math.min(1, r.height / 560, r.width / 520);
+  out.push(<circle key="sun" cx={r.x + r.width * 0.82} cy={r.y + r.height * 0.22} r={44 * k + 14} fill="#fff3c4" opacity={0.85} />);
+  const base = r.y + r.height;
+  for (let j = 0; j < 3; j++) {
+    const h = r.height * (0.18 + j * 0.08), y = base - h * (1 - j * 0.25);
+    let d = `M${r.x} ${base} L${r.x} ${y}`;
+    const n = Math.max(2, Math.round(r.width / 220));
+    for (let i = 0; i < n; i++) {
+      const x0 = r.x + (i * r.width) / n, x1 = r.x + ((i + 1) * r.width) / n;
+      d += ` Q${(x0 + x1) / 2} ${y - h * 0.5 * (i % 2 ? 0.6 : 1)} ${x1} ${y}`;
+    }
+    out.push(<path key={`d${j}`} d={`${d} L${r.x + r.width} ${base} Z`} fill={["#f0c27a", "#e2a95c", "#c98a3f"][j]} />);
+  }
+  for (let i = 0; i < 3; i++) {
+    const x = r.x + r.width * (0.18 + i * 0.31), y = base - r.height * 0.12, h = 46 * k + 10;
+    out.push(<path key={`c${i}`} d={`M${x} ${y} V${y - h} M${x} ${y - h * 0.55} H${x - 12 * k - 4} V${y - h * 0.85} M${x} ${y - h * 0.4} H${x + 12 * k + 4} V${y - h * 0.7}`} stroke="#3f8a4a" strokeWidth={9 * k + 3} strokeLinecap="round" fill="none" />);
+  }
+  return out;
+}
+
+function cavern(r: Rect): ReactElement[] {
+  const out: ReactElement[] = [];
+  const n = Math.max(5, Math.round(r.width / 46));
+  for (let i = 0; i < n; i++) {
+    const x = r.x + (i * r.width) / n, w = r.width / n, h = Math.min(r.height * 0.3, 40 + ((i * 37) % 70));
+    out.push(<path key={`t${i}`} d={`M${x} ${r.y} L${x + w / 2} ${r.y + h} L${x + w} ${r.y} Z`} fill="#0a0814" />);
+  }
+  for (let i = 0; i < 16; i++) {
+    const x = r.x + ((i * 113) % Math.max(1, r.width)), y = r.y + r.height * 0.35 + ((i * 53) % Math.max(1, r.height * 0.6));
+    const c = i % 2 ? "#7fd4ff" : "#c39bff", z = 5 + (i % 3) * 2;
+    out.push(<circle key={`g${i}`} cx={x} cy={y} r={z * 2.4} fill={c} opacity={0.18} />);
+    out.push(<path key={`k${i}`} d={`M${x} ${y - z} L${x + z * 0.6} ${y} L${x} ${y + z} L${x - z * 0.6} ${y} Z`} fill={c} />);
+  }
+  return out;
+}
+
+const SHAPES: Record<SceneryKind, (r: Rect) => ReactElement[]> = { city: skyline, frost: peaks, lava: volcano, plain: () => [], garden, desert: dunes, cave: cavern };
 
 /** one world's floor, clipped to its band; `id` must be unique within the SVG */
 export function Backdrop({ kind, rect, id }: { kind: SceneryKind; rect: Rect; id: string }): ReactElement {

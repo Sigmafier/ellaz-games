@@ -110,6 +110,20 @@ export function goalRow(crushed: number, ms: number, stage: Stage, locale: AppLo
   return { score: crushed, clock: clockText(ms), boss: textFor(FX_TEXT, locale).boss(stage) };
 }
 
+/**
+ * THE CAREER'S GOAL ROW (snake career, 2026-10-03, off the approved mock): in place
+ * of the quick run's score and clock, the crush target as "9/15" over the level's
+ * name - and NO clock, because a career level ends on its target, not on time.
+ * While a boss level's boss is up, the count gives way to `head` ("BOSS") and the
+ * boss's own bar along the bottom says how much is left.
+ */
+export type CareerGoalRow = { count: string | null; head: string | null; level: string };
+
+export function careerGoal(c: { target: number; bossUp: boolean }, crushed: number, head: string, level: string): CareerGoalRow {
+  if (c.bossUp) return { count: null, head, level };
+  return { count: `${Math.min(crushed, c.target)}/${c.target}`, head: null, level };
+}
+
 /** The three numbers that left the play screen, in the order both cards show them. */
 export type RunStat = { id: "crushed" | "best" | "level"; value: number };
 

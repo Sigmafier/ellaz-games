@@ -10,7 +10,7 @@
  * page says with a digit in it comes from here or from the game's own source.
  *
  * IT DRIVES THE SHIPPED MODULE. `newTune`, `toggleCell`, `surprise`, `resize`,
- * `noteCount`, `milestoneStep` and `pitchFor` are imported from
+ * `noteCount` and `pitchFor` are imported from
  * `src/games/music/logic.ts` rather than re-written, and the scale comes from
  * `@shared/notes`. So the counts below describe the toy a child opens rather
  * than my reading of it.
@@ -53,10 +53,8 @@ const { mulberry32 } = await import(join(ROOT, "src/shared/rng.ts"));
 
 const {
   LENGTHS,
-  MILESTONE_EVERY,
   ROWS,
   STEPS,
-  milestoneStep,
   newTune,
   noteCount,
   pitchFor,
@@ -124,7 +122,8 @@ for (const level of LENGTHS) {
   const melodies = BigInt(ROWS) ** BigInt(steps);
 
   // Question 1, driven: fill every square through the shipped `toggleCell` and
-  // check the count and the coins agree with the arithmetic above.
+  // check the count agrees with the arithmetic above. (No coins any more: the
+  // toy stopped paying on 2026-10-03, so there is no coin column to derive.)
   let filled = newTune(level);
   let taps = 0;
   for (let i = 0; i < squares; i++) {
@@ -170,7 +169,6 @@ for (const level of LENGTHS) {
     tunes: allTunes.toString(),
     melodies: melodies.toString(),
     tapsToFill: taps,
-    coinsForAFullGrid: milestoneStep(squares),
     notesPerSurprise: Number((noteSum / DRAWS).toFixed(2)),
     surprisesDrawn: DRAWS,
     surprisesRepeated: collisions,
@@ -182,7 +180,6 @@ for (const level of LENGTHS) {
 const out = {
   draws: DRAWS,
   noteRows: ROWS,
-  milestoneEvery: MILESTONE_EVERY,
   scale,
   intervals,
   lengths: rows,
@@ -191,15 +188,15 @@ const out = {
 if (process.argv.includes("--json")) {
   console.log(JSON.stringify(out, null, 2));
 } else {
-  console.log(`music box: ${ROWS} rows of notes, a coin every ${MILESTONE_EVERY} notes\n`);
+  console.log(`music box: ${ROWS} rows of notes, no score and no coins\n`);
   console.log(
-    "length   beats  squares  different tunes            one-note-per-beat melodies  taps to fill  coins  surprise notes  repeats in draws  kept from an 8-beat tune",
+    "length   beats  squares  different tunes            one-note-per-beat melodies  taps to fill  surprise notes  repeats in draws  kept from an 8-beat tune",
   );
   for (const r of rows) {
     console.log(
       `${r.level.padEnd(8)} ${String(r.steps).padStart(5)} ${String(r.squares).padStart(8)} ` +
         `${r.tunes.padStart(26)} ${r.melodies.padStart(26)} ${String(r.tapsToFill).padStart(13)} ` +
-        `${String(r.coinsForAFullGrid).padStart(6)} ${String(r.notesPerSurprise).padStart(15)} ` +
+        `${String(r.notesPerSurprise).padStart(15)} ` +
         `${String(r.surprisesRepeated).padStart(17)} ${String(r.keptFromLongPct + "%").padStart(25)}`,
     );
   }

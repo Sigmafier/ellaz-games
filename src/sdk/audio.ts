@@ -1,4 +1,4 @@
-import type { AudioPort, SfxName, ToneOptions } from "./types";
+import type { AudioPort, SfxName, ToneOptions, VoiceOptions } from "./types";
 import { COIN, FAIL, FLIP, POP, STAR, STREAK, SUCCESS, TAP, WIN, type VoiceSpec } from "./voice";
 import { VOICE_PICKS_KEY, loadVoicePicks, type VoicePicks } from "./voiceOverride";
 import { playVoice, warmVoices } from "./voiceEngine";
@@ -174,9 +174,6 @@ class WebAudioPort implements AudioPort {
   }
 
   play(name: SfxName, opts?: { semitones?: number }): void {
-    if (this._muted) return;
-    const ctx = this.ensureCtx();
-    if (!ctx) return;
     // Every layer's timing lives inside the spec as a `delay`, so the whole
     // voice is scheduled against one absolute start. That is what makes a
     // five-note gliss land identically whether or not the clock ticks between
@@ -185,7 +182,23 @@ class WebAudioPort implements AudioPort {
     // A transpose rides the SAME spec object rather than producing a shifted
     // copy, which is what keeps the level-match trim valid across the whole
     // streak ladder - a per-rung copy would miss the trim cache on every note.
-    playVoice(ctx, this.picks[name] ?? VOICES[name], { semitones: opts?.semitones });
+    // `opts` is passed straight through: its one field is a VoiceOptions field,
+    // and rebuilding it here cost the first visit bytes it had no room for.
+    this.voice(this.picks[name] ?? VOICES[name], opts);
+  }
+
+  /**
+   * Play a designed voice - every named SFX above comes through here, and so
+   * does a game's own instrument (`@sdk/note`: a struck note at the game's
+   * pitch). The spec-building stays OUT of this file on purpose: this module
+   * is in every child's first visit, and a timbre table nobody plays yet must
+   * not be paid for by the 44 games that do not use it (measured 2026-10-03:
+   * a `note()` here that built its own specs cost the first visit +221 B gz).
+   */
+  voice(spec: VoiceSpec, opts?: VoiceOptions): void {
+    if (this._muted) return;
+    const ctx = this.ensureCtx();
+    if (ctx) playVoice(ctx, spec, opts);
   }
 }
 

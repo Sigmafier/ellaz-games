@@ -62,12 +62,12 @@ export interface WorldDots {
  * its world. One big button - tap to start now; it starts on its own a moment
  * later. It carries no instruction, so it tells nobody to tap it.
  */
-export function Intro(props: { world: WorldId; name: string; twist: string; number: number | null; bossWord: string; levelWord: string; dots: WorldDots; onStart: () => void }): ReactElement {
+export function Intro(props: { world: WorldId; name: string; twist: string; number: number | null; bossWord: string; levelWord: string; dots: WorldDots; onStart: () => void; tag?: string }): ReactElement {
   const [ref, box] = useLayoutBox<HTMLButtonElement>();
   const art = WORLD_ART[props.world];
   const twistIcon = props.world === "city" ? "lights" : props.world === "frost" ? "ice" : "pools";
   const size = Math.min(box.w * 0.9, box.h * 0.92 * (400 / 360));
-  const label = `${props.name} - ${props.number === null ? props.bossWord : props.levelWord.replace("{n}", String(props.number))} - ${props.twist}`;
+  const label = `${props.name}${props.tag ? ` - ${props.tag}` : ""} - ${props.number === null ? props.bossWord : props.levelWord.replace("{n}", String(props.number))} - ${props.twist}`;
   return (
     <button
       ref={ref}
@@ -106,6 +106,12 @@ export function Intro(props: { world: WorldId; name: string; twist: string; numb
             <circle r={46} fill="#fff" stroke={K} strokeWidth={6} />
             <g transform="scale(1.45)">{neonShape(twistIcon)}</g>
           </g>
+          {props.tag ? (
+            <g transform="translate(0 -150)">
+              <path d="M-84 -22 H84 L70 0 L84 22 H-84 L-70 0 Z" fill="#c2185b" stroke={K} strokeWidth={6} strokeLinejoin="round" />
+              <text y={11} fontSize={30} fontWeight={800} textAnchor="middle" fill="#fff" style={{ fontFamily: FONT, textTransform: "uppercase", letterSpacing: 2 }}>{props.tag}</text>
+            </g>
+          ) : null}
           <g transform="translate(0 152)">
             {props.dots.states.map((st, i) => {
               const x = (i - (props.dots.states.length - 1) / 2) * 46;

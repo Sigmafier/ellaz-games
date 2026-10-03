@@ -29,9 +29,9 @@ type Arm = "careful" | "careless" | "statue";
 
 interface Row { won: boolean; ms: number; hp: number; gold: number; cards: number }
 
-function play(id: string, seed: number, arm: Arm, stats: CareerStats): Row {
+function play(id: string, seed: number, arm: Arm, stats: CareerStats, hard = false): Row {
   const rng = rngFor(seed);
-  const s: RunState = newCareerRun(id, stats, ARENA_WIDE, "bolt");
+  const s: RunState = newCareerRun(id, stats, ARENA_WIDE, "bolt", hard);
   const held = { dx: 1, dy: 0, until: 0 };
   let ms = 0;
   let cards = 0;
@@ -111,5 +111,57 @@ describe("the career's levels, played", () => {
     // What you bought and found is what gets you through.
     expect(wins(rows("lava-boss", "careful", false))).toBeLessThan(wins(rows("lava-boss", "careful")));
     expect(wins(rows("lava-3", "careful", false))).toBeLessThanOrEqual(1);
+  });
+});
+
+// THE HARD TIER (hardTier.ts, operator ruling 2026-10-03), played on the kit of a
+// player who has BOUGHT THE SHOP OUT - the player hard exists for. Six hearts,
+// +80% damage, every speed, magnet and luck row, the shield. On normal this kit
+// three-starred the city and frost for free (scratchpad tune runs, 2026-10-03).
+const GRIND: CareerStats = { hearts: 6, speed: 1.24, damage: 1.8, magnet: 1.75, luck: 30, shield: 1 };
+
+function hardRows(id: string): Row[] {
+  const key = `${id}/hard`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const out = SEEDS.map((seed) => play(id, seed, "careful", GRIND, true));
+  console.log(
+    `${id.padEnd(10)} HARD     grind wins ${wins(out)}/5  ` +
+      `time ${out.map((r) => (r.ms / 1000).toFixed(0)).join("/")}s  hearts ${out.map((r) => r.hp).join("/")}  ` +
+      `gold ${out.map((r) => r.gold).join("/")}  cards ${out.map((r) => r.cards).join("/")}`,
+  );
+  cache.set(key, out);
+  return out;
+}
+/** Free: every seed won with every one of the six hearts still there. */
+const free = (r: Row[]) => r.every((x) => x.won && x.hp >= GRIND.hearts);
+
+describe("THE HARD TIER, played by a careful thumb on a bought-out kit", () => {
+  it("prints the hard table", () => {
+    for (const l of LEVELS) hardRows(l.id);
+    expect(LEVELS.every((l) => cache.has(`${l.id}/hard`))).toBe(true);
+  });
+
+  it("the CITY stops being free: no hard city level is won 5 of 5 with every heart kept", () => {
+    for (const id of ["city-1", "city-2", "city-3", "city-boss"]) expect(free(hardRows(id)), id).toBe(false);
+  });
+
+  it("FROST on hard is won 1 to 4 times in 5 on every level", () => {
+    for (const id of ["frost-1", "frost-2", "frost-3", "frost-boss"]) {
+      expect(wins(hardRows(id)), `${id} never won`).toBeGreaterThanOrEqual(1);
+      expect(wins(hardRows(id)), `${id} always won`).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("LAVA on hard is won 1 to 3 times in 5 on every level", () => {
+    for (const id of ["lava-1", "lava-2", "lava-3", "lava-boss"]) {
+      expect(wins(hardRows(id)), `${id} never won`).toBeGreaterThanOrEqual(1);
+      expect(wins(hardRows(id)), `${id} too often`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("THE CONTROL: the same kit on NORMAL is free in the city - so the cell above can fail", () => {
+    const normal = SEEDS.map((seed) => play("city-1", seed, "careful", GRIND));
+    expect(free(normal)).toBe(true);
   });
 });

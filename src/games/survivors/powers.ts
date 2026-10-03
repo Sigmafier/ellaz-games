@@ -9,6 +9,7 @@
 
 import type { RunState } from "./types";
 import { clampToWorld } from "./world";
+import { regenEvery } from "./upgrades";
 
 /** How long the dash takes to come back after it has saved you. */
 export const DASH_MS = 8000;
@@ -21,8 +22,14 @@ export const FREEZE_MS = 2000;
 
 const unit = (v: number) => Math.max(0, Math.min(1, v));
 
+/** HASTE (2026-10-03): each level takes this share off the dash's recharge. */
+export const HASTE_STEP = 0.18;
+
+/** How long the dash takes to come back on this run - `DASH_MS` exactly with no haste. */
+export const dashEvery = (s: { up?: { haste?: number } }): number => Math.round(DASH_MS * (1 - HASTE_STEP * (s.up?.haste ?? 0)));
+
 /** 1 when the dash is ready, rising from 0 while it recharges. For the HUD chip. */
-export const dashReady = (s: Pick<RunState, "dashCd">): number => unit(1 - s.dashCd / DASH_MS);
+export const dashReady = (s: Pick<RunState, "dashCd">, every = DASH_MS): number => unit(1 - s.dashCd / every);
 
 /** How full the freeze is, 0..1. For the ring around the button. */
 export const chargeOf = (s: Pick<RunState, "charge">): number => unit(s.charge / FREEZE_NEED);
@@ -67,6 +74,25 @@ export function dashAway(s: RunState, fromX: number, fromY: number, r: number): 
   const to = clampToWorld(s, s.x + (dx / len) * DASH_DIST, s.y + (dy / len) * DASH_DIST, r);
   s.x = to.x;
   s.y = to.y;
-  s.dashCd = DASH_MS;
+  s.dashCd = dashEvery(s);
   return from;
+}
+
+/**
+ * REGEN (2026-10-03): a heart back on the upgrade's clock. The clock runs only
+ * while a heart is missing, so a full robot does not bank one. No-op on a run that
+ * never took it - nothing is read, nothing is drawn, no rng is touched.
+ */
+export function tickRegen(s: RunState, dt: number): void {
+  if (s.up.regen <= 0) return;
+  const every = regenEvery(s);
+  if (s.hp >= s.maxHp) {
+    s.regenMs = every;
+    return;
+  }
+  s.regenMs = Math.min(every, s.regenMs ?? every) - dt;
+  if (s.regenMs > 0) return;
+  s.hp = Math.min(s.maxHp, s.hp + 1);
+  s.regenMs = every;
+  s.events.push({ type: "regen" });
 }

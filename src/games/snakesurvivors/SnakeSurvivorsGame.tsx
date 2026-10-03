@@ -19,6 +19,14 @@ import { TUTORIAL_TEXT, TutorialBanner } from "./TutorialBanner";
 import { HOW_ICON, SNAKE_INKS, SnakeTitleArt, snakeLines, snakeName } from "./SnakeTitle";
 import { HINT_FADE_MS, HINT_MS, endOf, hintVisible, nextEnd, snakeScreen, type EndCard } from "./screens";
 import { balancedLines } from "@ui/ArcadeTitle";
+// THE CAREER (snake career, 2026-10-03): everything it draws lives in its own
+// files; this component only opens it, from the title's Career pill (as Neon's).
+import { CROWN } from "../survivors/entrance/NeonTitle";
+import { SnakeCareerLayer } from "./SnakeCareerLayer";
+import { careerGoal } from "./hud";
+import { levelName, snakeCareerWords } from "./careerWords";
+import { levelNumber } from "./careerWorlds";
+import type { SnakeCareerResult } from "./careerTypes";
 
 // Snake Survivors' chrome: the arcade HUD, the entrance, and the card picker,
 // all drawn by the shared showcase components over a Phaser arena. Same shape
@@ -54,7 +62,11 @@ const CHAIN_AT_1 = chainOf({ taken: { ...noneTaken(), chain: 1 } });
 
 export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<Pick<SnakeSurvivorsScene, "setLevel" | "setPaused" | "restartFromChrome" | "startFromChrome" | "choose" | "startTutorial" | "endTutorial"> | null>(null);
+  const sceneRef = useRef<Pick<SnakeSurvivorsScene, "setLevel" | "setPaused" | "restartFromChrome" | "startFromChrome" | "choose" | "startTutorial" | "endTutorial" | "startCareer" | "leaveCareer"> | null>(null);
+  /** The title (and the quick run it starts), or the career's map and levels. */
+  const [mode, setMode] = useState<"title" | "career">("title");
+  /** The scene tells the career when a level ends; the career decides what that pays. */
+  const careerEndRef = useRef<((r: SnakeCareerResult, token: string) => void) | null>(null);
   const [level, setLevel] = useRememberedLevel(ctx, LEVEL_OPTIONS.map((o) => o.id), "normal");
   const levelRef = useRef(level);
   levelRef.current = level;
@@ -75,6 +87,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
     newBest: false,
     tutorial: null,
     banner: null,
+    career: null,
   });
   const best = ctx.score?.best(status.level) ?? 0;
 
@@ -117,6 +130,9 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
         arena,
         onStatus: (s: SnakeSurvivorsStatus) => {
           if (!cancelled) setStatus(s);
+        },
+        onCareerEnd: (r: SnakeCareerResult, token: string) => {
+          if (!cancelled) careerEndRef.current?.(r, token);
         },
         onReady: (scene: SnakeSurvivorsScene) => {
           if (cancelled) return;
@@ -346,8 +362,20 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
   const wide = arena.w > arena.h;
 
   const art = (box: { w: number; h: number; wide: boolean; rtl: boolean }): ReactElement => <SnakeTitleArt {...box} />;
+  const CW = snakeCareerWords(ctx.locale);
+  /** Into the career's map, or back out to the title - a fresh start either way. */
+  const toMode = (next: "title" | "career") => {
+    setEnd(null);
+    setMode(next);
+  };
+  // The career's goal row: "9/15" over the level's name, or BOSS while its boss is up.
+  const careerRow = status.career
+    ? careerGoal(status.career, status.crushed, CW.boss, levelName(CW, status.career.world, levelNumber(status.career.level)))
+    : null;
   const entrance =
-    screen === "title"
+    mode === "career"
+      ? null
+      : screen === "title"
       ? {
           label: T.title,
           lines: snakeName(T.title, ctx.locale),
@@ -356,6 +384,8 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
           onAction: () => sceneRef.current?.startFromChrome(),
           // A real button: it starts the guided run (ruling R2.5).
           secondary: { label: HOW_TO, icon: HOW_ICON, onPress: () => sceneRef.current?.startTutorial() },
+          // THE CAREER, under PLAY - the crowned pill Neon's title has (S0 mock, approved).
+          pills: [{ label: CW.career, icon: CROWN, onPress: () => toMode("career") }],
           inks: SNAKE_INKS,
           split: true,
           bottom: [0.034, 0.05] as [number, number],
@@ -487,6 +517,7 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
             len={status.len}
             boss={tutoring || choosing ? null : bossRow(status.level, status.meter, status.boss)}
             goal={tutoring ? null : goalRow(status.crushed, status.ms, status.stage, ctx.locale)}
+            career={tutoring ? null : careerRow}
             cards={tutoring ? [] : WEAPONS.filter((id) => status.taken[id]).map((id) => ({ id, art: CARD_ART[id]() }))}
           />
         )}
@@ -611,6 +642,17 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
               );
             })}
           </div>
+        )}
+        {mode === "career" && (
+          <SnakeCareerLayer
+            ctx={ctx}
+            title={T.title}
+            phase={status.phase}
+            ms={status.ms}
+            scene={sceneRef}
+            endRef={careerEndRef}
+            onTitle={() => toMode("title")}
+          />
         )}
         {/* THE PAUSE CARD: Resume, and the three numbers that left play. */}
         {status.phase === "playing" && status.paused && (

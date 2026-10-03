@@ -14,7 +14,7 @@ export const musicFr: GameCopy = {
     "Le choix des 6 notes est la seule décision technique de ce jeu et c'est celle qui fait tout. Sur les 15 paires possibles, aucune n'est séparée d'un demi-ton et aucune n'est un triton, les deux intervalles qui grincent. Les deux notes les plus proches sont à un ton l'une de l'autre. Résultat : un enfant qui allume les 48 cases d'un coup entend un accord dense et agréable, et non un bruit. C'est ce qui autorise l'écran à ne jamais dire non.",
     "Une grille de 8 temps a 48 cases, donc 281 474 976 710 656 mélodies différentes. Le bouton surprise, lui, ne va pas si loin : il compose 1 679 616 mélodies possibles sur la grille longue et 1 296 sur la courte, parce qu'il pose une note par temps plutôt que d'allumer les cases au hasard.",
     "Raccourcir une mélodie de 8 temps à 4 en garde environ la moitié des notes, et rallonger reprend celles qui existaient. La grille ne redistribue jamais rien : ce que vous avez écrit reste écrit.",
-    "L'aveu : ce n'est pas un jeu, c'est un jouet. Il n'y a pas d'objectif, pas de progression et le record se contente de compter les notes posées, avec 48 comme maximum possible. Un enfant qui cherche un défi s'ennuiera en trois minutes. Un enfant qui aime fabriquer y passera une heure, et les deux réactions sont normales.",
+    "L'aveu : ce n'est pas un jeu, c'est un jouet. Il n'y a ni objectif, ni progression, ni record, ni points, ni pièces, et aucune célébration quand la grille se remplit : le seul chiffre à l'écran est le nombre de notes de la mélodie en cours, sans « meilleur » à côté. Un enfant qui cherche un défi s'ennuiera en trois minutes. Un enfant qui aime fabriquer y passera une heure, et les deux réactions sont normales.",
   ],
 
   howToPlay: [
@@ -113,8 +113,8 @@ export const musicFr: GameCopy = {
       a: "Les notes qui rentrent encore sont gardées, environ la moitié en passant de 8 temps à 4. Rien n'est redistribué au hasard.",
     },
     {
-      q: "Y a-t-il un score ?",
-      a: "Un compteur de notes posées, avec 48 comme maximum. Une grille pleine rapporte 8 pièces d'or.",
+      q: "Y a-t-il un score ou des pièces ?",
+      a: "Non. Comme notre jeu de coloriage, il ne garde ni record ni pièces : classer une mélodie faite par un enfant reviendrait à la juger, et payer à la note récompenserait le chargé plutôt que le beau. Le seul chiffre à l'écran est le nombre de notes de la mélodie en cours.",
     },
     {
       q: "Est-ce qu'il marche hors ligne ?",

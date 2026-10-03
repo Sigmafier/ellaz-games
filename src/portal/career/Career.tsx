@@ -18,8 +18,9 @@ import { CareerIcon } from "../../ui/career/icons";
 import { P } from "../../ui/career/palette";
 import { careerWords, fill } from "../../ui/career/words";
 import { neonCareerWords } from "../../games/survivors/careerWords";
+import { snakeCareerWords } from "../../games/snakesurvivors/careerWords";
 import { gameHref } from "../paths";
-import { GEAR_KINDS, neonCard, type CareerCardView } from "./careerCards";
+import { GEAR_KINDS, neonCard, snakeCard, type CareerCardView } from "./careerCards";
 
 interface PageWords {
   levelOf: string;
@@ -73,21 +74,23 @@ const card = (dashed: boolean, faded: boolean) => ({
 
 const art = (ground: string) => ({ width: 80, height: 80, borderRadius: 14, flex: "none", display: "grid", placeItems: "center", border: `3px solid ${P.ink}`, background: ground }) as const;
 
-function NeonCard(props: { view: CareerCardView; w: PageWords; locale: AppLocale }): ReactElement {
-  const { view, w } = props;
+/** One career game: its name and picture, the names of its worlds, and the last world (shown once every level is cleared). */
+interface CardGame { name: string; ground: string; icon: ReactElement; worlds: Record<string, string>; last: string }
+
+function GameCard(props: { game: CardGame; view: CareerCardView; w: PageWords; locale: AppLocale }): ReactElement {
+  const { view, w, game } = props;
   const kw = careerWords(props.locale);
-  const nw = neonCareerWords(props.locale);
   const where = !view.started
     ? w.notStarted
     : view.world === null
-      ? `${nw.world.lava} - ${kw.boss}`
-      : `${nw.world[view.world as keyof typeof nw.world]} - ${view.boss ? kw.boss : both(w.levelOf, view.level ?? 1, view.of)}`;
-  const href = gameHref("survivors", pageLocaleFor(props.locale));
+      ? `${game.worlds[game.last]} - ${kw.boss}`
+      : `${game.worlds[view.world] ?? view.world} - ${view.boss ? kw.boss : both(w.levelOf, view.level ?? 1, view.of)}`;
+  const href = gameHref(view.id, pageLocaleFor(props.locale));
   return (
-    <div style={card(false, false)}>
-      <div style={art(`radial-gradient(circle, ${P.violet}, ${P.navyDeep})`)}><CareerIcon name="bot" size={58} /></div>
+    <div style={card(false, false)} data-career-card={view.id}>
+      <div style={art(game.ground)}>{game.icon}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 19, fontWeight: 700 }}>Neon Survival</div>
+        <div style={{ fontSize: 19, fontWeight: 700 }}>{game.name}</div>
         <div style={{ fontSize: 14, opacity: 0.85 }}>{where}</div>
         <div role="img" aria-label={`${Math.round(view.progress * 100)}%`} style={{ height: 12, borderRadius: 6, background: P.shade33, margin: "7px 0", overflow: "hidden" }}>
           <i style={{ display: "block", height: "100%", width: `${Math.round(view.progress * 100)}%`, background: P.berry }} />
@@ -97,7 +100,7 @@ function NeonCard(props: { view: CareerCardView; w: PageWords; locale: AppLocale
           <span>{both(w.gearOf, view.gear, GEAR_KINDS)}</span>
         </div>
       </div>
-      <a href={href} aria-label={`${kw.play}: Neon Survival`}
+      <a href={href} aria-label={`${kw.play}: ${game.name}`}
         style={{ width: 56, height: 56, borderRadius: 28, flex: "none", background: P.white, border: `3px solid ${P.ink}`, boxShadow: `0 3px 0 ${P.ink}`, display: "grid", placeItems: "center" }}>
         <CareerIcon name="play" size={30} />
       </a>
@@ -140,7 +143,8 @@ const snake = <svg aria-hidden="true" width="54" height="54" viewBox="0 0 50 50"
 export function Career({ locale }: { locale: AppLocale }): ReactElement {
   const w = textFor(WORDS, locale);
   const kw = careerWords(locale);
-  const view = neonCard(gameStore("survivors"));
+  const neon: CardGame = { name: "Neon Survival", ground: `radial-gradient(circle, ${P.violet}, ${P.navyDeep})`, icon: <CareerIcon name="bot" size={58} />, worlds: neonCareerWords(locale).world, last: "lava" };
+  const snakeGame: CardGame = { name: "Snake Survivors", ground: `radial-gradient(circle, ${P.mintDark}, ${P.night})`, icon: snake, worlds: snakeCareerWords(locale).world, last: "cave" };
   return (
     <div className="career-page" style={{ width: "100%", padding: "4px 0 12px", containerType: "inline-size" }}>
       {/* Sized by the BOX it is given, not the window: on a PC the page's stage is a
@@ -153,8 +157,8 @@ export function Career({ locale }: { locale: AppLocale }): ReactElement {
 @container (min-width:960px){.career-page .cp-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 280px}.career-page .cp-gem{grid-column:3;grid-row:1/span 2;order:0}}`}</style>
       <div className="cp-grid">
         <div className="cp-gem"><GemBox count={diamonds.count} w={w} label={kw.diamonds} /></div>
-        <NeonCard view={view} w={w} locale={locale} />
-        <SoonCard name="Snake Survivors" line={w.joinsNext} tag={w.next} icon={snake} faded={false} />
+        <GameCard game={neon} view={neonCard(gameStore("survivors"))} w={w} locale={locale} />
+        <GameCard game={snakeGame} view={snakeCard(gameStore("snakesurvivors"))} w={w} locale={locale} />
         <SoonCard name={w.shooter} line={w.later} icon={<CareerIcon name="bolt" size={44} />} faded />
         <SoonCard name={w.rpg} line={w.later} icon={<CareerIcon name="sword" size={44} />} faded />
       </div>

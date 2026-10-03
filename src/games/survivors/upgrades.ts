@@ -34,6 +34,11 @@ export const UPGRADE_CAP: Record<UpgradeId, number> = {
   // without anybody deciding to.
   shield: 3,
   range: 3,
+  // THE THREE OF 2026-10-03 (operator ruling "3 powers"). Capped low, as `spread`,
+  // `magnet` and `heart` are: each one changes a run's SHAPE, not just a number.
+  area: 3,
+  regen: 2,
+  haste: 3,
 };
 
 export const UPGRADE_IDS = Object.keys(UPGRADE_CAP) as UpgradeId[];
@@ -125,6 +130,20 @@ export const xpNeeded = (power: number, level: LevelKey = "calm") => {
   const r = RULES[level];
   return Math.round((r.xpFirst + power * 4) * r.xpBase + power * (power - 1) * r.xpRamp);
 };
+
+/**
+ * AREA: every weapon that hurts a REGION reaches further - the blades' ring, the
+ * halo, the nova's and the flask's fire, the thunderhead's blast. One multiplier,
+ * read by each of them, so the picture and the hit cannot disagree. Exactly 1
+ * with none taken, so a run that never takes it is the run it always was.
+ */
+export const AREA_STEP = 0.18;
+export const areaOf = (s: { up?: Partial<Record<UpgradeId, number>> }): number => 1 + AREA_STEP * (s.up?.area ?? 0);
+
+/** REGEN: one heart back every this many milliseconds, by level; the clock runs only while a heart is missing. */
+export const REGEN_MS: readonly number[] = [40_000, 26_000];
+export const regenEvery = (s: Pick<RunState, "up">): number =>
+  s.up.regen > 0 ? REGEN_MS[Math.min(s.up.regen, REGEN_MS.length) - 1] : Infinity;
 
 /**
  * How far the gun can see. 240 is the figure every boss measurement and both

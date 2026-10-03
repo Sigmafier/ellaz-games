@@ -85,7 +85,9 @@ export function stroll(s: RunState, rng: () => number, held: { dx: number; dy: n
   return { dx: held.dx, dy: held.dy };
 }
 
-const CARD_ORDER: UpgradeId[] = ["rapid", "power", "spread", "pierce", "heart", "swift", "shield", "range", "magnet"];
+// The three of 2026-10-03 go LAST: the bot's picks for every older card stay as
+// they were, so a table it prints still compares with the one before them.
+const CARD_ORDER: UpgradeId[] = ["rapid", "power", "spread", "pierce", "heart", "swift", "shield", "range", "magnet", "area", "haste", "regen"];
 
 /**
  * The card a player who knows the game takes. A super (`evolve`) arrives alone

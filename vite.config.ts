@@ -604,6 +604,9 @@ export default defineConfig({
           // career chunk statically (its rules), so neither costs a Neon visit.
           if (/\/src\/sdk\/diamonds\.ts$/.test(path)) return "career";
           if (/\/src\/games\/survivors\/(worlds|careerWords)\.ts$/.test(path)) return "career";
+          // Snake Survivors' level list and career words, for the same reason (snake career,
+          // 2026-10-03): the Career page names its worlds and reads its twelve ids.
+          if (/\/src\/games\/snakesurvivors\/(careerWorlds|careerWords)\.ts$/.test(path)) return "career";
           // The Career PAGE itself: fetched by PageApp's dynamic import on /career/
           // only. Left to the `src/portal/` rules it would join the shell.
           if (/\/src\/portal\/career\//.test(path)) return "career";
@@ -645,6 +648,15 @@ export default defineConfig({
           // `cloudSync.ts` itself is NOT here: it is the thin always-loaded
           // half that holds the import.
           if (/\/src\/sdk\/(cloud|cloudConfig|backupCode)\.ts$/.test(path)) return "cloud";
+
+          // `src/sdk/note.ts` - the struck-note timbre table - is played by
+          // Music Box alone (the listening lab that also reads it is not part
+          // of this build). It lives under src/sdk/, so the catch-all below
+          // swept it into the SHELL the moment the game imported it: +318 B gz
+          // on the first visit, 309 over the ceiling (merge build, 2026-10-03).
+          // It rides in Music Box's own chunk instead; `game-*` is already in
+          // globIgnores, so no third change is owed.
+          if (/\/src\/sdk\/note\.ts$/.test(path)) return "game-music";
 
           // The name pool's WORDS - sixteen adjectives and twenty nouns in four
           // languages. Same arrangement and same reason as `cloud` above: it
@@ -753,6 +765,12 @@ export default defineConfig({
           // screen, and only `PageApp` imports it. Left to the catch-all it put
           // 363 B gz into every first visit (measured 2026-09-14, two builds).
           if (/\/src\/portal\/keyGuard\.ts$/.test(path)) return "page";
+          // `src/ui/pageScrollLock.ts` holds the page still while a showcase
+          // run is live, and only game code imports it (the arcade chrome,
+          // Snake Arena, Neon's career). src/ui has no catch-all, and Rollup
+          // still hoisted it into the SHELL: +168 B gz over the ceiling on the
+          // first build that had it (2026-10-03, two builds from one tree).
+          if (/\/src\/ui\/pageScrollLock\.ts$/.test(path)) return "page";
           // `themeMenu.ts` fills a screen's "..." menu with the Theme choice;
           // imported only by PageApp, so it belongs with it, not in the shell.
           if (/\/src\/portal\/themeMenu\.ts$/.test(path)) return "page";

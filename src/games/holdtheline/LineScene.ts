@@ -29,7 +29,7 @@ import {
   step,
   wallX,
 } from "./logic";
-import { CAST, CAST_KEYS, CLIPS, PLAYED_BY, drawScale, type CastKey } from "./sprites";
+import { CAST, CAST_KEYS, CLIPS, PLAYED_BY, drawScale, narrowBoost, type CastKey } from "./sprites";
 import type { Arena, RunState, Walker } from "./types";
 
 /** What the chrome needs from a frame. Plain data, so React can hold it. */
@@ -272,12 +272,26 @@ export class LineScene extends Phaser.Scene {
     return made;
   }
 
+  /**
+   * How much bigger the fight is drawn on a lane shown small (`narrowBoost`).
+   * Read off the canvas's SHOWN size every frame, so turning a phone sideways
+   * mid-wave settles the cast back to full size on the next frame.
+   */
+  private boost(): number {
+    return narrowBoost(1 / this.scale.displayScale.x);
+  }
+
   private draw(dtMs = 0): void {
     const live = new Set<number>();
+    const k = this.boost();
     for (const w of this.run.walkers) {
       live.add(w.id);
       const { s, key } = this.spriteFor(w);
       s.setPosition(w.x, w.y);
+      // COMPOSED with the birth scale's own derivation, never a literal - the
+      // survivors trap (a-setter-that-replaces-erases-what-the-thing-was-born-with.md).
+      // The hitbox is not touched; only the picture grows.
+      s.setScale(drawScale(w.kind) * k);
       const clip = w.ko > 0 ? "ko" : w.cool > w.cycle * 0.8 ? "attack" : "walk";
       s.anims.play(animKey(key, clip), true);
     }
@@ -318,7 +332,10 @@ export class LineScene extends Phaser.Scene {
     const g = this.fx;
     if (!g) return;
     g.clear();
-    const px = (n: number) => n * Math.max(1, this.scale.displayScale.x);
+    // Screen pixels, times the narrow-lane boost: the ring and the tracers grow
+    // with the cast on a phone, so the cue stays in proportion to its target.
+    const k = this.boost();
+    const px = (n: number) => n * Math.max(1, this.scale.displayScale.x) * k;
 
     for (const e of this.run.events) {
       if (e.t === "hit" || e.t === "kill") this.flashes.push({ x: e.x, y: e.y, age: 0, kill: e.t === "kill" });

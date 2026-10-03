@@ -269,12 +269,16 @@ describe("the cards that exist - the ceiling the operator asked to raise", () =>
     // were deliberately NOT redistributed onto the nine that remain. This round
     // is meant to make the run harder, and handing the same number of upgrade
     // steps back under other names would have undone part of that silently.
-    expect(upgradeSteps).toBe(36);
+    //
+    // 44 SINCE 2026-10-03: area 3, regen 2 and haste 3 ("3 powers"). A run still
+    // holds six powers at most (PASSIVE_SLOTS), so the ceiling a run can SEE is
+    // unchanged - these are more ways to fill the same six slots.
+    expect(upgradeSteps).toBe(44);
     // 86 SINCE 2026-10-02: nine weapons (four added) and six slots ("ack B").
     // Nine weapons' levels are 36, but a run holds six of them and six of the
     // nine upgrades, so no run can see all 86 - which is the point of slots.
     expect(weaponLevels).toBe(36);
-    expect(total).toBe(86);
+    expect(total).toBe(94);
 
     // The point of the raise, stated as the thing that must stay true: a run
     // that takes 30 cards must still have somewhere to spend the 31st.
@@ -286,7 +290,9 @@ describe("the cards that exist - the ceiling the operator asked to raise", () =>
     // ruling. The count is pinned rather than derived on purpose - it is the
     // line that makes dropping an upgrade a decision somebody has to write down
     // rather than a diff nobody notices.
-    expect(UPGRADE_IDS).toHaveLength(9);
+    // TWELVE since 2026-10-03: area, regen and haste (operator ruling "3 powers").
+    expect(UPGRADE_IDS).toHaveLength(12);
+    expect(UPGRADE_IDS).toEqual(expect.arrayContaining(["area", "regen", "haste"]));
     for (const id of UPGRADE_IDS) expect(UPGRADE_CAP[id]).toBeGreaterThan(0);
     // The two newest by name, so a rename cannot silently drop one.
     expect(UPGRADE_IDS).toEqual(expect.arrayContaining(["shield", "range"]));

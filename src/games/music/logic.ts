@@ -15,12 +15,12 @@
 // It is the first game in the `create` section, which has been declared in
 // `CATEGORY_ORDER` and empty since the catalogue was written.
 //
-// THE RECORD MEASURES SIZE, NEVER QUALITY. `coloring` is the one game here with
-// no record at all, because ranking a child's drawing is the opposite of this
-// platform's premise - and a tune is a drawing. So what is counted is how many
-// notes are in the biggest thing they have built, which is a fact about the
-// making rather than a judgement of the made. Same shape as `pet`, whose record
-// is only ever how big the creature grew.
+// NO RECORD AND NO COINS, like `coloring` (since 2026-10-03). Ranking a child's
+// drawing is the opposite of this platform's premise, and a tune is a drawing.
+// It used to count the notes in the biggest tune built and pay a coin every six
+// notes; the operator ruled both out, because a count of notes is busy over
+// good and a coin per note pays for busy. The screen shows how many notes the
+// tune has right now, and that number is never kept.
 //
 // EVERY TAP SOUNDS GOOD. The scale is `PENTATONIC` from `@shared/notes`, which
 // has no semitone and no tritone in it - so any handful of these notes, in any
@@ -214,35 +214,69 @@ export function surprise(state: TuneState, rng: () => number = Math.random): Tun
   return { ...state, cells };
 }
 
-/* -------------------------------------------------------------- reporting */
-
-/** A coin every this many notes. See `milestoneStep`. */
-export const MILESTONE_EVERY = 6;
+/* --------------------------------------------------------------- the save */
 
 /**
- * Which milestone a tune of `notes` notes has reached.
+ * The snapshot's version. 2 since the toy stopped paying (2026-10-03): version 1
+ * also carried the two latches - `paidStep`, `bestFired` - that kept a coin and
+ * a celebration from being paid twice across a resume, and with nothing paid
+ * there is nothing to latch. Every save from now on is written as version 2.
  *
- * A pure function of the count, and the count can go DOWN - erasing four notes
- * walks it back. So this is NOT a ledger of what has been paid for, and a
- * caller that treated it as one would pay again for every note re-added after
- * an erase. The renderer keeps the highest step it has ever paid and persists
- * it, which is the only place that fact can safely live.
+ * AND VERSION 1 IS STILL READ (operator ruling 2026-10-03, "keep old tunes"). A
+ * tune is a thing a child made, and `ctx.session` discards any other version
+ * unread - so a plain bump would have handed every returning child an empty
+ * grid on the day of the update. `resumeTune` asks for version 2 and, failing
+ * that, for version 1, and keeps only the tune out of what it finds: the old
+ * latches are dropped on read, because nothing they guarded exists any more.
+ *
+ * THERE IS NO REPORTING SECTION ANY MORE, and that is the ruling, not a gap:
+ * no `scoreReport`, no `unit:`, no milestone. Like `coloring`, this game keeps
+ * no record and pays no coin, because both judged a thing a child made - the
+ * record said busy beats pretty, and the coin every six notes paid for busy.
+ * `score-unit-declared.test.ts` names this game beside coloring, so giving it a
+ * record back is a test somebody has to delete on purpose.
  */
-export function milestoneStep(notes: number): number {
-  return Math.floor(notes / MILESTONE_EVERY);
+export const SNAPSHOT_VERSION = 2;
+/** What a paying build wrote: `{ state, paidStep, bestFired }`. Read, never written. */
+export const LEGACY_SNAPSHOT_VERSION = 1;
+
+/** What a resume restores: the tune, and nothing else. */
+export interface MusicSnapshot {
+  state: TuneState;
 }
 
 /**
- * What this tune's record MEASURES, in the shape `ctx.score` wants.
- *
- * A VALUE and a UNIT and never a direction - `src/sdk/score.ts` decides that
- * points rank high, so a game cannot order its own board backwards. `board`
- * scopes it to a length, because filling four beats and filling eight are not
- * the same achievement.
+ * Whether `value` is a tune THIS build can draw. Must not throw - it is handed
+ * whatever was on the disk.
  */
-export function scoreReport(
-  state: TuneState,
-  board: Length,
-): { value: number; unit: "points"; board: string } {
-  return { value: noteCount(state), unit: "points", board };
+export function isMusicSnapshot(value: unknown): value is MusicSnapshot {
+  const s = value as Partial<MusicSnapshot> | null;
+  if (typeof s !== "object" || s === null) return false;
+  const t = s.state as Partial<TuneState> | null | undefined;
+  if (typeof t !== "object" || t === null) return false;
+  if (typeof t.level !== "string" || !Object.prototype.hasOwnProperty.call(STEPS, t.level)) return false;
+  // The grid must match the dimensions the LENGTH declares, not merely the
+  // ones the snapshot claims: the CSS grid is built from the level, so a
+  // tune of some other width renders as a grid whose cells and columns
+  // disagree - a plausible picture with no error anywhere.
+  const steps = STEPS[t.level as Length];
+  if (t.steps !== steps) return false;
+  if (!Array.isArray(t.cells) || t.cells.length !== ROWS * steps) return false;
+  if (!t.cells.every((c) => typeof c === "boolean")) return false;
+  return isVoice(t.voice);
+}
+
+/** The one call `resumeTune` needs from `ctx.session`, so this file stays DOM-free. */
+export type SnapshotLoader = (spec: { version: number; validate: (value: unknown) => value is MusicSnapshot }) => MusicSnapshot | undefined;
+
+/**
+ * The tune a returning child left, from a version-2 save or, failing that, a
+ * version-1 one. Returns the TUNE ALONE - a fresh `{ state }` - so a legacy
+ * save's `paidStep` and `bestFired` never travel past this line.
+ */
+export function resumeTune(load: SnapshotLoader): MusicSnapshot | undefined {
+  const found =
+    load({ version: SNAPSHOT_VERSION, validate: isMusicSnapshot }) ??
+    load({ version: LEGACY_SNAPSHOT_VERSION, validate: isMusicSnapshot });
+  return found ? { state: found.state } : undefined;
 }

@@ -118,8 +118,8 @@ export const musicSv: GameCopy = {
       a: "48, på det längsta rutnätet med åtta takter över sex röster.",
     },
     {
-      q: "Vad mäter rekordet?",
-      a: "Poäng, byggt på hur fyllt rutnätet är. Ett helt fullt rutnät på 48 rutor är värt 8 mynt.",
+      q: "Finns det poäng eller mynt?",
+      a: "Nej. Precis som vårt målarspel sparar det inget rekord och ger inga mynt: att rangordna en melodi som ett barn gjort vore att döma den, och att betala per ton skulle belöna fullt framför fint. Det enda talet på skärmen är hur många toner melodin har just nu.",
     },
     {
       q: "Kostar det något?",

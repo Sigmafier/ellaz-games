@@ -131,6 +131,44 @@ const DRAW = {
       <rect x="3" y="14" width="6" height="6" fill={c} />
     </g>
   ),
+  // Snake Survivors' own pictures (snake career, 2026-10-03): its three gear
+  // slots - Fangs, Scales, a Charm - and the shop's longer-start and speed rows.
+  fang: (c = "#f5f6ff") => (
+    <g>
+      <path d="M-18 -18 H18 V-8 Q0 -2 -18 -8 Z" fill="#ff7675" {...s} />
+      <path d="M-13 -9 Q-14 8 -5 21 Q-3 6 -3 -6 Z" fill={c} {...s} />
+      <path d="M13 -9 Q14 8 5 21 Q3 6 3 -6 Z" fill={c} {...s} />
+    </g>
+  ),
+  scales: (c = "#55efc4") => (
+    <g>
+      <path d="M-18 -18 H18 V2 C18 13 8 19 0 22 C-8 19 -18 13 -18 2 Z" fill={c} {...s} />
+      <path d="M-18 -8 Q-12 0 -6 -8 Q0 0 6 -8 Q12 0 18 -8 M-15 4 Q-9 12 -3 4 Q3 12 9 4 Q13 9 15 5" fill="none" stroke={INK} strokeWidth={2} />
+    </g>
+  ),
+  charm: (c = "#ffd166") => (
+    <g>
+      <path d="M-11 -23 Q0 -6 11 -23" stroke={INK} strokeWidth={3} fill="none" />
+      <circle cy="5" r="15" fill={c} {...s} />
+      <path d="M-8 5 Q0 -5 8 5 Q0 15 -8 5 Z" fill="#55efc4" stroke={INK} strokeWidth={2} />
+      <circle cy="5" r="2.6" fill={INK} />
+    </g>
+  ),
+  snake: () => (
+    <g>
+      <path d="M-18 16 Q-18 4 -6 4 Q8 4 8 -6 Q8 -16 -2 -16" fill="none" stroke={INK} strokeWidth={11} strokeLinecap="round" />
+      <path d="M-18 16 Q-18 4 -6 4 Q8 4 8 -6 Q8 -16 -2 -16" fill="none" stroke="#55efc4" strokeWidth={6} strokeLinecap="round" />
+      <circle cx="-4" cy="-16" r="8" fill="#55efc4" {...s} />
+      <circle cx="-7" cy="-18" r="2" fill={INK} />
+      <path d="M16 -20 V-8 M10 -14 H22" stroke="#ffd166" strokeWidth={4} strokeLinecap="round" />
+    </g>
+  ),
+  dash: () => (
+    <g>
+      <path d="M-16 -14 L-2 0 L-16 14 M0 -14 L14 0 L0 14" fill="none" stroke={INK} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M-16 -14 L-2 0 L-16 14 M0 -14 L14 0 L0 14" fill="none" stroke="#55efc4" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  ),
   botGold: () => DRAW_BOT("#ffd166"),
   botIce: () => DRAW_BOT("#bdefff"),
 } satisfies Record<string, (c?: string) => ReactElement>;

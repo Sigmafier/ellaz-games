@@ -27,6 +27,11 @@ import {
   type Tutorial, type TutorialStep,
 } from "./tutorial";
 import type { Arena, CardId, Foe, LevelKey, Pt, Run, Stage, Steer } from "./types";
+// THE CAREER (snake career, 2026-10-03): a level is built by `newCareerRun`, and
+// each world's floor, sand, gold and dark are drawn by `careerScene.ts`.
+import { PLAIN_STATS, careerResult, newCareerRun } from "./careerRun";
+import { WORLD_GROUND, drawCareerLayers } from "./careerScene";
+import type { SnakeCareerResult, SnakeCareerStats, SnakeWorldId } from "./careerTypes";
 
 // The Phaser half of Snake Survivors. It owns pixels, pointers and telling the
 // chrome what happened - every rule lives in the pure modules beside it.
@@ -65,6 +70,8 @@ export interface SnakeSurvivorsStatus {
    * announce).
    */
   banner: Stage | null;
+  /** A career level's goal and purse, or null on a quick run. */
+  career: { level: string; world: SnakeWorldId; target: number; boss: boolean; bossUp: boolean; gold: number } | null;
 }
 
 /**
@@ -75,6 +82,8 @@ export interface SnakeSurvivorsStatus {
  */
 const MILESTONE_EVERY = 100;
 const TIER: Record<LevelKey, "easy" | "medium" | "hard"> = { calm: "easy", normal: "medium", wild: "hard" };
+/** A career world's tier for the site's reward: the garden easy, the desert medium, the cave hard. */
+const CAREER_TIER: Record<SnakeWorldId, "easy" | "medium" | "hard"> = { garden: "easy", desert: "medium", cave: "hard" };
 const DEPTH = { bg: 0, fx: 5, corpse: 8, foe: 10, snake: 20, pop: 40, hud: 50 } as const;
 const LOOP_LIFE = 620;
 /** The level line's thickness in arena units: about 4px on a phone, 4.5 on a PC (the C3 mock). */
@@ -134,17 +143,29 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
   private lastGemSound = 0;
   /** `this.time.now` the "Stage N" banner stays up until (round four). */
   private bannerUntil = 0;
+  /** The career level being played, or null on a quick run; its stats; and the run's name, so it is paid once. */
+  private careerLevel: string | null = null;
+  private careerStats: SnakeCareerStats = PLAIN_STATS;
+  private careerToken = "";
+  private runCount = 0;
+  private onCareerEnd?: (r: SnakeCareerResult, token: string) => void;
+  /** Which floor is drawn: a career world, or the quick run's. */
+  private groundFor: SnakeWorldId | "quick" = "quick";
+  /** The career's sand, under everything that moves; the cave's dark, over the floor and under the shapes. */
+  private low!: Phaser.GameObjects.Graphics;
+  private dark!: Phaser.GameObjects.Graphics;
 
   constructor() {
     super("snakesurvivors");
   }
 
-  init(data: { ctx: GameContext; arena?: Arena; onStatus?: (s: SnakeSurvivorsStatus) => void; onReady?: (s: SnakeSurvivorsScene) => void }) {
+  init(data: { ctx: GameContext; arena?: Arena; onStatus?: (s: SnakeSurvivorsStatus) => void; onReady?: (s: SnakeSurvivorsScene) => void; onCareerEnd?: (r: SnakeCareerResult, token: string) => void }) {
     this.ctx = data.ctx;
     this.fx = textFor(FX_TEXT, data.ctx.locale);
     this.arena = data.arena ?? ARENA;
     this.onStatus = data.onStatus;
     this.onReady = data.onReady;
+    this.onCareerEnd = data.onCareerEnd;
   }
 
   preload() {
@@ -163,6 +184,8 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     }
     this.bg = this.add.graphics().setDepth(DEPTH.bg);
     drawGround(this.bg, this.run.world);
+    this.low = this.add.graphics().setDepth(DEPTH.bg + 1);
+    this.dark = this.add.graphics().setDepth(DEPTH.corpse + 1);
     this.under = this.add.graphics().setDepth(DEPTH.fx);
     this.fg = this.add.graphics().setDepth(DEPTH.snake);
     this.insideChip = this.add
@@ -228,12 +251,27 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.ctx.audio.unlock();
     if (this.phase === "playing") return;
     // A first-ever Play walks through the tutorial first (ruling R2.5).
-    if (this.phase === "ready" && !this.tutorialDone && !hasSeenTutorial(this.ctx.storage)) return this.startTutorial();
+    // A career level never detours through it: the map is reached from the title, past the guided run.
+    if (this.careerLevel === null && this.phase === "ready" && !this.tutorialDone && !hasSeenTutorial(this.ctx.storage)) return this.startTutorial();
     if (this.phase !== "ready") this.restart();
     this.phase = "playing";
     this.bestBefore = this.ctx.score?.best(this.level) ?? 0;
-    this.ctx.analytics.levelStart(this.level);
+    this.ctx.analytics.levelStart(this.careerLevel ? `career-${this.careerLevel}` : this.level);
     this.publish(true);
+  }
+
+  /** A career level, from the map: the save's stats, reduced by `careerRules.simStats`. The run waits at "ready". */
+  startCareer(levelId: string, stats: SnakeCareerStats) {
+    this.careerLevel = levelId;
+    this.careerStats = stats;
+    this.restart();
+  }
+
+  /** Back to the quick run: its own floor, its own rules, untouched. */
+  leaveCareer() {
+    if (this.careerLevel === null) return;
+    this.careerLevel = null;
+    this.restart();
   }
 
   choose(id: CardId) {
@@ -266,9 +304,12 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
 
   // A restart clears everything the input is gated on - the stick, the keys,
   // the pause, the offer - not only the board.
-  private restart(run: Run = newRun(this.level, this.arena, this.rng)) {
+  private restart(run: Run = this.freshRun()) {
     this.run = run;
     this.tut = null;
+    // A run's name, so the save can refuse to pay the same run twice; and its world's floor.
+    this.careerToken = this.tokenFor(run);
+    this.paintGround();
     this.phase = "ready";
     this.paused = false;
     this.stick = null;
@@ -374,6 +415,10 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       } else if (e.k === "shield") {
         this.ctx.audio.play("pop", { semitones: -3 });
         this.spray(this.run.x, this.run.y, INK.gem, 10);
+      } else if (e.k === "gold") {
+        // Career gold, picked up: the coin sound and its worth over the head.
+        this.ctx.audio.play("coin", { semitones: 5 });
+        this.popup(`+${e.v}`, this.run.x, this.run.y - 14, "#ffd166", 18);
       } else if (e.k === "spit") this.spray(e.x, e.y, INK.gold, 2);
       else if (e.k === "bite") {
         this.ctx.audio.play("pop", { semitones: 7 });
@@ -408,6 +453,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.phase = won ? "won" : "over";
     this.stick = null;
     this.keys.clear();
+    if (this.run.career) return this.finishCareer(won);
     const score = this.run.crushed;
     this.newBest = score > 0 && score > this.bestBefore;
     this.ctx.audio.play(won ? "win" : "fail");
@@ -445,19 +491,58 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       len: Math.floor(r.len),
       peak: this.peak,
       crushed: r.crushed,
-      meter: r.phase === "stage" ? { len: Math.floor(r.len), crushed: r.crushed, stage: r.stage } : null,
+      // A career level has no warden meter: its goal row counts the crush target instead.
+      meter: r.phase === "stage" && !r.career ? { len: Math.floor(r.len), crushed: r.crushed, stage: r.stage } : null,
       lv: r.lv,
       offer: r.choosing ? [...r.choosing] : [],
       taken: { ...r.taken },
       // bossHpOf(level, r.stage): while a warden is up, r.stage is still ITS
       // stage - it only moves on once the warden falls and `boss` goes back to null.
-      boss: boss ? { now: boss.hp, max: bossHpOf(r.level, r.stage) } : null,
+      boss: boss ? { now: boss.hp, max: r.career ? r.career.bossHp : bossHpOf(r.level, r.stage) } : null,
       bite: hitCost(r),
       ms: r.t, stage: r.stage,
       newBest: this.newBest,
       tutorial: this.tut ? this.tut.step : null,
-      banner: r.phase === "stage" && t < this.bannerUntil ? r.stage : null,
+      banner: r.phase === "stage" && t < this.bannerUntil && !r.career ? r.stage : null,
+      career: r.career ? { level: r.career.level, world: r.career.world, target: r.career.target, boss: r.career.boss, bossUp: r.career.bossUp, gold: r.career.gold } : null,
     });
+  }
+
+  /**
+   * A CAREER level ended. The SITE hears a reason, never an amount: a win is
+   * `level_complete` at the world's tier and nothing more - no score, so a career
+   * level never writes the quick run's boards. The game's own gold, stars and gear
+   * are banked by the chrome, once, from what this reports.
+   */
+  private finishCareer(won: boolean) {
+    const c = this.run.career!;
+    const label = `career-${c.level}`;
+    this.ctx.audio.play(won ? "win" : "fail");
+    if (won) {
+      this.ctx.analytics.levelComplete(label, this.run.t);
+      winMoment(this.ctx, { reason: "level_complete", tier: CAREER_TIER[c.world], level: label, ms: this.run.t, at: this.headPoint() });
+    } else this.ctx.analytics.levelFail(label, "tail gone");
+    this.onCareerEnd?.(careerResult(this.run), this.careerToken);
+    this.publish(true);
+  }
+
+  /** A career run's name: its level, the time and a count, unique on this device. A quick run has none. */
+  private tokenFor(run: Run): string {
+    return run.career ? `${run.career.level}:${Date.now()}:${++this.runCount}` : "";
+  }
+
+  /** The next run: the career level being played, or a quick run at the chosen level. */
+  private freshRun(): Run {
+    return this.careerLevel ? newCareerRun(this.careerLevel, this.careerStats, this.arena, this.rng) : newRun(this.level, this.arena, this.rng);
+  }
+
+  /** The floor for this run's world, repainted only when the world changes. */
+  private paintGround() {
+    const want = this.run.career?.world ?? "quick";
+    if (!this.bg || want === this.groundFor) return;
+    this.groundFor = want;
+    this.bg.clear();
+    drawGround(this.bg, this.run.world, want === "quick" ? undefined : WORLD_GROUND[want]);
   }
 
   // ---- drawing --------------------------------------------------------------
@@ -477,6 +562,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
       for (const [a, b] of pullPairs(r.gems, r, mergeGuard(r))) for (const [p, q] of dashes(a, b, 3, 3)) g.lineBetween(p.x, p.y, q.x, q.y);
     }
     for (const gem of r.gems) drawGem(g, gem.x, gem.y, pulse + gem.x, gem.v);
+    drawCareerLayers({ low: this.low, coins: g, dark: this.dark }, this.run, pulse);
     for (const v of r.vortices) drawVortex(this.under, v, now, v.life, HOLE.ms);
     for (const l of this.loops) drawLoop(g, l.poly, l.age, LOOP_LIFE, l.flashMs);
     for (const ring of this.rings) {

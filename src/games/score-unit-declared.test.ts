@@ -106,20 +106,24 @@ describe("what each game says its record measures", () => {
     ).toBe(reported);
   });
 
-  it("never gives coloring one", () => {
-    // Deliberate and permanent: ranking a child's drawing is the opposite of
-    // this platform's premise. Named here rather than left to the general rule
-    // above, so adding one is a test someone has to delete on purpose.
-    const coloring = METAS.find((m) => m.id === "coloring");
-    expect(coloring, "coloring left the tree").toBeDefined();
-    expect(coloring!.scoreUnit).toBeUndefined();
+  // Deliberate and permanent: ranking a child's drawing is the opposite of
+  // this platform's premise, and a tune is a drawing (Music Box, operator
+  // ruling 2026-10-03 - it used to keep the biggest tune's note count). Named
+  // here rather than left to the general rule above, so adding one is a test
+  // someone has to delete on purpose.
+  const SCORELESS = ["coloring", "music"];
+
+  it.each(SCORELESS)("never gives %s one", (id) => {
+    const meta = METAS.find((m) => m.id === id);
+    expect(meta, `${id} left the tree`).toBeDefined();
+    expect(meta!.scoreUnit).toBeUndefined();
   });
 
-  it("covers every game but coloring", () => {
+  it("covers every game but the scoreless ones", () => {
     // A count ratchet in the same spirit as catalog.test.ts: a game that quietly
     // loses its record would otherwise pass every assertion above by declaring
-    // nothing and reporting nothing.
-    const scored = METAS.filter((m) => m.scoreUnit !== undefined);
-    expect(scored).toHaveLength(METAS.length - 1);
+    // nothing and reporting nothing. The scoreless list is the ONLY way out.
+    const unscored = METAS.filter((m) => m.scoreUnit === undefined).map((m) => m.id).sort();
+    expect(unscored).toEqual([...SCORELESS].sort());
   });
 });

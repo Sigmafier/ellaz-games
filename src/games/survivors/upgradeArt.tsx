@@ -117,4 +117,27 @@ export const UPGRADE_ART: Record<UpgradeId, () => ReactElement> = {
       <path d="M20 3.5a15 15 0 010 17" />
     </svg>
   ),
+  // AREA: a dot inside a ring, with four arrows pushing the ring outward.
+  area: () => (
+    <svg {...S}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      <path d="M10 4l2-2 2 2M10 20l2 2 2-2M4 10l-2 2 2 2M20 10l2 2-2 2" />
+    </svg>
+  ),
+  // REGEN: a heart with a plus growing out of it.
+  regen: () => (
+    <svg {...S}>
+      <path d="M12 20s-7-4.4-7-9.5A3.8 3.8 0 0112 8a3.8 3.8 0 017 2.5" />
+      <path d="M18 14v6M15 17h6" />
+    </svg>
+  ),
+  // HASTE: the dash's streaks behind a clock hand that has jumped ahead.
+  haste: () => (
+    <svg {...S}>
+      <circle cx="15" cy="12" r="6" />
+      <path d="M15 8.5V12l2.5 1.5" />
+      <path d="M2 9h5M3 12h4M2 15h5" />
+    </svg>
+  ),
 };

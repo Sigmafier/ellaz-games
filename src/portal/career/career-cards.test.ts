@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { createDiamonds, DIAMONDS_KEY } from "@sdk/diamonds";
 import { freshSave, writeSave, type CareerSave, type CareerStore } from "../../shared/career/save";
-import { GEAR_KINDS, neonCard } from "./careerCards";
+import { GEAR_KINDS, neonCard, snakeCard } from "./careerCards";
 
 function store(seed: Record<string, unknown> = {}): CareerStore {
   const data = new Map<string, unknown>(Object.entries(seed));
@@ -38,6 +38,30 @@ describe("Neon Survival's card", () => {
 
   it("a gear count can never pass the nine distinct pieces", () => {
     expect(GEAR_KINDS).toBe(9);
+  });
+});
+
+describe("Snake Survivors' card (snake career, 2026-10-03)", () => {
+  it("a save five levels in reads Desert, level 2 of 4, with its own gold and gear", () => {
+    const save = freshSave();
+    save.stars = { "garden-1": 3, "garden-2": 2, "garden-3": 2, "garden-boss": 1, "desert-1": 2 };
+    save.gold = 120;
+    save.gear = { owned: ["weapon:rare", "armor:common"], equipped: {} };
+    const card = snakeCard(withSave(save));
+    expect(card).toMatchObject({ id: "snakesurvivors", started: true, world: "desert", level: 2, boss: false, of: 4, gold: 120, gear: 2 });
+    expect(card.progress).toBeCloseTo(5 / 12);
+  });
+
+  it("NO SAVE: not started, at the garden's first level, every number zero", () => {
+    expect(snakeCard(store())).toMatchObject({ started: false, world: "garden", level: 1, gold: 0, gear: 0, progress: 0 });
+  });
+
+  it("THE CONTROL: Neon's save is not the snake's - the same store reads two different careers", () => {
+    const save = freshSave();
+    save.stars = { "city-1": 3 };
+    const s = withSave(save);
+    expect(neonCard(s).level).toBe(2);
+    expect(snakeCard(s).level).toBe(1);
   });
 });
 
