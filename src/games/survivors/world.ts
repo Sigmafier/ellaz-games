@@ -108,6 +108,32 @@ export function clampToWorld(s: Pick<RunState, "world">, x: number, y: number, r
 }
 
 /**
+ * THE BOSS WALL's size: this share of the shorter side of the view, so the whole
+ * ring is on screen on a phone (420x560 -> 378) and on a PC (648x364 -> 328).
+ */
+export const RING_SHARE = 0.9;
+
+/** The ring a boss fight closes, centred where the robot stands when the boss arrives. */
+export const ringAround = (s: Pick<RunState, "x" | "y" | "arena">): { x: number; y: number; r: number } => ({
+  x: s.x,
+  y: s.y,
+  r: Math.round(Math.min(s.arena.w, s.arena.h) * RING_SHARE),
+});
+
+/** Hold the robot inside the boss wall, `r` units clear of it. A run with no wall is untouched. */
+export function keepInRing(s: Pick<RunState, "x" | "y" | "ring">, r: number): void {
+  const ring = s.ring;
+  if (!ring) return;
+  const dx = s.x - ring.x;
+  const dy = s.y - ring.y;
+  const d = Math.hypot(dx, dy);
+  const max = ring.r - r;
+  if (d <= max || d === 0) return;
+  s.x = ring.x + (dx / d) * max;
+  s.y = ring.y + (dy / d) * max;
+}
+
+/**
  * Squared distance. Squared rather than the real one because every caller
  * compares it against a squared radius, and a `Math.sqrt` per shape per bolt
  * per frame is thousands of square roots a second for a phone to take.

@@ -95,6 +95,7 @@ describe("the new words", () => {
 
 const PICK = read("./WeaponPick.tsx");
 const SUPER = read("./SuperCard.tsx");
+const CHEST = read("./GoldChest.tsx");
 
 describe("the weapon pick", () => {
   it("is drawn on the pick, and its PLAY takes the weapon and starts the quick run", () => {
@@ -186,7 +187,9 @@ describe("the SUPER POWER card", () => {
   it("an evolve card is drawn as the gold card", () => {
     // Since card option B (2026-10-02) the overlay branches once: a super offer
     // draws the gold card, anything else the three big cards (LevelCards.tsx).
-    expect(GAME).toMatch(/status\.offer\[0\]\?\.kind === "evolve" \? \(\s*<SuperCard/);
+    // Since 2026-10-02 through the gold chest, which then draws the same SuperCard.
+    expect(GAME).toMatch(/status\.offer\[0\]\?\.kind === "evolve" \? \(\s*<SuperReveal/);
+    expect(CHEST).toMatch(/return <SuperCard id=\{props\.id\}[^>]*onTake=\{props\.onTake\}/);
     expect(GAME).toMatch(/onTake=\{\(\) => sceneRef\.current\?\.choose\(status\.offer\[0\]!\)\}/);
   });
 

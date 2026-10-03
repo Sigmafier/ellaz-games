@@ -35,7 +35,7 @@ import { REROLLS_PER_STAGE, applyCard, canReroll, offerCards, type Card } from "
 import { PLAIN_STATS, careerResult, newCareerRun } from "./careerRun";
 import { LOOKS, type LookId } from "./diamondShelf";
 import { drawCoins, drawDark, drawPools, drawWeather, drawWorldGround, quickWorld, tintFor } from "./groundArt";
-import { HALO_FLASH_MS, ageStrikes, drawBall, drawFlask, drawHalo, drawStrikes, type Strike } from "./weaponFx";
+import { HALO_FLASH_MS, ageStrikes, drawBall, drawFlask, drawHalo, drawRing, drawStrikes, type Strike } from "./weaponFx";
 import { haloReach } from "./arms";
 import { inDark } from "./twists";
 import type { CareerResult, CareerStats } from "./types";
@@ -1450,6 +1450,7 @@ export class SurvivorsScene extends Phaser.Scene {
     const halo = this.run.slots.find((k) => k.id === "halo");
     if (halo) drawHalo(g, this.run.x, this.run.y, haloReach(!!halo.evolved), HALO_INK, !!halo.evolved, this.time.now, this.haloFlash / HALO_FLASH_MS);
     drawStrikes(g, this.strikes, ZAP_INK);
+    if (this.run.ring) drawRing(g, this.run.ring, this.time.now);
     this.drawDrone(g);
 
     if (this.run.frozen > 0) {

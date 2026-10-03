@@ -2,7 +2,7 @@
 // views wide and tall, a camera that follows the robot, walls at the far edges.
 import { describe, expect, it } from "vitest";
 import { ARENA, ARENA_WIDE, KINDS, newRun, rngFor, step, type EnemyKind, type RunState } from "./logic";
-import { WALL, WORLD_SCALE, cameraOf, inView, isLeftBehind, spawnPoint, worldFor } from "./world";
+import { RING_SHARE, WALL, WORLD_SCALE, cameraOf, inView, isLeftBehind, keepInRing, ringAround, spawnPoint, worldFor } from "./world";
 
 const STILL = { dx: 0, dy: 0 };
 
@@ -155,5 +155,39 @@ describe("a shape left a whole view behind is walked back in", () => {
     step(s, 16, STILL, rngFor(5));
     expect(g.x).toBeLessThan(x0);
     expect(g.x).toBeGreaterThan(x0 - 2);
+  });
+});
+
+// THE BOSS WALL (operator ruling 2026-10-02, "ack B").
+describe("the boss wall holds the robot inside, and lifts when the boss falls", () => {
+  it("is sized to stay on screen on a phone and on a PC", () => {
+    expect(ringAround({ x: 0, y: 0, arena: { w: 420, h: 560 } }).r).toBe(Math.round(420 * RING_SHARE));
+    expect(ringAround({ x: 0, y: 0, arena: { w: 648, h: 364 } }).r).toBe(Math.round(364 * RING_SHARE));
+  });
+  it("keeps the robot inside the ring, and does nothing without one", () => {
+    const s = { x: 500, y: 100, ring: { x: 100, y: 100, r: 200 } };
+    keepInRing(s, 11);
+    expect(Math.hypot(s.x - 100, s.y - 100)).toBeCloseTo(189, 6);
+    const free = { x: 500, y: 100, ring: null };
+    keepInRing(free, 11);
+    expect(free.x).toBe(500);
+  });
+  it("closes when a stage boss arrives and opens when it falls", () => {
+    const s = newRun("normal");
+    const rng = rngFor(1);
+    s.t = 10_000_000; // past the swarm: the boss walks in on the next step
+    step(s, 16, { dx: 0, dy: 0 }, rng);
+    expect(s.boss).not.toBeNull();
+    expect(s.ring).toBeTruthy();
+    s.enemies = s.enemies.filter((e) => e.id !== s.boss);
+    step(s, 16, { dx: 0, dy: 0 }, rng);
+    expect(s.ring).toBeNull();
+  });
+  it("THE CONTROL: easy mode's boss fights stay open", () => {
+    const s = newRun("calm");
+    s.t = 10_000_000;
+    step(s, 16, { dx: 0, dy: 0 }, rngFor(1));
+    expect(s.boss).not.toBeNull();
+    expect(s.ring ?? null).toBeNull();
   });
 });

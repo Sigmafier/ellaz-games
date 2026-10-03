@@ -101,3 +101,21 @@ export function drawStrikes(g: Pen, strikes: readonly Strike[], ink: number): vo
 /** Strikes age and leave; returns the ones still showing. */
 export const ageStrikes = (strikes: readonly Strike[], dt: number): Strike[] =>
   strikes.map((s) => ({ ...s, age: s.age + dt })).filter((s) => s.age < STRIKE_MS);
+
+/**
+ * THE BOSS WALL (world.ts `ringAround`): a hot pink ring with studs, glowing,
+ * breathing slowly - drawn where the simulation holds the robot.
+ */
+export function drawRing(g: Pen, ring: { x: number; y: number; r: number }, now: number): void {
+  const breathe = 0.5 + 0.5 * Math.sin(now / 260);
+  g.lineStyle(26, 0xff5c7a, 0.12 + 0.08 * breathe);
+  g.strokeCircle(ring.x, ring.y, ring.r);
+  g.lineStyle(5, 0xff5c7a, 0.95);
+  g.strokeCircle(ring.x, ring.y, ring.r);
+  const studs = 28;
+  g.fillStyle(0xffd166, 1);
+  for (let i = 0; i < studs; i++) {
+    const a = (i / studs) * Math.PI * 2 + now / 4000;
+    g.fillCircle(ring.x + Math.cos(a) * ring.r, ring.y + Math.sin(a) * ring.r, 3.5);
+  }
+}

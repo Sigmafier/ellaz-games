@@ -47,7 +47,7 @@ import { balancedLines, titleLines } from "@ui/ArcadeTitle";
 // Survivor.io"): a run starts on one MAIN weapon picked from the whole
 // collection, and a weapon's evolution arrives as a gold card of its own.
 import { WeaponPick } from "./entrance/WeaponPick";
-import { SuperCard } from "./entrance/SuperCard";
+import { SuperReveal } from "./entrance/GoldChest";
 import { LevelCards } from "./LevelCards";
 import { cardWords } from "./cardWords";
 import { weaponWords } from "./entrance/weaponWords";
@@ -901,7 +901,8 @@ export function SurvivorsGame({ ctx }: { ctx: GameContext }) {
                 arrives alone over the whole arena; anything else is the three
                 big cards, the counts and the reroll (LevelCards.tsx). */}
             {status.offer[0]?.kind === "evolve" ? (
-              <SuperCard
+              // The gold chest drops and opens first (entrance/GoldChest.tsx).
+              <SuperReveal
                 key={`evolve-${status.offer[0].id}`}
                 id={status.offer[0].id}
                 weaponName={WN[status.offer[0].id][0]}

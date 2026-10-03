@@ -21,6 +21,7 @@ import type { AppLocale } from "@i18n/index";
 import { dirOf } from "@i18n/index";
 import type { WeaponId } from "../types";
 import { WEAPON_LV_MAX } from "../upgrades";
+import { SUPER_LV } from "../evolve";
 import { WEAPON_ART, WEAPON_INK_CSS } from "../weaponArt";
 import { K } from "../careerArt";
 import { useLayoutBox } from "../careerScreens";
@@ -39,7 +40,7 @@ const RIM = "#ffc21a";
  */
 function Demo({ id, w, h }: { id: WeaponId; w: number; h: number }): ReactElement {
   const ink = WEAPON_INK_CSS[id];
-  const around = id === "burst" || id === "blades" || id === "drone";
+  const around = id === "burst" || id === "blades" || id === "drone" || id === "halo" || id === "flask";
   const rx = around ? w / 2 : w * 0.1;
   const ry = h * 0.52;
   const sh = h * 0.62;
@@ -78,6 +79,50 @@ function Demo({ id, w, h }: { id: WeaponId; w: number; h: number }): ReactElemen
           const y = ry + Math.sin(a) * h * 0.4;
           return <path key={d} transform={`translate(${x} ${y}) rotate(${d + 90})`} d="M-9 0 Q0 -10 9 0 Q0 -5 -9 0 Z" fill={ink} />;
         })}
+      </>
+    );
+  } else if (id === "halo") {
+    // The barrier: a wide ring around the robot, and arrows throwing shapes out.
+    fx = (
+      <>
+        <ellipse cx={rx} cy={ry} rx={w * 0.3} ry={h * 0.44} fill={ink} opacity={0.12} />
+        <ellipse cx={rx} cy={ry} rx={w * 0.3} ry={h * 0.44} fill="none" stroke={ink} strokeWidth={4} />
+        {[-1, 1].map((k) => (
+          <path key={k} d={`M${rx + k * w * 0.33} ${ry} l${k * 14} 0 m${-k * 5} -5 l${k * 5} 5 l${-k * 5} 5`} stroke="#fff" strokeWidth={2.5} fill="none" />
+        ))}
+      </>
+    );
+  } else if (id === "zap") {
+    // The thunderhead: a cloud and a bolt onto every shape, each with a blast.
+    fx = (
+      <>
+        {shapes.map(([f], i) => (
+          <g key={i}>
+            <path d={`M${w * f - 6} 4 L${w * f + 4} ${ry * 0.55} L${w * f - 3} ${ry * 0.55} L${w * f + 6} ${ry}`} stroke="#fff" strokeWidth={2.5} fill="none" />
+            <circle cx={w * f} cy={ry} r={h * 0.22} fill={ink} opacity={0.3} />
+          </g>
+        ))}
+      </>
+    );
+  } else if (id === "flask") {
+    // The firestorm: fire all around the robot.
+    fx = (
+      <>
+        {Array.from({ length: 6 }, (_, i) => {
+          const a = (i / 6) * Math.PI * 2;
+          const x = rx + Math.cos(a) * w * 0.24;
+          const y = ry + Math.sin(a) * h * 0.3;
+          return <path key={i} d={`M${x - 7} ${y + 6} Q${x} ${y - 16} ${x + 7} ${y + 6} Z`} fill={ink} />;
+        })}
+      </>
+    );
+  } else if (id === "bouncer") {
+    // The pinball: one big ball and the path it bounced along.
+    const pts = [[rx + 14, ry], [w * 0.38, ry - h * 0.25], [w * 0.62, ry + h * 0.2], [w * 0.84, ry - h * 0.2]];
+    fx = (
+      <>
+        <path d={pts.map((p, i) => `${i ? "L" : "M"}${p[0]} ${p[1]}`).join(" ")} fill="none" stroke={ink} strokeWidth={3} strokeDasharray="5 4" />
+        <circle cx={w * 0.84} cy={ry - h * 0.2} r={9} fill={ink} />
       </>
     );
   } else {
@@ -168,11 +213,12 @@ export function SuperCard(props: { id: WeaponId; weaponName: string; locale: App
               <span aria-hidden="true" style={{ display: "flex", color: ink }}>{WEAPON_ART[id](Math.round(48 * u))}</span>
               <b style={{ fontSize: 17 * u }}>{props.weaponName}</b>
               <span aria-hidden="true" style={{ display: "flex", gap: 4 * u }}>
+                {/* The level a super needs (SUPER_LV, 4 since 2026-10-02) lit, of the weapon's whole row. */}
                 {Array.from({ length: WEAPON_LV_MAX }, (_, i) => (
-                  <i key={i} style={{ display: "block", width: 11 * u, height: 11 * u, borderRadius: 3, border: `2px solid ${K}`, background: ink }} />
+                  <i key={i} style={{ display: "block", width: 11 * u, height: 11 * u, borderRadius: 3, border: `2px solid ${K}`, background: i < SUPER_LV ? ink : "transparent" }} />
                 ))}
               </span>
-              <b style={{ fontSize: 13 * u, color: GOLD, letterSpacing: "0.06em", textTransform: "uppercase" }}>{W.level.replace("{n}", String(WEAPON_LV_MAX))}</b>
+              <b style={{ fontSize: 13 * u, color: GOLD, letterSpacing: "0.06em", textTransform: "uppercase" }}>{W.level.replace("{n}", String(SUPER_LV))}</b>
             </div>
             <svg aria-hidden="true" width={34 * u} height={26 * u} viewBox="0 0 34 26" style={{ transform: rtl ? "scaleX(-1)" : undefined }}>
               <path d="M2 9 H20 V2 L32 13 L20 24 V17 H2 Z" fill={GOLD} stroke={K} strokeWidth={2.5} strokeLinejoin="round" />

@@ -265,6 +265,10 @@ describe("the golem does not die by touching you", () => {
     // Hold the gun: this test is about the collision, not about the weapon.
     for (const k of s.slots) k.cd = 9000;
     s.dashCd = 9000;
+    // The robot is placed ON the golem, outside the boss wall closed where it
+    // stood when the golem arrived (world.ts, 2026-10-02) - so the wall is opened
+    // for this test, which is about the collision and not about the wall.
+    s.ring = null;
     s.x = g.x;
     s.y = g.y;
     step(s, 16, STILL, rngFor(1));

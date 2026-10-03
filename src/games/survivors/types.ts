@@ -143,4 +143,10 @@ export interface RunState {
    * the super card would clear the flag and silently drop the level-up.
    */
   levelOwed?: boolean;
+  /**
+   * THE BOSS WALL (operator ruling 2026-10-02, "ack B"): a ring that closes around
+   * the robot when a stage's boss arrives and lifts when it falls. It holds the
+   * ROBOT only - shapes and their shots cross it. Absent or null: no wall.
+   */
+  ring?: { x: number; y: number; r: number } | null;
 }

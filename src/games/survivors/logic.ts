@@ -27,7 +27,7 @@
 
 import { mulberry32 } from "@shared/rng";
 import type { Arena, Enemy, EnemyKind, RunState, WeaponId } from "./types";
-import { cameraOf, clampToWorld, dist2, inView, isLeftBehind, spawnPoint, worldFor } from "./world";
+import { cameraOf, clampToWorld, dist2, inView, isLeftBehind, keepInRing, ringAround, spawnPoint, worldFor } from "./world";
 import { BLADES, DRONE, bladePositions, holds } from "./arsenal";
 import { CAP_FIRES, NOVA_FIRE, raiseSuper } from "./evolve";
 import { FREEZE_NEED, dashAway, tickPowers } from "./powers";
@@ -451,6 +451,12 @@ function arriveBoss(s: RunState, kind: EnemyKind, hp: number) {
     summonCd: FINAL[s.level].summonMs,
   });
   s.boss = id;
+  // THE BOSS WALL closes around the robot (world.ts `ringAround`) - never on
+  // CALM. Easy mode gets every new thing that is content, but its difficulty is
+  // the operator's ("don't touch the easy mode", 2026-09-21), and a cage is a
+  // difficulty: with it a careless player never reached calm's last boss
+  // (pacing.test.ts). The City career world runs on calm's row, so it has none either.
+  if (s.level !== "calm") s.ring = ringAround(s);
   s.events.push({ type: "boss", stage: s.stage, kind });
 }
 
@@ -530,6 +536,9 @@ export function step(
     s.x = p.x;
     s.y = p.y;
   }
+  // Inside the boss wall while a boss fight is on - after the slide and the step
+  // alike, so neither can carry the robot out (world.ts `keepInRing`).
+  keepInRing(s, PLAYER_R);
 
   // The swarm stops the moment the golem is on the board. The finish is a duel,
   // not a duel inside a crowd that is still tightening every second - by 3:00
@@ -854,6 +863,8 @@ export function step(
   // hearts - "you won" and "you have nothing left and two stages to go" are not
   // the same sentence, and only one of them is true. The boss itself can never
   // be the shape that ties, because a dead enemy is skipped by the contact loop.
+  // The boss wall lifts the moment its boss falls - career and quick run alike.
+  if (s.ring && s.boss !== null && !s.enemies.some((e) => e.id === s.boss)) s.ring = null;
   // A career level ends on its own rule - its clock, or its one boss.
   if (s.career) {
     careerEnd(s);
