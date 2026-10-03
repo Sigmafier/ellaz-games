@@ -58,7 +58,14 @@ export function offerCards(s: RunState, rng: () => number = Math.random): Card[]
   if (s.pendingSuper) return [{ kind: "evolve", id: s.pendingSuper }];
 
   const unheld = s.slots.length < SLOTS_MAX ? POOL.filter((id) => !holds(s, id)) : [];
-  const weapon: Card[] = unheld.length > 0 ? [{ kind: "weapon", id: unheld[Math.floor(rng() * unheld.length)] }] : [];
+  // A NEW WEAPON IS GUARANTEED only until four are held. Six slots arrived on
+  // 2026-10-02 ("ack B"), and a guaranteed weapon card for all six spread every
+  // level over six level-1 guns: no weapon reached level 5, so no run ever
+  // earned a super (wild, careful bot: 0 supers on all five seeds). The fifth and
+  // sixth weapons compete in the shuffled pool with the levels and upgrades.
+  const forced = s.slots.length < GUARANTEED_WEAPONS && unheld.length > 0;
+  const pick = unheld.length > 0 ? unheld[Math.floor(rng() * unheld.length)] : null;
+  const weapon: Card[] = forced && pick ? [{ kind: "weapon", id: pick }] : [];
 
   const want = 3 - weapon.length;
   // Every level a carried weapon could still take, one card each.
@@ -69,7 +76,7 @@ export function offerCards(s: RunState, rng: () => number = Math.random): Card[]
   // nobody chose and which would have made a maxed weapon much harder to reach.
   const ups: Card[] = offerUpgrades(s, rng, want).map((id): Card => ({ kind: "upgrade", id }));
 
-  const pool = [...levels, ...ups];
+  const pool = [...levels, ...ups, ...(!forced && pick ? [{ kind: "weapon", id: pick } as Card] : [])];
   const picked: Card[] = [];
   while (picked.length < want && pool.length > 0) {
     picked.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
@@ -114,6 +121,9 @@ export function applyCard(s: RunState, card: Card): RunState {
  * run with no reroll pressed is draw-for-draw the run it always was.
  */
 export const REROLLS_PER_STAGE = 1;
+
+/** How many weapons a run is offered without fail; past this a weapon card has to come up. */
+export const GUARANTEED_WEAPONS = 4;
 
 /** A reroll swaps ordinary cards only: a super power is the reward for a kill and is never rerolled. */
 export const canReroll = (offer: readonly Card[], left: number): boolean =>

@@ -23,6 +23,13 @@ export const WEAPON_INK_CSS: Record<WeaponId, string> = {
   burst: "#ff5ce1",
   blades: "#ff8fc0",
   drone: "#7df9a6",
+  // The four of the six-slot run (2026-10-02), each a hue no other weapon or
+  // enemy on this board wears: lavender, sky, deep orange (the fire it leaves is
+  // FIRE_INK's family on purpose), teal.
+  halo: "#b39dff",
+  zap: "#5cc8ff",
+  flask: "#ff7b3d",
+  bouncer: "#3dd9c1",
 };
 
 const svg = (size: number, children: ReactElement | ReactElement[]) => (
@@ -85,5 +92,26 @@ export const WEAPON_ART: Record<WeaponId, (size?: number) => ReactElement> = {
       <path key="dome" d="M8 12a4 4 0 018 0" />,
       <ellipse key="body" cx="12" cy="13.5" rx="9" ry="3" fill="currentColor" />,
       <path key="hover" d="M6 19h2M11 19h2M16 19h2" />,
+    ]),
+  // The halo: a ring around a small core.
+  halo: (size = 28) =>
+    svg(size, [
+      <circle key="ring" cx="12" cy="12" r="8.5" strokeWidth={2.6} />,
+      <circle key="core" cx="12" cy="12" r="2.5" fill="currentColor" />,
+    ]),
+  // The zap: a lightning bolt falling.
+  zap: (size = 28) =>
+    svg(size, [<path key="a" d="M14 2L6 13h5l-2 9 8-12h-5z" fill="currentColor" />]),
+  // The flask: a round bottle with a short neck and a flame over it.
+  flask: (size = 28) =>
+    svg(size, [
+      <path key="neck" d="M10 3h4M11 3v5M13 3v5" />,
+      <circle key="body" cx="12" cy="15" r="6" fill="currentColor" />,
+    ]),
+  // The bouncer: a ball and the zigzag it bounces along.
+  bouncer: (size = 28) =>
+    svg(size, [
+      <path key="path" d="M2 20l5-8 5 6 5-8" strokeDasharray="2 2" />,
+      <circle key="ball" cx="19" cy="7" r="3.6" fill="currentColor" />,
     ]),
 };

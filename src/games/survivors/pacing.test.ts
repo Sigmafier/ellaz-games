@@ -24,6 +24,8 @@ import {
   type LevelKey, type RunState, type UpgradeId,
 } from "./logic";
 import { applyCard, offerCards, type Card } from "./cards";
+import { RECIPE } from "./evolve";
+import type { WeaponId } from "./types";
 
 /** A competent thumb: away from the crowd, toward loose gems, across a bolt's path. */
 function kite(s: RunState): { dx: number; dy: number } {
@@ -111,7 +113,7 @@ function stroll(s: RunState, rng: () => number, held: { dx: number; dy: number; 
  * against it would be hardening it against a mistake nobody makes.
  */
 const CARD_ORDER: UpgradeId[] = ["rapid", "power", "spread", "pierce", "heart", "swift", "shield", "range", "magnet"];
-function bestCard(cards: Card[]): Card {
+function bestCard(cards: Card[], held?: readonly WeaponId[], taken?: Record<UpgradeId, number>): Card {
   // An EVOLUTION first, then a free weapon slot, then a weapon level, then the
   // upgrades that kill fastest. The card union grew on 2026-09-21 (levels and
   // evolutions) and a picker written before that would have read every new card
@@ -119,10 +121,19 @@ function bestCard(cards: Card[]): Card {
   // ever offered ALONE, after a boss or mini-boss kill, so the first line is the
   // bot taking the only card there is - kept so a regression that mixes a super
   // back into a three-card level-up is still taken first rather than skipped.
+  // A PARTNER for a weapon already carried comes before the generic order since
+  // 2026-10-02: a run holds six power-ups at most, so a player who knows the
+  // game takes the one that opens a super rather than filling the six with the
+  // first ones on a list - without that, no weapon added that day could ever
+  // evolve for this bot, and it read as the game, not the bot, being broken.
+  const partner = held ? cards.find((c) => c.kind === "upgrade" && held.some((w) => RECIPE[w] === c.id) && !taken?.[c.id as UpgradeId]) : undefined;
   return (
     cards.find((c) => c.kind === "evolve") ??
     cards.find((c) => c.kind === "weapon") ??
-    cards.find((c) => c.kind === "level") ??
+    partner ??
+    // FOCUS: the level for the weapon already furthest along, so one gun reaches
+    // level 5 rather than six guns reaching level 3.
+    [...cards].filter((c) => c.kind === "level").sort((a, b) => (b.kind === "level" ? b.to : 0) - (a.kind === "level" ? a.to : 0))[0] ??
     [...cards].sort(
       (a, b) => CARD_ORDER.indexOf(a.id as UpgradeId) - CARD_ORDER.indexOf(b.id as UpgradeId),
     )[0]
@@ -175,7 +186,7 @@ function play(level: LevelKey, seed: number, careful: boolean): Report {
       const cards = offerCards(s, rng);
       if (cards.length === 1 && cards[0].kind === "evolve") supers++;
       // The careless one takes whatever is on the left.
-      if (cards.length > 0) applyCard(s, careful ? bestCard(cards) : cards[0]);
+      if (cards.length > 0) applyCard(s, careful ? bestCard(cards, s.slots.map((k) => k.id), s.up) : cards[0]);
       else s.choosing = false;
     }
     if (bossAt === null && s.stage === STAGE_COUNT && bossOf(s)) bossAt = ms;

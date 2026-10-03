@@ -4,7 +4,8 @@
 
 import type { RunState, ShotKind, Slot, WeaponId, WeaponRow } from "./types";
 import { WEAPON_LV_MAX, boltCount, boltDamage, fireEvery } from "./upgrades";
-import { EVOLUTIONS, SWARM_DRONES } from "./evolve";
+import { EVOLUTIONS, NOVA_FIRE, SWARM_DRONES } from "./evolve";
+import { HALO, THUNDER, ZAP } from "./arms";
 
 // Re-exported so every existing importer of `WEAPON_LV_MAX` from here (and from
 // `logic.ts`, which re-exports this module) is unmoved by it changing home.
@@ -48,7 +49,23 @@ export const WEAPONS: Record<ShotKind, WeaponRow> = {
   // robot, at whatever is nearest to the DRONE - so it covers the side the robot
   // is not facing.
   drone: { speed: 300, life: 1300, turn: 0, count: 1, bonus: 0, r: 4, sfx: "coin", every: 1.4 },
+  // 2026-10-02 (six-slot run, "ack B"): a thrown bottle that burns where it lands,
+  // and a ball that jumps from shape to shape.
+  flask: { speed: 190, life: 700, turn: 0, count: 1, bonus: 1, r: 6, sfx: "star", every: 1.7 },
+  bouncer: { speed: 260, life: 2200, turn: 0, count: 1, bonus: 0, r: 7, sfx: "flip", every: 1.3 },
 };
+
+/** Weapons that never throw a bolt: the blades and the halo cut, the zap strikes. */
+export const THROWS_NOTHING: ReadonlySet<WeaponId> = new Set<WeaponId>(["blades", "halo", "zap"]);
+/** Weapons with no clock at all - they act every frame. */
+const NO_CLOCK: ReadonlySet<WeaponId> = new Set<WeaponId>(["blades"]);
+
+/** How many shapes a BOUNCER ball jumps between, and a PINBALL's. */
+export const BOUNCER_JUMPS = 2;
+export const PINBALL_JUMPS = 6;
+/** The burning patch a FLASK leaves, and a FIRESTORM's. */
+export const FLASK_FIRE_R = 24;
+export const FIRESTORM_FIRE_R = 36;
 
 /**
  * What one LEVEL of a weapon is worth, and both halves are here rather than at
@@ -88,7 +105,7 @@ export function rowFor(slot: Slot): WeaponRow {
  * existed, plus the new term.
  */
 export const weaponDamage = (s: RunState, slot: Slot): number =>
-  (boltDamage(s) + (slot.id === "blades" ? 0 : rowFor(slot).bonus) + (slot.lv - 1)) *
+  (boltDamage(s) + (THROWS_NOTHING.has(slot.id) ? (slot.evolved ? EVOLUTIONS[slot.id].row?.bonus ?? 0 : 0) : rowFor(slot).bonus) + (slot.lv - 1)) *
   // A career run's damage stat (gear, shop). `?? 1` on a quick run - x * 1 is x.
   (s.career?.damage ?? 1) *
   // A RARE main weapon's perk. Exactly 1 for everything else - a common main,
@@ -97,7 +114,9 @@ export const weaponDamage = (s: RunState, slot: Slot): number =>
 
 /** How long this slot waits between shots, at its level. */
 export const weaponEvery = (s: RunState, slot: Slot): number =>
-  slot.id === "blades" ? 0 : fireEvery(s) * rowFor(slot).every * Math.pow(LV_CADENCE, slot.lv - 1);
+  NO_CLOCK.has(slot.id)
+    ? 0
+    : fireEvery(s) * (slot.id === "zap" ? (slot.evolved ? THUNDER.every : ZAP.every) : slot.id === "halo" ? HALO.every : rowFor(slot).every) * Math.pow(LV_CADENCE, slot.lv - 1);
 
 /** Can this weapon still be levelled, or is it at the top? */
 export const canLevel = (slot: Slot): boolean => slot.lv < WEAPON_LV_MAX;
@@ -194,12 +213,18 @@ function fireFrom(s: RunState, slot: Slot, id: ShotKind, from: { x: number; y: n
   // loop already counts it down and expires the shot at zero - so a chain is
   // "keep going after a hit" with a re-aim attached rather than a second budget
   // that could disagree with the first.
-  const chain = slot.evolved && slot.id === "arc";
+  // THE BOUNCER rides the same chain: a ball that jumps from shape to shape.
+  const bouncer = slot.id === "bouncer";
+  const chain = (slot.evolved && slot.id === "arc") || bouncer;
   // THE NOVA's fragments are marked, not its weapon - the bolt loop is what lays
   // the fire, and by then the slot that threw it is long out of scope.
   const nova = slot.evolved && slot.id === "burst";
   const dmg = weaponDamage(s, slot);
-  const budget = chain ? Math.max(pierce, STORM_JUMPS) : pierce;
+  const budget = bouncer
+    ? pierce + (slot.evolved ? PINBALL_JUMPS : BOUNCER_JUMPS)
+    : chain ? Math.max(pierce, STORM_JUMPS) : pierce;
+  // Burning ground where the bolt dies: the nova's ring, and every FLASK bottle.
+  const burn = nova ? NOVA_FIRE.r : slot.id === "flask" ? (slot.evolved ? FIRESTORM_FIRE_R : FLASK_FIRE_R) : undefined;
 
   for (let i = 0; i < n; i++) {
     if (s.bolts.length >= CAP_BOLTS) break;
@@ -218,6 +243,7 @@ function fireFrom(s: RunState, slot: Slot, id: ShotKind, from: { x: number; y: n
       pierce: budget,
       chain,
       nova,
+      ...(burn ? { burn } : {}),
       life: w.life,
       age: 0,
       hit: [],

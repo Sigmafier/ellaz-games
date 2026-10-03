@@ -21,8 +21,11 @@ const CITY = ["city-1", "city-2", "city-3", "city-boss"];
 const FROST = ["frost-1", "frost-2", "frost-3", "frost-boss"];
 
 describe("rarity is fixed per weapon", () => {
-  it("common, common, rare, rare, epic", () => {
-    expect(RARITY).toEqual({ bolt: "common", arc: "common", burst: "rare", blades: "rare", drone: "epic" });
+  it("common, common, rare, rare, epic - and the four found in a run", () => {
+    expect(RARITY).toEqual({
+      bolt: "common", arc: "common", burst: "rare", blades: "rare", drone: "epic",
+      halo: "common", zap: "rare", flask: "common", bouncer: "rare",
+    });
   });
   it("covers the whole pool and nothing else", () => {
     expect(Object.keys(RARITY).sort()).toEqual([...POOL].sort());

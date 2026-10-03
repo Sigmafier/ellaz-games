@@ -56,6 +56,10 @@ const WORDS = {
       burst: ["Nova", "Your burst leaves a ring of fire that keeps burning"],
       blades: ["Sawstorm", "Your blades swing far out and back again"],
       drone: ["Swarm", "One drone becomes three, and all of them shoot"],
+      halo: ["Barrier", "Your halo grows wide and throws shapes back"],
+      zap: ["Thunderhead", "Five strikes at a time, and each one blasts"],
+      flask: ["Firestorm", "Three bottles at once, and wider fires"],
+      bouncer: ["Pinball", "A bigger, faster ball that bounces six times"],
     },
   },
   he: {
@@ -76,6 +80,10 @@ const WORDS = {
       burst: ["נובה", "הפיצוץ משאיר טבעת אש שממשיכה לבעור"],
       blades: ["סערת מסורים", "הלהבים מתרחקים הרחק וחוזרים"],
       drone: ["נחיל", "רחפן אחד הופך לשלושה, וכולם יורים"],
+      halo: ["מחסום", "ההילה גדלה ומעיפה צורות אחורה"],
+      zap: ["ענן סערה", "חמישה ברקים בכל פעם, וכל אחד מתפוצץ"],
+      flask: ["סופת אש", "שלושה בקבוקים בבת אחת, ואש רחבה יותר"],
+      bouncer: ["פינבול", "כדור גדול ומהיר יותר שקופץ שש פעמים"],
     },
   },
   es: {
@@ -96,6 +104,10 @@ const WORDS = {
       burst: ["Nova", "Tu estallido deja un anillo de fuego que sigue ardiendo"],
       blades: ["Tormenta de sierras", "Tus cuchillas salen lejos y vuelven"],
       drone: ["Enjambre", "Un dron se vuelve tres, y todos disparan"],
+      halo: ["Barrera", "Tu halo crece y empuja a las figuras"],
+      zap: ["Nubarrón", "Cinco rayos a la vez, y cada uno estalla"],
+      flask: ["Tormenta de fuego", "Tres frascos a la vez, y fuegos más anchos"],
+      bouncer: ["Pinball", "Una bola más grande y rápida que rebota seis veces"],
     },
   },
   sv: {
@@ -116,6 +128,10 @@ const WORDS = {
       burst: ["Nova", "Din skur lämnar en eldring som fortsätter brinna"],
       blades: ["Sågstorm", "Dina blad svänger långt ut och tillbaka igen"],
       drone: ["Svärm", "En drönare blir tre, och alla skjuter"],
+      halo: ["Barriär", "Din gloria växer och knuffar bort figurerna"],
+      zap: ["Åskmoln", "Fem blixtar åt gången, och varje smäller"],
+      flask: ["Eldstorm", "Tre flaskor på en gång, och bredare eld"],
+      bouncer: ["Flipper", "En större, snabbare boll som studsar sex gånger"],
     },
   },
 } satisfies Record<Locale, WeaponWords>;

@@ -79,4 +79,31 @@ export const SUPER_ART: Record<WeaponId, (size?: number) => ReactElement> = {
         <circle key={`s${i}`} cx={x} cy={y + 4} r={0.9} fill="#fff" stroke="none" />,
       ]),
     ),
+  // The barrier: a wide double ring and arrows pushing out.
+  halo: (size = 28) =>
+    svg(size, [
+      <circle key="glow" cx="12" cy="12" r="10.5" strokeWidth={4} opacity={0.3} />,
+      <circle key="ring" cx="12" cy="12" r="10.5" strokeWidth={2} />,
+      <circle key="core" cx="12" cy="12" r="2.6" fill="#fff" />,
+      <path key="push" d="M12 5V1M12 19v4M5 12H1M19 12h4" stroke="#fff" strokeWidth={1.6} />,
+    ]),
+  // The thunderhead: a cloud and three bolts under it.
+  zap: (size = 28) =>
+    svg(size, [
+      <path key="cloud" d="M5 10a4 4 0 017-3 4 4 0 017 3z" fill="currentColor" />,
+      <path key="b1" d="M7 12l-2 5h3l-1 5" stroke="#fff" strokeWidth={1.6} />,
+      <path key="b2" d="M13 12l-2 5h3l-1 5" stroke="#fff" strokeWidth={1.6} />,
+      <path key="b3" d="M19 12l-2 4h3" stroke="#fff" strokeWidth={1.6} />,
+    ]),
+  // The firestorm: three flames side by side.
+  flask: (size = 28) =>
+    svg(size, [0, 7, 14].map((x) => <path key={x} d={`M${x + 2} 22c-2-3 0-6 2-9 2 3 4 6 2 9z`} fill="currentColor" />)),
+  // The pinball: a big ball and a long bouncing path.
+  bouncer: (size = 28) =>
+    svg(size, [
+      <path key="path" d="M1 22l4-7 4 5 4-7 4 5" strokeWidth={1.8} strokeDasharray="2 2" />,
+      <circle key="glow" cx="18" cy="7" r="6" fill="currentColor" opacity={0.3} />,
+      <circle key="ball" cx="18" cy="7" r="4.2" fill="currentColor" />,
+      <circle key="shine" cx="16.6" cy="5.6" r="1.2" fill="#fff" />,
+    ]),
 };

@@ -126,10 +126,10 @@ export interface Enemy {
  * Five weapons since 2026-09-14. Two of them are not projectiles: `blades` turn
  * around the robot and `drone` shoots from a little bot at its shoulder.
  */
-export type WeaponId = "bolt" | "arc" | "burst" | "blades" | "drone";
+export type WeaponId = "bolt" | "arc" | "burst" | "blades" | "drone" | "halo" | "zap" | "flask" | "bouncer";
 
 /** The four that throw something. The blades never leave the robot. */
-export type ShotKind = Exclude<WeaponId, "blades">;
+export type ShotKind = Exclude<WeaponId, "blades" | "halo" | "zap">;
 
 /**
  * A carried weapon: which one, when it may fire again, and how far it has been
@@ -244,6 +244,8 @@ export interface Bolt {
    * in the tests is unchanged and an absent flag reads as "no".
    */
   chain?: boolean;
+  /** Burning ground this bolt leaves where it dies, as its radius - the nova's ring and the FLASK. */
+  burn?: number;
 }
 
 /**
@@ -293,6 +295,8 @@ export type RunEvent =
   | { type: "pop"; x: number; y: number; kind: EnemyKind; by?: WeaponId }
   /** A shot left the ship. Carries WHICH weapon, so the scene can sound it. */
   | { type: "shot"; weapon: ShotKind; x: number; y: number }
+  | { type: "zap"; x: number; y: number; big: boolean }
+  | { type: "halo"; x: number; y: number; big: boolean }
   /** A SHAPE threw one, so the scene can flash its muzzle. */
   | { type: "efire"; kind: EnemyKind; x: number; y: number }
   | { type: "hurt" }

@@ -11,7 +11,7 @@
 // `step`, and the partner-taken-once threshold.
 import { describe, expect, it } from "vitest";
 import { applyCard, offerCards } from "./cards";
-import { raiseSuper } from "./evolve";
+import { SUPER_LV, raiseSuper } from "./evolve";
 import {
   EVOLUTIONS, KINDS, RECIPE, STORM_JUMPS, SWARM_DRONES, UPGRADE_CAP, WEAPON_LV_MAX,
   applyUpgrade, canEvolve, evolvable, hasEvolution, newRun, recipeProgress, rowFor, rngFor, step,
@@ -67,7 +67,7 @@ const NOT_YET: WeaponId[] = [];
 // The partner upgrade MAXED still satisfies the recipe (it is "taken at least
 // once"), so these cells keep the maxed setup and keep guarding what they always
 // did: neither half alone, the near miss, and never twice.
-describe("the recipe is Lv5 AND the partner upgrade taken", () => {
+describe("the recipe is Lv4 (SUPER_LV) AND the partner upgrade taken", () => {
   it("refuses until BOTH halves are done - neither one alone", () => {
     for (const id of BUILT) {
       const up = RECIPE[id];
@@ -83,9 +83,10 @@ describe("the recipe is Lv5 AND the partner upgrade taken", () => {
       for (let i = 0; i < UPGRADE_CAP[up]; i++) applyUpgrade(b, up);
       expect(canEvolve(b, b.slots[0])).toBe(false);
 
-      // One short of the level cap, with the upgrade maxed - the near miss.
+      // One short of the super level, with the upgrade maxed - the near miss.
+      // SUPER_LV (4) since 2026-10-02, not the cap (5): operator ruling.
       const c = atTheRecipe(id);
-      c.slots[0].lv = WEAPON_LV_MAX - 1;
+      c.slots[0].lv = SUPER_LV - 1;
       expect(canEvolve(c, c.slots[0])).toBe(false);
 
       // Both. THE POSITIVE CONTROL - without it every line above passes on a

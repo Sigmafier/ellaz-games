@@ -152,8 +152,19 @@ export const shieldReady = (s: RunState) => s.up.shield > 0 && s.shieldCd <= 0;
  * it offers nothing - the caller reads an empty offer as "carry on", so a fully
  * upgraded run keeps playing instead of stopping dead in front of no cards.
  */
+/**
+ * POWER SLOTS (operator ruling 2026-10-02, "ack B"): a run holds at most six
+ * different power-ups, as the reference survivor-likes do. Once six are held, only
+ * those six are offered again - which is what makes the first six a choice.
+ */
+export const PASSIVE_SLOTS = 6;
+
+/** How many different power-ups this run holds. */
+export const powersHeld = (s: Pick<RunState, "up">): number => UPGRADE_IDS.filter((id) => s.up[id] > 0).length;
+
 export function offerUpgrades(s: RunState, rng: () => number = Math.random, count = 3): UpgradeId[] {
-  const left = UPGRADE_IDS.filter((id) => s.up[id] < UPGRADE_CAP[id]);
+  const full = powersHeld(s) >= PASSIVE_SLOTS;
+  const left = UPGRADE_IDS.filter((id) => s.up[id] < UPGRADE_CAP[id] && (!full || s.up[id] > 0));
   const out: UpgradeId[] = [];
   while (out.length < count && left.length > 0) {
     out.push(left.splice(Math.floor(rng() * left.length), 1)[0]);

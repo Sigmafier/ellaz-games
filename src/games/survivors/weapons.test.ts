@@ -21,6 +21,7 @@ import {
   type Enemy, type EnemyKind, type RunState, type ShotKind, type WeaponId, freshSlot, WEAPON_LV_MAX, canLevel, weaponDamage, weaponEvery,
 } from "./logic";
 import { BLADES, bladePositions, dronePosition } from "./arsenal";
+import { fireSlot } from "./weapons";
 
 function place(s: RunState, kind: EnemyKind, x: number, y: number): Enemy {
   const e: Enemy = { id: s.nextId++, kind, x, y, hp: KINDS[kind].hp, flash: 0 };
@@ -49,13 +50,34 @@ describe("there are five weapons and they are not each other", () => {
     // If this ever passes vacuously the whole file is decoration, so it asserts
     // the population first: four rows that throw something, not one repeated.
     const ids = Object.keys(WEAPONS) as ShotKind[];
-    expect(ids.sort()).toEqual(["arc", "bolt", "burst", "drone"]);
-    expect(new Set(ids.map((k) => WEAPONS[k].speed)).size).toBe(4);
-    expect(new Set(ids.map((k) => WEAPONS[k].sfx)).size).toBe(4);
+    // SIX since 2026-10-02: the flask and the bouncer throw things too.
+    expect(ids.sort()).toEqual(["arc", "bolt", "bouncer", "burst", "drone", "flask"]);
+    expect(new Set(ids.map((k) => WEAPONS[k].speed)).size).toBe(6);
+    // The site has nine named sounds and most of the rest already MEAN something
+    // (fail, win, success), so the two new throwers share a named one with the
+    // burst and the arc; each still has its own pitched chirp in the scene's
+    // LASER table. The first four stay four different sounds.
+    const first = ["arc", "bolt", "burst", "drone"] as const;
+    expect(new Set(first.map((k) => WEAPONS[k].sfx)).size).toBe(4);
     // Motion is the one that matters most and the one a "many weapons" claim
     // usually fakes: exactly one steers, exactly one goes out as a ring.
     expect(ids.filter((k) => WEAPONS[k].turn > 0)).toEqual(["arc"]);
     expect(ids.filter((k) => WEAPONS[k].count > 1)).toEqual(["burst"]);
+    // And the two new motions are their own: the bouncer JUMPS shape to shape,
+    // the flask BURNS where it lands - read off what each throw carries.
+    const throwOf = (id: ShotKind) => {
+      const s = newRun("normal");
+      s.slots = [{ id, cd: 0, lv: 1 }];
+      s.enemies.push({ id: 999, kind: "runner", x: s.x + 60, y: s.y, hp: 1, flash: 0 });
+      fireSlot(s, s.slots[0]);
+      return s.bolts[0]!;
+    };
+    expect(throwOf("bouncer").chain).toBe(true);
+    expect(throwOf("bouncer").burn).toBeUndefined();
+    expect(throwOf("flask").burn).toBeGreaterThan(0);
+    expect(throwOf("flask").chain).toBe(false);
+    expect(throwOf("bolt").chain).toBe(false);
+    expect(throwOf("bolt").burn).toBeUndefined();
   });
 
   it("every weapon's sound is one of the nine real sfx names", () => {

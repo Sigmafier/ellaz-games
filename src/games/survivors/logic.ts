@@ -33,6 +33,7 @@ import { CAP_FIRES, NOVA_FIRE, raiseSuper } from "./evolve";
 import { FREEZE_NEED, dashAway, tickPowers } from "./powers";
 import { GUNS, bossHpFor, gunEveryFor, nearestEnemy, radiusOf, spawn, speedOf, summonAt, xpOf } from "./enemies";
 import { WEAPONS, fireSlot, mainSlot, weaponDamage, weaponEvery } from "./weapons";
+import { pulseHalo, zapSlot } from "./arms";
 import { FINAL, RULES, STAGE_MS, bossKindFor, isLastStage, spawnEvery, stageIsOver, stageMs } from "./stages";
 import { magnetRange, playerSpeed, shieldEvery, shieldReady, xpNeeded } from "./upgrades";
 // THE CAREER (P3). Every call below sits behind `if (s.career)`, so a quick run -
@@ -552,6 +553,20 @@ export function step(
   for (const slot of s.slots) {
     if (slot.id === "blades") continue;
     slot.cd -= dt;
+    // The HALO pulses on its clock, always (arms.ts says why it never holds).
+    if (slot.id === "halo") {
+      if (slot.cd <= 0) {
+        pulseHalo(s, slot, weaponDamage(s, slot), (e, d) => damage(s, e, d, "halo"));
+        slot.cd = weaponEvery(s, slot);
+      }
+      continue;
+    }
+    // The ZAP strikes rather than throws (arms.ts); same clock, same hold-at-zero.
+    if (slot.id === "zap") {
+      if (slot.cd <= 0 && zapSlot(s, slot, weaponDamage(s, slot), rng, (e, d) => damage(s, e, d, "zap"))) slot.cd = weaponEvery(s, slot);
+      if (slot.cd < 0) slot.cd = 0;
+      continue;
+    }
     // `weaponEvery` folds the run's `rapid`, the weapon's own cadence and the
     // slot's LEVEL into one number, so a levelled weapon really does come round
     // faster rather than merely claiming to on a card.
@@ -792,9 +807,11 @@ export function step(
   // A fragment that hit something has `life = 0` too and drops its patch where
   // it landed, which is the forgiving direction - the fire is where the crowd is.
   for (const b of s.bolts) {
-    if (b.life > 0 || !b.nova) continue;
+    // `burn` is the patch's radius: the nova's ring, and since 2026-10-02 every
+    // FLASK bottle (weapons.ts) - the same fire, the same clock.
+    if (b.life > 0 || !b.burn) continue;
     if (s.fires.length >= CAP_FIRES) break;
-    s.fires.push({ id: s.nextId++, x: b.x, y: b.y, ms: NOVA_FIRE.ms, r: NOVA_FIRE.r, dmg: b.dmg });
+    s.fires.push({ id: s.nextId++, x: b.x, y: b.y, ms: NOVA_FIRE.ms, r: b.burn, dmg: b.dmg });
   }
 
   // Burning ground ticks. A shape standing in fire is hurt once per `hitMs`,

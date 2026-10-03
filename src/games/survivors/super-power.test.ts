@@ -23,6 +23,7 @@ import {
 } from "./logic";
 import { POOL, asStarter } from "./arsenal";
 import { RARITY } from "./weaponPool";
+import { SUPER_LV } from "./evolve";
 import { newCareerRun, PLAIN_STATS } from "./careerRun";
 
 const STILL = { dx: 0, dy: 0 };
@@ -73,7 +74,12 @@ describe("the main weapon", () => {
   });
 
   it("the rarity table is the one the entrance draws, and it covers every weapon", () => {
-    expect(RARITY).toEqual({ bolt: "common", arc: "common", burst: "rare", blades: "rare", drone: "epic" });
+    expect(RARITY).toEqual({
+      bolt: "common", arc: "common", burst: "rare", blades: "rare", drone: "epic",
+      // The four found in a run since 2026-10-02 - never a main weapon, so their
+      // rarity is a picture on the card, never a perk.
+      halo: "common", zap: "rare", flask: "common", bouncer: "rare",
+    });
   });
 
   it("a RARE main weapon deals 20% more than the same weapon picked up later", () => {
@@ -120,7 +126,7 @@ describe("the main weapon", () => {
   });
 });
 
-describe("a super power is READY at Lv5 with its partner upgrade taken once", () => {
+describe("a super power is READY at Lv4 (SUPER_LV) with its partner upgrade taken once", () => {
   it("not with the partner at zero, yes with it at one - for every weapon", () => {
     for (const id of POOL) {
       const none = readyRun(id, 0);
@@ -129,8 +135,8 @@ describe("a super power is READY at Lv5 with its partner upgrade taken once", ()
       expect(canEvolve(one, one.slots[0]), `${id} partner 1`).toBe(true);
       // And one level short is still not ready, whatever the partner says.
       const short = readyRun(id, UPGRADE_CAP[RECIPE[id]]);
-      short.slots[0].lv = WEAPON_LV_MAX - 1;
-      expect(canEvolve(short, short.slots[0]), `${id} Lv4`).toBe(false);
+      short.slots[0].lv = SUPER_LV - 1;
+      expect(canEvolve(short, short.slots[0]), `${id} Lv${SUPER_LV - 1}`).toBe(false);
     }
   });
 });
@@ -181,7 +187,7 @@ describe("a super power arrives from a boss or a mini-boss, never from a level-u
     expect(seen).not.toContain("super");
     expect(s.choosing).toBe(false);
     const t = readyRun("bolt", 1);
-    t.slots[0].lv = WEAPON_LV_MAX - 1;
+    t.slots[0].lv = SUPER_LV - 1;
     expect(kill(t, "boss")).not.toContain("super");
     expect(t.choosing).toBe(false);
   });

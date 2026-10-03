@@ -1,7 +1,7 @@
 import type { WeaponId } from "./types";
 
 export type Rarity = "common" | "rare" | "epic";
-export const RARITY: Record<WeaponId, Rarity> = { bolt: "common", arc: "common", burst: "rare", blades: "rare", drone: "epic" };
+export const RARITY: Record<WeaponId, Rarity> = { bolt: "common", arc: "common", burst: "rare", blades: "rare", drone: "epic", halo: "common", zap: "rare", flask: "common", bouncer: "rare" };
 
 // THE WEAPON COLLECTION (operator ruling 2026-09-30, "like Survivor.io"): a run
 // starts on one MAIN weapon picked from all five. Rarity is fixed per weapon and
@@ -13,7 +13,7 @@ export const RARITY: Record<WeaponId, Rarity> = { bolt: "common", arc: "common",
 // builds the weapon RULES, so the two halves merge without a conflict; what
 // follows is the entrance's half - what is open, and the stored pick validated.
 
-import { POOL } from "./arsenal";
+import { MAIN_POOL } from "./arsenal";
 import { CAREER_KEY } from "./careerRules";
 import { nodeStates } from "../../shared/career/progress";
 import { readSave, type CareerSave, type CareerStore } from "../../shared/career/save";
@@ -34,7 +34,7 @@ export function worldWon(save: CareerSave, world: WorldId): boolean {
 
 /** The weapons this save may take as its main weapon, in the collection's own order. */
 export function weaponsOpen(save: CareerSave): WeaponId[] {
-  return POOL.filter((id) => {
+  return MAIN_POOL.filter((id) => {
     const w = UNLOCK[id];
     return !w || worldWon(save, w);
   });

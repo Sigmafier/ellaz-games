@@ -5,8 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { UPGRADE_CAP, UPGRADE_IDS, newRun, rngFor, WEAPON_LV_MAX,
 } from "./logic";
-import { POOL, SLOTS_MAX, STARTERS, asStarter } from "./arsenal";
-import { applyCard, offerCards } from "./cards";
+import { MAIN_POOL, POOL, SLOTS_MAX, STARTERS, asStarter } from "./arsenal";
+import { GUARANTEED_WEAPONS, applyCard, offerCards } from "./cards";
 import { raiseSuper } from "./evolve";
 
 describe("the start", () => {
@@ -19,12 +19,16 @@ describe("the start", () => {
     expect(newRun("normal").slots.map((k) => k.id)).toEqual(["bolt"]);
   });
 
-  it("three starters, five weapons, four slots - so one never makes a given run", () => {
+  it("three starters, a main pick of five, nine weapons, six slots - so three never make a given run", () => {
+    // Six slots and four new weapons since 2026-10-02 ("ack B"). The main pick
+    // stays the five the operator ruled on; the four new ones are found in a run.
     expect(STARTERS).toHaveLength(3);
-    expect(POOL).toHaveLength(5);
-    expect(new Set(POOL).size).toBe(5);
-    expect(SLOTS_MAX).toBe(4);
-    for (const id of STARTERS) expect(POOL).toContain(id);
+    expect(POOL).toHaveLength(9);
+    expect(new Set(POOL).size).toBe(9);
+    expect(MAIN_POOL).toEqual(["bolt", "arc", "burst", "blades", "drone"]);
+    expect(SLOTS_MAX).toBe(6);
+    for (const id of STARTERS) expect(MAIN_POOL).toContain(id);
+    for (const id of MAIN_POOL) expect(POOL).toContain(id);
   });
 
   it("a stored starter is validated, never trusted", () => {
@@ -61,22 +65,36 @@ describe("level-up cards", () => {
       const s = newRun("normal");
       seen.add(offerCards(s, rngFor(seed))[0].id);
     }
-    expect([...seen].sort()).toEqual(["arc", "blades", "burst", "drone"]);
+    expect([...seen].sort()).toEqual(["arc", "blades", "bouncer", "burst", "drone", "flask", "halo", "zap"]);
   });
 
-  it("THE CONTROL: with four slots full, the cards are upgrades only", () => {
+  it("THE CONTROL: with all six slots full, no card is a weapon", () => {
     const s = newRun("normal");
-    s.slots = [
-      { id: "bolt", cd: 0 , lv: 1 },
-      { id: "arc", cd: 0 , lv: 1 },
-      { id: "blades", cd: 0 , lv: 1 },
-      { id: "drone", cd: 0 , lv: 1 },
-    ];
-    const cards = offerCards(s, rngFor(4));
-    expect(cards).toHaveLength(3);
-    // No weapon card, because there is no slot to put one in. Levels and
-    // upgrades both may appear; a fifth weapon may not.
-    expect(cards.every((c) => c.kind !== "weapon")).toBe(true);
+    s.slots = POOL.slice(0, SLOTS_MAX).map((id) => ({ id, cd: 0, lv: 1 }));
+    for (let seed = 1; seed < 60; seed++) {
+      const cards = offerCards(s, rngFor(seed));
+      expect(cards).toHaveLength(3);
+      // No weapon card, because there is no slot to put one in.
+      expect(cards.every((c) => c.kind !== "weapon")).toBe(true);
+    }
+  });
+
+  it("a new weapon is guaranteed only until four are held - after that it has to come up", () => {
+    // cards.ts GUARANTEED_WEAPONS: with six guaranteed, every level was spread
+    // over six level-1 guns and no run earned a super (pacing.test.ts).
+    const three = newRun("normal");
+    three.slots = POOL.slice(0, 3).map((id) => ({ id, cd: 0, lv: 1 }));
+    for (let seed = 1; seed < 40; seed++) expect(offerCards(three, rngFor(seed))[0].kind).toBe("weapon");
+    const four = newRun("normal");
+    four.slots = POOL.slice(0, GUARANTEED_WEAPONS).map((id) => ({ id, cd: 0, lv: 1 }));
+    let without = 0;
+    let withOne = 0;
+    for (let seed = 1; seed < 200; seed++) {
+      if (offerCards(four, rngFor(seed)).some((c) => c.kind === "weapon")) withOne++;
+      else without++;
+    }
+    expect(without).toBeGreaterThan(0);
+    expect(withOne).toBeGreaterThan(0);
   });
 
   it("TAKING a level card raises exactly one weapon, and refuses to pass the cap", () => {
@@ -140,11 +158,9 @@ describe("level-up cards", () => {
     applyCard(s, { kind: "weapon", id: "blades" });
     expect(s.slots.map((k) => k.id)).toEqual(["bolt", "blades"]);
     expect(s.choosing).toBe(false);
-    // Never twice, and never a fifth.
+    // Never twice, and never a seventh.
     applyCard(s, { kind: "weapon", id: "blades" });
-    applyCard(s, { kind: "weapon", id: "drone" });
-    applyCard(s, { kind: "weapon", id: "arc" });
-    applyCard(s, { kind: "weapon", id: "burst" });
+    for (const id of ["drone", "arc", "burst", "halo", "zap", "flask"] as const) applyCard(s, { kind: "weapon", id });
     expect(s.slots).toHaveLength(SLOTS_MAX);
     expect(new Set(s.slots.map((k) => k.id)).size).toBe(SLOTS_MAX);
   });
@@ -168,7 +184,7 @@ describe("level-up cards", () => {
     // exactly the state in which every recipe is met, so "nothing to offer" was
     // false and the evolve card was right to appear.
     const s = newRun("normal");
-    s.slots = POOL.slice(0, 4).map((id) => ({ id, cd: 0, lv: WEAPON_LV_MAX, evolved: true }));
+    s.slots = POOL.slice(0, SLOTS_MAX).map((id) => ({ id, cd: 0, lv: WEAPON_LV_MAX, evolved: true }));
     for (const id of UPGRADE_IDS) s.up[id] = UPGRADE_CAP[id];
     expect(offerCards(s, rngFor(9))).toHaveLength(0);
   });
@@ -176,14 +192,14 @@ describe("level-up cards", () => {
   it("THE CONTROL: the same run un-evolved is offered its supers - by a big kill, never a level-up", () => {
     // Without this the assertion above passes on an `offerCards` that returns
     // nothing at all, and it would also have hidden the fact that a fully maxed
-    // run still has four supers waiting for it.
+    // run still has six supers waiting for it.
     //
     // SPLIT IN TWO on 2026-09-30. A level-up used to hand a ready super over
     // itself; now a boss or a mini-boss has to fall first. So the same run reads
     // EMPTY on a level-up - there is genuinely nothing left to take - and one
     // super the moment a kill raises it.
     const s = newRun("normal");
-    s.slots = POOL.slice(0, 4).map((id) => ({ id, cd: 0, lv: WEAPON_LV_MAX }));
+    s.slots = POOL.slice(0, SLOTS_MAX).map((id) => ({ id, cd: 0, lv: WEAPON_LV_MAX }));
     for (const id of UPGRADE_IDS) s.up[id] = UPGRADE_CAP[id];
     expect(offerCards(s, rngFor(9))).toHaveLength(0);
     expect(raiseSuper(s)).toBe(POOL[0]);
@@ -196,7 +212,7 @@ describe("level-up cards", () => {
     // stopped returning anything at all - which is the failure it exists to
     // catch, wearing the face of the thing it asserts.
     const s = newRun("normal");
-    s.slots = POOL.slice(0, 4).map((id) => ({ id, cd: 0, lv: 1 }));
+    s.slots = POOL.slice(0, SLOTS_MAX).map((id) => ({ id, cd: 0, lv: 1 }));
     for (const id of UPGRADE_IDS) s.up[id] = UPGRADE_CAP[id];
     const offer = offerCards(s, rngFor(9));
     expect(offer).toHaveLength(3);

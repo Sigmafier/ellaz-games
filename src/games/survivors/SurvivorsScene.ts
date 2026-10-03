@@ -35,6 +35,8 @@ import { REROLLS_PER_STAGE, applyCard, canReroll, offerCards, type Card } from "
 import { PLAIN_STATS, careerResult, newCareerRun } from "./careerRun";
 import { LOOKS, type LookId } from "./diamondShelf";
 import { drawCoins, drawDark, drawPools, drawWeather, drawWorldGround, quickWorld, tintFor } from "./groundArt";
+import { HALO_FLASH_MS, ageStrikes, drawBall, drawFlask, drawHalo, drawStrikes, type Strike } from "./weaponFx";
+import { haloReach } from "./arms";
 import { inDark } from "./twists";
 import type { CareerResult, CareerStats } from "./types";
 
@@ -152,7 +154,14 @@ const WEAPON_INK: Record<ShotKind, number> = {
   // Mint, the one hue no shape and no other shot uses, so the drone's shots are
   // told from the robot's own at a glance.
   drone: 0x7df9a6,
+  // The six-slot run's two throwers (2026-10-02), the same inks as weaponArt.tsx.
+  flask: 0xff7b3d,
+  bouncer: 0x3dd9c1,
 };
+
+/** The halo's and the zap's inks, the same as weaponArt.tsx. */
+export const HALO_INK = 0xb39dff;
+export const ZAP_INK = 0x5cc8ff;
 
 /** The blades' ink. Pink is a runner's colour, so the blades are a PALER pink with a white edge. */
 const BLADE_INK = 0xff8fc0;
@@ -306,6 +315,12 @@ const LASER: Record<WeaponId, { from: number; to: number; ms: number; type: Osci
   // `shot` event. The row exists so the record is total and a future weapon that
   // does throw cannot land here undefined.
   blades: { from: 600, to: 420, ms: 80, type: "triangle", gain: 0.04 },
+  // The six-slot run's four (2026-10-02). Halo and zap throw nothing (their rows
+  // keep the record total); the flask is a low glug, the bouncer a springy boing.
+  halo: { from: 520, to: 520, ms: 60, type: "sine", gain: 0.03 },
+  zap: { from: 1800, to: 200, ms: 110, type: "sawtooth", gain: 0.05 },
+  flask: { from: 300, to: 180, ms: 140, type: "triangle", gain: 0.06 },
+  bouncer: { from: 380, to: 760, ms: 90, type: "sine", gain: 0.05 },
 };
 
 /**
@@ -316,7 +331,7 @@ const LASER: Record<WeaponId, { from: number; to: number; ms: number; type: Osci
  * bolt is the shortest because it is a rifle and a rifle's hit is an instant.
  * The two that boom sit between them.
  */
-const HIT_MS: Record<WeaponId, number> = { blades: 260, burst: 300, drone: 260, arc: 240, bolt: 160 };
+const HIT_MS: Record<WeaponId, number> = { blades: 260, burst: 300, drone: 260, arc: 240, bolt: 160, halo: 260, zap: 220, flask: 300, bouncer: 200 };
 
 export class SurvivorsScene extends Phaser.Scene {
   private ctx!: GameContext;
@@ -361,6 +376,10 @@ export class SurvivorsScene extends Phaser.Scene {
   private sparks: Spark[] = [];
   /** Per-weapon kill effects. Capped by their own short lives, like the sparks. */
   private hits: Hit[] = [];
+  /** The zap's lightning on the board (weaponFx.ts), aged in `update`. */
+  private strikes: Strike[] = [];
+  /** Time left on the halo's flare after its last pulse. */
+  private haloFlash = 0;
   private rng: () => number = Math.random;
 
   private ship!: Phaser.GameObjects.Sprite;
@@ -749,6 +768,7 @@ export class SurvivorsScene extends Phaser.Scene {
     this.rerollStage = 0;
     this.nextMilestone = MILESTONE_EVERY;
     this.sparks.length = 0;
+    this.strikes = [];
     // Beside the sparks and for the same reason: a kill mark left over from the
     // last run would be drawn over the first frame of the new one.
     this.hits.length = 0;
@@ -796,6 +816,8 @@ export class SurvivorsScene extends Phaser.Scene {
 
     const input = this.inputVector();
     step(this.run, delta, input, this.rng);
+    this.strikes = ageStrikes(this.strikes, delta);
+    this.haloFlash = Math.max(0, this.haloFlash - delta);
     this.consume();
     this.drawSparks(delta);
     this.syncSprites(input);
@@ -848,6 +870,17 @@ export class SurvivorsScene extends Phaser.Scene {
           this.nextShotSfx = now + SHOT_SFX_GAP_MS;
         }
         this.attackUntil = now + ATTACK_MS;
+      } else if (e.type === "halo") {
+        this.haloFlash = HALO_FLASH_MS;
+      } else if (e.type === "zap") {
+        // The zap's strike: drawn where it landed (weaponFx.ts), voiced on the
+        // same throttle as every gun so a thunderhead's five do not shout five times.
+        this.strikes.push({ x: e.x, y: e.y, big: e.big, age: 0 });
+        const now = this.time.now;
+        if (now >= this.nextShotSfx) {
+          this.laser("zap");
+          this.nextShotSfx = now + SHOT_SFX_GAP_MS;
+        }
       } else if (e.type === "efire") {
         // A shape threw one. A puff of its own ink at the muzzle, so the bolt is
         // seen LEAVING something rather than simply existing - which is what lets
@@ -1366,7 +1399,11 @@ export class SurvivorsScene extends Phaser.Scene {
     // as it dies. Each is drawn in its own ink.
     for (const b of this.run.bolts) {
       const ink = WEAPON_INK[b.kind];
-      if (b.kind === "bolt" || b.kind === "drone") {
+      if (b.kind === "flask") {
+        drawFlask(g, b, ink);
+      } else if (b.kind === "bouncer") {
+        drawBall(g, b, ink, this.run.slots.some((k) => k.id === "bouncer" && k.evolved));
+      } else if (b.kind === "bolt" || b.kind === "drone") {
         const sp = Math.hypot(b.vx, b.vy) || 1;
         g.lineStyle(3, ink, 1);
         g.lineBetween(b.x, b.y, b.x - (b.vx / sp) * 9, b.y - (b.vy / sp) * 9);
@@ -1410,6 +1447,9 @@ export class SurvivorsScene extends Phaser.Scene {
     this.drawEnemyShots(g);
     this.drawFires(g);
     this.drawBlades(g);
+    const halo = this.run.slots.find((k) => k.id === "halo");
+    if (halo) drawHalo(g, this.run.x, this.run.y, haloReach(!!halo.evolved), HALO_INK, !!halo.evolved, this.time.now, this.haloFlash / HALO_FLASH_MS);
+    drawStrikes(g, this.strikes, ZAP_INK);
     this.drawDrone(g);
 
     if (this.run.frozen > 0) {
@@ -1577,12 +1617,14 @@ export class SurvivorsScene extends Phaser.Scene {
         g.beginPath();
         g.arc(h.x, h.y, r - 2, h.a - 1.2, h.a + 1.2);
         g.strokePath();
-      } else if (h.by === "burst" || h.by === "drone") {
+      } else if (h.by === "burst" || h.by === "drone" || h.by === "flask" || h.by === "bouncer" || h.by === "halo" || h.by === "zap") {
         // A SMALL BOOM. The burst's is wider and throws six pieces; the drone's
         // is tighter and throws three, because a drone is the lighter weapon and
         // the two must not read as the same event at two sizes.
-        const big = h.by === "burst";
-        const ink = WEAPON_INK[h.by];
+        // The six-slot run's four (2026-10-02) boom in their own inks: the
+        // flask as big as the burst (it is fire), the rest as small as the drone.
+        const big = h.by === "burst" || h.by === "flask";
+        const ink = h.by === "halo" ? HALO_INK : h.by === "zap" ? ZAP_INK : WEAPON_INK[h.by];
         const r = (big ? 6 : 4) + t * (big ? 26 : 17);
         g.lineStyle((big ? 3.5 : 2.5) * fade + 0.5, ink, 0.95 * fade);
         g.strokeCircle(h.x, h.y, r);

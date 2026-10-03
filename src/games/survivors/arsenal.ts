@@ -13,7 +13,7 @@ import type { RunState, WeaponId } from "./types";
 import { SAW_REACH } from "./evolve";
 
 /** How many weapons a run can carry. */
-export const SLOTS_MAX = 4;
+export const SLOTS_MAX = 6;
 
 /**
  * The three the Quick run entrance has always shown.
@@ -29,7 +29,14 @@ export const STARTERS = ["bolt", "arc", "burst"] as const satisfies readonly Wea
 export type StarterId = WeaponId;
 
 /** Every weapon a level-up can offer, in the order the art and the words list them. */
-export const POOL: readonly WeaponId[] = ["bolt", "arc", "burst", "blades", "drone"];
+export const POOL: readonly WeaponId[] = ["bolt", "arc", "burst", "blades", "drone", "halo", "zap", "flask", "bouncer"];
+
+/**
+ * The weapons a run may START with (the main-weapon pick). The four added with the
+ * six-slot run (2026-10-02) are found in a run, never picked before it, so the
+ * pick and its rarity perks stay exactly the five the operator ruled on.
+ */
+export const MAIN_POOL: readonly WeaponId[] = ["bolt", "arc", "burst", "blades", "drone"];
 
 /**
  * A stored main weapon, validated rather than trusted. Anything that is not one

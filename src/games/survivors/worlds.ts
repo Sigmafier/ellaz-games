@@ -95,7 +95,7 @@ const row = (
 // damage the kit a player plausibly carries into that world (career-pacing.test.ts).
 //                   id           world    time    spawn floor tight  hp    pace  elite  bossHp pools
 export const LEVELS: readonly LevelRow[] = [
-  row("city-1",    "city",  60_000,  640, 330, 4.5, 1.0,  1.2,  0.02),
+  row("city-1",    "city",  60_000,  610, 315, 4.5, 1.0,  1.2,  0.02),
   row("city-2",    "city",  70_000,  590, 300, 4.6, 1.0,  1.25, 0.03),
   row("city-3",    "city",  80_000,  540, 270, 4.8, 1.0,  1.3,  0.04),
   row("city-boss", "city",  45_000,  600, 300, 4.5, 1.0,  1.25, 0.04, 1.0),
@@ -106,7 +106,7 @@ export const LEVELS: readonly LevelRow[] = [
   row("lava-1",    "lava",  75_000,  700, 300, 4.0, 1.2,  1.0,  0.06, 0, 3600),
   row("lava-2",    "lava",  82_000,  640, 270, 4.2, 1.3,  1.02, 0.07, 0, 3200),
   row("lava-3",    "lava",  90_000,  590, 240, 4.4, 1.45, 1.04, 0.08, 0, 2800),
-  row("lava-boss", "lava",  55_000,  680, 290, 4.0, 1.3,  1.02, 0.07, 0.35, 3400),
+  row("lava-boss", "lava",  55_000,  680, 290, 4.0, 1.3,  1.02, 0.07, 0.45, 3400),
 ];
 
 /** The map the kit draws: the same twelve ids, in play order, each world naming its floor. */

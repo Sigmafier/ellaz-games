@@ -248,7 +248,7 @@ describe("the cards that exist - the ceiling the operator asked to raise", () =>
   it("counts them, so the number in the plan and the number in the game agree", () => {
     const upgradeSteps = UPGRADE_IDS.reduce((a, id) => a + UPGRADE_CAP[id], 0);
     const weaponLevels = POOL.length * (WEAPON_LV_MAX - 1);
-    const newWeapons = SLOTS_MAX - 1; // a run starts with one and can hold four
+    const newWeapons = SLOTS_MAX - 1; // a run starts with one and can hold six
     const evolutions = POOL.filter(hasEvolution).length;
     const total = upgradeSteps + weaponLevels + newWeapons + evolutions;
 
@@ -270,8 +270,11 @@ describe("the cards that exist - the ceiling the operator asked to raise", () =>
     // is meant to make the run harder, and handing the same number of upgrade
     // steps back under other names would have undone part of that silently.
     expect(upgradeSteps).toBe(36);
-    expect(weaponLevels).toBe(20);
-    expect(total).toBe(64);
+    // 86 SINCE 2026-10-02: nine weapons (four added) and six slots ("ack B").
+    // Nine weapons' levels are 36, but a run holds six of them and six of the
+    // nine upgrades, so no run can see all 86 - which is the point of slots.
+    expect(weaponLevels).toBe(36);
+    expect(total).toBe(86);
 
     // The point of the raise, stated as the thing that must stay true: a run
     // that takes 30 cards must still have somewhere to spend the 31st.

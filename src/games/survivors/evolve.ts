@@ -29,7 +29,7 @@
 // here importing back would close the loop that `types.ts` exists to prevent.
 
 import type { RunState, Slot, UpgradeId, WeaponId, WeaponRow } from "./types";
-import { UPGRADE_CAP, WEAPON_LV_MAX } from "./upgrades";
+import { UPGRADE_CAP } from "./upgrades";
 
 /**
  * Which upgrade each weapon needs taken (`PARTNER_NEED` times) before it can evolve.
@@ -46,6 +46,12 @@ export const RECIPE: Record<WeaponId, UpgradeId> = {
   burst: "power",
   blades: "swift",
   drone: "rapid",
+  // 2026-10-02, the six-slot run ("ack B"): each new weapon pairs with a power-up
+  // no other weapon uses, so every super has its own road.
+  halo: "shield",
+  zap: "range",
+  flask: "heart",
+  bouncer: "magnet",
 };
 
 /**
@@ -109,7 +115,36 @@ export const EVOLUTIONS: Record<WeaponId, Evolution> = {
     name: "swarm",
     row: { speed: 320, life: 1300, turn: 0, count: 1, bonus: 1, r: 4, sfx: "coin", every: 1.2 },
   },
+  // The barrier and the thunderhead throw nothing, so like the sawstorm only the
+  // row's `bonus` is read (weapons.ts `weaponDamage`); their reach, push and
+  // strikes live in arms.ts.
+  halo: {
+    name: "barrier",
+    row: { speed: 0, life: 0, turn: 0, count: 0, bonus: 2, r: 0, sfx: "star", every: 0 },
+  },
+  zap: {
+    name: "thunderhead",
+    row: { speed: 0, life: 0, turn: 0, count: 0, bonus: 2, r: 0, sfx: "tap", every: 0 },
+  },
+  // Three bottles in a fan, each leaving a wider fire (weapons.ts FIRESTORM_FIRE_R).
+  flask: {
+    name: "firestorm",
+    row: { speed: 200, life: 700, turn: 0, count: 3, bonus: 2, r: 7, sfx: "star", every: 1.6 },
+  },
+  // Bigger, faster, and six jumps instead of two (weapons.ts PINBALL_JUMPS).
+  bouncer: {
+    name: "pinball",
+    row: { speed: 330, life: 2600, turn: 0, count: 1, bonus: 2, r: 10, sfx: "flip", every: 1.1 },
+  },
 };
+
+/**
+ * The level a weapon must reach to become a SUPER (with its partner taken). Four,
+ * not the top level (5), by operator ruling 2026-10-02: with six weapon slots the
+ * same level-ups are shared by more guns, and at level 5 supers fell from 1-3 a
+ * normal run to none (pacing.test.ts). A weapon still levels on to 5 after it.
+ */
+export const SUPER_LV = 4;
 
 /** How many drones a SWARM flies. One is the ordinary drone. */
 export const SWARM_DRONES = 3;
@@ -149,7 +184,7 @@ export const recipeProgress = (s: RunState, id: WeaponId): number => {
 export function canEvolve(s: RunState, slot: Slot): boolean {
   if (slot.evolved) return false;
   if (!hasEvolution(slot.id)) return false;
-  if (slot.lv < WEAPON_LV_MAX) return false;
+  if (slot.lv < SUPER_LV) return false;
   return s.up[RECIPE[slot.id]] >= PARTNER_NEED;
 }
 
