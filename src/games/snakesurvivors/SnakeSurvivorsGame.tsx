@@ -62,9 +62,11 @@ const CHAIN_AT_1 = chainOf({ taken: { ...noneTaken(), chain: 1 } });
 
 export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<Pick<SnakeSurvivorsScene, "setLevel" | "setPaused" | "restartFromChrome" | "startFromChrome" | "choose" | "startTutorial" | "endTutorial" | "startCareer" | "leaveCareer"> | null>(null);
+  const sceneRef = useRef<Pick<SnakeSurvivorsScene, "setLevel" | "setPaused" | "restartFromChrome" | "startFromChrome" | "choose" | "startTutorial" | "endTutorial" | "startCareer" | "leaveCareer" | "setCovered"> | null>(null);
   /** The title (and the quick run it starts), or the career's map and levels. */
   const [mode, setMode] = useState<"title" | "career">("title");
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   /** The scene tells the career when a level ends; the career decides what that pays. */
   const careerEndRef = useRef<((r: SnakeCareerResult, token: string) => void) | null>(null);
   const [level, setLevel] = useRememberedLevel(ctx, LEVEL_OPTIONS.map((o) => o.id), "normal");
@@ -138,6 +140,10 @@ export function SnakeSurvivorsGame({ ctx }: { ctx: GameContext }) {
           if (cancelled) return;
           sceneRef.current = scene;
           scene.setLevel(levelRef.current);
+          // A career screen opened before the engine finished loading never
+          // reached the scene, and every career screen that can be up before a
+          // level starts covers the arena - so the career mode IS the cover here.
+          scene.setCovered(modeRef.current === "career");
         },
       });
       ctx.lifecycle.loadingFinished();

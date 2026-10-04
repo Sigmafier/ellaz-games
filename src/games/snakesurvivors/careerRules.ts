@@ -100,6 +100,18 @@ export function starsFor(hearts: number, of: number): number {
   return 2 * hearts >= of ? 2 : 1;
 }
 
+/**
+ * The stars a finished level shows on its card AND records in the save - one
+ * number, so the two can never disagree. A WIN is at least one star: hearts are
+ * counted FULL, so a win scraped through on half a heart reads 0 hearts, and
+ * `starsFor` alone would put "0 stars" on the card while `recordClear` (which
+ * never stores fewer than one) saved 1 - reported 2026-10-03. Neon's `starsFor`
+ * carries the same floor. A loss is 0.
+ */
+export function levelStars(r: Pick<SnakeCareerResult, "won" | "hearts" | "of">): number {
+  return r.won ? Math.max(1, starsFor(r.hearts, r.of)) : 0;
+}
+
 /** Gold for a clear: the world's bonus, doubled for its boss. */
 export const clearBonus = (levelId: string): number => snakeWorld(levelId).bonus * (snakeLevel(levelId).boss ? 2 : 1);
 
@@ -130,7 +142,7 @@ export function settle(save: CareerSave, r: SnakeCareerResult, rng: () => number
   }
   const bonus = clearBonus(r.level);
   const gold = picked + bonus;
-  const stars = starsFor(r.hearts, r.of);
+  const stars = levelStars(r);
   let next = recordClear(SNAKE_CAMPAIGN, earnGold(save, gold), r.level, stars);
   let drop: string | null = null;
   if (snakeLevel(r.level).boss) drop = rollDrop(BOSS_GEAR, rng);

@@ -23,6 +23,7 @@ import { createRoot, type Root } from "react-dom/client";
 import type { GameContext } from "@sdk/index";
 import { diamonds } from "@sdk/diamonds";
 import { notifyRunStart } from "@ui/gameTools";
+import { usePageScrollLock } from "@ui/pageScrollLock";
 import { loadCareerKit } from "../../ui/career/load";
 import { equipItem, gearView } from "../../shared/career/gear";
 import { readSave, writeSave, type CareerSave, type CareerStore } from "../../shared/career/save";
@@ -49,6 +50,8 @@ export interface SnakeCareerScene {
   leaveCareer(): void;
   startFromChrome(): void;
   restartFromChrome(): void;
+  /** A career screen is over the arena: presses on its canvas must not start a run. */
+  setCovered(on: boolean): void;
 }
 
 /** A layer on <body>, above the page, torn down in a microtask (the reactHost pattern). */
@@ -232,6 +235,20 @@ function Result({ props, c, kit, paid, level }: { props: LayerProps; c: Career; 
 export function SnakeCareerLayer(props: LayerProps): ReactElement | null {
   const kit = useKit();
   const c = useCareer(props);
+  // THE MAP, THE SHOP AND THE GEAR hold the page still and tell the scene its
+  // canvas is covered - Neon Survival's CareerLayer, the same two halves: the
+  // lock stops the drag that slid the arena out from under the screen (125px on
+  // live ellaz.fun at 390x844, 2026-10-03), and the cover refuses the tap if
+  // anything else ever exposes it. The twist tip, the run and the result card
+  // are on the arena itself and need neither.
+  const covering = c.screen === "lobby" || c.screen === "shop" || c.screen === "gear";
+  usePageScrollLock(covering);
+  useEffect(() => {
+    props.scene.current?.setCovered(covering);
+  }, [covering, props.scene]);
+  // Leaving the career (Back to the title) unmounts this layer; the scene must
+  // not stay deaf to a canvas that is no longer covered.
+  useEffect(() => () => props.scene.current?.setCovered(false), [props.scene]);
   if (c.screen === "lobby" || c.screen === "shop" || c.screen === "gear") return <KitScreens props={props} c={c} kit={kit} />;
   if (!c.level) return null;
   if (c.screen === "result" && c.paid) return <Result props={props} c={c} kit={kit} paid={c.paid} level={c.level} />;

@@ -117,6 +117,12 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
   private paused = false;
   private stick: Stick | null = null;
   private keys = new Set<string>();
+  /**
+   * A career screen (the map, the shop, the gear) is over the arena. Its canvas
+   * still exists under them, and a press on it would start a run behind the
+   * screen - Neon Survival's `covered`, reported here 2026-10-03. See `setCovered`.
+   */
+  private covered = false;
   private bg!: Phaser.GameObjects.Graphics;
   private fg!: Phaser.GameObjects.Graphics;
   private hud!: Phaser.GameObjects.Graphics;
@@ -205,7 +211,7 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     // A thumb down is born as a stick wherever it lands, in SCREEN units - the
     // lesson Neon Survival learned once its camera started to move.
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      if (this.paused) return;
+      if (this.paused || this.covered) return;
       if (this.phase !== "playing") return void this.startFromChrome();
       const o = stickOriginFor(p.x, p.y);
       this.stick = { ox: o.ox, oy: o.oy, px: p.x, py: p.y };
@@ -265,6 +271,12 @@ export class SnakeSurvivorsScene extends Phaser.Scene {
     this.careerLevel = levelId;
     this.careerStats = stats;
     this.restart();
+  }
+
+  /** The career layer says whether one of its screens is over the arena. */
+  setCovered(on: boolean) {
+    this.covered = on;
+    if (on) this.stick = null;
   }
 
   /** Back to the quick run: its own floor, its own rules, untouched. */

@@ -5,7 +5,7 @@
 import { mulberry32 } from "@shared/rng";
 import { freshSave, type CareerSave } from "../../shared/career/save";
 import { circle } from "./bots";
-import { starsFor, simStats } from "./careerRules";
+import { levelStars, simStats } from "./careerRules";
 import { careerResult, newCareerRun } from "./careerRun";
 import { isBoss } from "./crowd";
 import { pickCard, step } from "./logic";
@@ -44,7 +44,7 @@ export function playCareer(id: string, seed: number, save: CareerSave, arena: Ar
   }
   const r = careerResult(run);
   const end = run.phase === "won" ? "won" : run.phase === "dead" ? "dead" : "timeout";
-  return { end, ms: run.t, stars: starsFor(r.hearts, r.of), hearts: r.hearts, gold: r.gold, cards, dryMs };
+  return { end, ms: run.t, stars: levelStars(r), hearts: r.hearts, gold: r.gold, cards, dryMs };
 }
 
 /** A save with these shop rows bought and these pieces worn. */
