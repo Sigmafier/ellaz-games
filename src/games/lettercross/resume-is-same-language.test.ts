@@ -7,9 +7,11 @@
  * whole suite stayed green. The board that guard refuses is a game that
  * rejects every word already standing on it, with nothing on screen to say why.
  *
- * Read from the source, the same way `rounds-are-wired.test.ts` does, because
- * the alternative is mounting the game to prove one condition. The first half
- * pins what the condition stands on: the snapshot can tell the two apart.
+ * Lifted from the source, the way `rounds-are-wired.test.ts` reads its wires,
+ * because the alternative is mounting the game to prove one condition - and then
+ * RUN over every case, because matching the words let `|| true` through. The
+ * first half pins what the condition stands on: the snapshot can tell the two
+ * apart.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -35,12 +37,33 @@ describe("the game resumes a snapshot only in that language", () => {
     expect(m, "no `const resume = ...;` in Lettercross.tsx - the decision moved; follow it").not.toBeNull();
   });
 
-  it("requires the saved language to be the one being opened", () => {
-    expect(m![1].replace(/\s+/g, " ")).toMatch(/restored\.state\.lang === lang\.id/);
+  /**
+   * RUN the decision, do not read its words. A pattern that only finds
+   * `restored.state.lang === lang.id` in the text stays green when someone adds
+   * `|| true` after it - the 2026-10-24 deep-test planted exactly that and this
+   * file passed. The expression is plain JavaScript, so it is evaluated over
+   * every case it has to tell apart.
+   */
+  const decide = (restored: unknown, level: string, lang: { id: string }) =>
+    new Function("restored", "level", "lang", `return (${m![1]});`)(restored, level, lang);
+  const save = (level: string, lang: string) => ({ level, state: { lang } });
+
+  it("resumes a save from the same language and level", () => {
+    const s = save("medium", HE.id);
+    expect(decide(s, "medium", HE)).toBe(s);
   });
 
-  it("requires the saved level too", () => {
-    expect(m![1].replace(/\s+/g, " ")).toMatch(/restored\.level === level/);
+  it("refuses a save from the other language", () => {
+    expect(decide(save("medium", HE.id), "medium", EN)).toBeUndefined();
+    expect(decide(save("medium", EN.id), "medium", HE)).toBeUndefined();
+  });
+
+  it("refuses a save from another level", () => {
+    expect(decide(save("easy", HE.id), "medium", HE)).toBeUndefined();
+  });
+
+  it("starts fresh when there is no save", () => {
+    expect(decide(undefined, "medium", HE)).toBeFalsy();
   });
 
   it("reads the board and every latch from the checked snapshot, never the raw one", () => {
