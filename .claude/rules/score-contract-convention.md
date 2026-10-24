@@ -1,5 +1,5 @@
 ---
-paths: "**/sdk/**,**/games/**,**/portal/**"
+paths: "**/sdk/**,src/games/**,**/portal/**"
 ---
 
 # Scores - Games Report a Value and a Unit, `score.ts` Decides How It Ranks
