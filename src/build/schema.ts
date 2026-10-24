@@ -185,7 +185,7 @@ export function gameGraph(meta: GameMeta, copy: GameCopy, locale: Locale) {
     breadcrumb(locale, meta),
     {
       "@type": "HowTo",
-      name: SITE[locale].headings.howToPlay,
+      name: copy.howToPlayHeading ?? SITE[locale].headings.howToPlay,
       inLanguage: locale,
       step: copy.howToPlay.map((s, i) => ({
         "@type": "HowToStep",

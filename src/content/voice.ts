@@ -376,6 +376,8 @@ export function proseOf(copy: GameCopy): string[] {
   return [
     copy.lede,
     ...copy.body,
+    ...(copy.guideLink ? [copy.guideLink.lead] : []),
+    ...(copy.howToPlayHeading ? [copy.howToPlayHeading] : []),
     ...copy.howToPlay.map((s) => s.body),
     ...copy.tips.map((t) => t.body),
     ...copy.teaches.map((t) => t.body),

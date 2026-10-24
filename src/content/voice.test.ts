@@ -205,6 +205,8 @@ describe("proseOf visits every authored field", () => {
     const marked = copy({
       lede: "M_LEDE",
       body: ["M_BODY"],
+      guideLink: { paragraph: 0, lead: "M_GUIDE_LEAD", slug: "s" },
+      howToPlayHeading: "M_HOWTO_HEADING",
       howToPlay: [{ title: "t", body: "M_HOWTO" }],
       tips: [{ title: "t", body: "M_TIPS" }],
       teaches: [{ title: "t", body: "M_TEACHES" }],
@@ -217,6 +219,8 @@ describe("proseOf visits every authored field", () => {
     for (const marker of [
       "M_LEDE",
       "M_BODY",
+      "M_GUIDE_LEAD",
+      "M_HOWTO_HEADING",
       "M_HOWTO",
       "M_TIPS",
       "M_TEACHES",

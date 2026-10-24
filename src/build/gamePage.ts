@@ -97,6 +97,23 @@ function artImage(meta: GameMeta, locale: Locale, site: SiteCopy, base: string):
   />`;
 }
 
+/**
+ * `copy.guideLink`, as `lead <a>guide h1</a>.` at the end of one body paragraph.
+ *
+ * The anchor text is the guide's own h1, so the link names exactly what it
+ * opens. A slug that is not a guide for this game in this language THROWS: a
+ * renamed guide is a red build here, never a 404 in the article.
+ */
+function inlineGuide(meta: GameMeta, copy: GameCopy, locale: Locale, base: string): RawHtml {
+  const link = copy.guideLink!;
+  const guide = guidesForGame(meta.id, locale).find((g) => g.slug === link.slug);
+  if (!guide)
+    throw new Error(`${meta.id} (${locale}): guideLink names "${link.slug}", which is not a ${locale} guide for this game`);
+  if (link.paragraph < 0 || link.paragraph >= copy.body.length)
+    throw new Error(`${meta.id} (${locale}): guideLink.paragraph ${link.paragraph} is outside the body`);
+  return html`${link.lead} <a href="${href(guidePath(guide.slug, guide.locale), base)}">${guide.copy.h1}</a>.`;
+}
+
 function guideSection(meta: GameMeta, locale: Locale, base: string): RawHtml {
   const guides = guidesForGame(meta.id, locale);
   if (!guides.length) return html``;
@@ -460,6 +477,9 @@ export function gamePage(opts: GamePageOptions): string {
   const site = SITE[locale];
   const h = site.headings;
   const related = relatedTo(meta, opts.all);
+  // Resolved BEFORE the body, so a bad slug or a stale paragraph index throws
+  // even though no paragraph would ever match it.
+  const guideLine = copy.guideLink ? inlineGuide(meta, copy, locale, base) : undefined;
 
   // The BREADCRUMB and the RESTART share the utility row, above the stage.
   //
@@ -568,11 +588,13 @@ export function gamePage(opts: GamePageOptions): string {
       ${site.facts.map((f) => html`<li>${f}</li>`)}
     </ul>
 
-    <h2>${h.howToPlay}</h2>
+    <h2>${copy.howToPlayHeading ?? h.howToPlay}</h2>
     ${steps(copy.howToPlay)}
 
     <h2>${h.about}</h2>
-    ${copy.body.map((p) => html`<p>${p}</p>`)}
+    ${copy.body.map((p, i) =>
+      guideLine && copy.guideLink?.paragraph === i ? html`<p>${p} ${guideLine}</p>` : html`<p>${p}</p>`,
+    )}
 
     <h2>${h.teaches}</h2>
     ${sections(copy.teaches)}

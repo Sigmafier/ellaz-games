@@ -100,6 +100,21 @@ export interface GameCopy {
   lede: string;
   /** The article. Deliberately uneven - see `voice.ts`. */
   body: string[];
+  /**
+   * OPTIONAL. Ends one body paragraph with a link to one of this game's own
+   * guides: `lead` is the words before it, `slug` names the guide, and the
+   * anchor text is that guide's own h1, read from `GUIDES` rather than typed
+   * twice. The build throws if the slug is not a guide for this game in this
+   * language, so a renamed guide is a red build rather than a dead link.
+   * Added 2026-10-24 for the Hebrew minesweeper page only.
+   */
+  guideLink?: { paragraph: number; lead: string; slug: string };
+  /**
+   * OPTIONAL. Replaces the site-wide "how to play" heading (`SITE.headings`)
+   * on this one page, and the HowTo name in its JSON-LD with it, so the two
+   * cannot disagree. Every page that leaves it out is byte-identical.
+   */
+  howToPlayHeading?: string;
   howToPlay: Titled[];
   /** Strategy, peer to peer. The only section that is ours rather than a fact about the game. */
   tips: Titled[];
