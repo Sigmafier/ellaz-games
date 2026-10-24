@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { haptic } from "@juice/index";
 import { tierOf, type BonusTier } from "./bonus";
 import { ANAGRAM_MS, anagramQuality, isAnswer, makeAnagram } from "./anagram";
+import type { Lang } from "./lang";
 import { BARE_BUTTON, CHOICE_ROW, EDGE, INK, RoundShell, Tile, useNoPuzzleGuard, useRoundClock, type RoundText } from "./roundShell";
 
 /**
@@ -33,13 +34,15 @@ import { BARE_BUTTON, CHOICE_ROW, EDGE, INK, RoundShell, Tile, useNoPuzzleGuard,
 /** The one thing this round says that the other four do not. */
 export type AnagramText = RoundText & { readonly clear: string };
 
-export function AnagramRound({ glyph, t, onStop, playTap }: {
+export function AnagramRound({ glyph, t, onStop, playTap, lang }: {
   glyph: ReactNode;
   t: AnagramText;
   onStop: (tier: BonusTier) => void;
   playTap: () => void;
+  /** The pack this round asks its questions in. See `lang.ts`. */
+  lang: Lang;
 }) {
-  const puzzle = useMemo(() => makeAnagram(), []);
+  const puzzle = useMemo(() => makeAnagram(Math.random, lang), [lang]);
   const letters = puzzle?.letters ?? [];
   const clock = useRoundClock(
     ANAGRAM_MS, (won) => onStop(tierOf(anagramQuality(letters.length, won))), playTap);
@@ -56,7 +59,7 @@ export function AnagramRound({ glyph, t, onStop, playTap }: {
     if (next.length < letters.length) { setLaid(next); return; }
 
     const word = next.map((k) => letters[k]).join("");
-    if (isAnswer(letters, word)) { setLaid(next); clock.finish(true); return; }
+    if (isAnswer(letters, word, lang)) { setLaid(next); clock.finish(true); return; }
     setLaid(next.slice(0, -1));
     haptic.fail();
   };
@@ -68,17 +71,21 @@ export function AnagramRound({ glyph, t, onStop, playTap }: {
   };
 
   const reveal = clock.phase === "done";
-  const shown = reveal && puzzle ? [...puzzle.word] : [...built];
+  // The reveal is a WHOLE word, so it is written properly - `lang.write` puts
+  // the final form back on its last letter. A word still being built is not
+  // finished, so its last tile is not yet a last letter and stays as dealt.
+  const shown = reveal && puzzle ? [...lang.write(puzzle.word)] : [...built];
   const blanks = Math.max(0, letters.length - shown.length);
 
   return (
     <RoundShell glyph={glyph} t={t} clock={clock} playTap={playTap}>
       {puzzle && (
         <>
-          {/* The word being built. `dir="ltr"` for the reason every round here
-              pins it: the letters are English whatever the app is speaking.
-              See .claude/rules/rtl-spatial-grid-dir-ltr.md */}
-          <div dir="ltr" aria-label={reveal ? puzzle.word : built || "empty"}
+          {/* The word being built, reading the way ITS LANGUAGE reads: `ltr`
+              for English whatever the app speaks, `rtl` for Hebrew so the first
+              tile laid sits on the right. A word, not a spatial grid
+              (.claude/rules/rtl-spatial-grid-dir-ltr.md pins the boards). */}
+          <div dir={lang.rtl ? "rtl" : "ltr"} aria-label={reveal ? lang.write(puzzle.word) : built || "empty"}
             style={{ display: "flex", gap: 4, minHeight: 44 }}>
             {shown.map((ch, k) => (
               reveal ? <Tile key={k} tone="filled">{ch}</Tile> : (

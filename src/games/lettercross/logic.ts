@@ -22,7 +22,7 @@
  *
  * See NOTICE.md for the word-list provenance, which is the other half of this.
  */
-import { WORDS } from "./words";
+import { EN, type Lang, type LangId } from "./lang";
 import { BOX_INDICES } from "./boxes";
 import { CELLS, SIZE, W, at, boardAt, colOf, rowOf, type Board, type Cell } from "./grid";
 
@@ -56,6 +56,13 @@ export type Placement = { readonly index: number; readonly letter: string; reado
 
 export type State = {
   readonly level: Level;
+  /**
+   * WHICH PACK THE LETTERS ON THIS BOARD CAME FROM. It is in the state rather
+   * than beside it because the board OUTLIVES the turn: a snapshot that did not
+   * carry it restores a Hebrew board into an English dictionary and refuses
+   * every word already standing on it, with no error anywhere.
+   */
+  readonly lang: LangId;
   readonly board: Board;
   readonly rack: readonly Tile[];
   readonly bag: readonly Tile[];
@@ -68,25 +75,32 @@ export type State = {
  * board's - `logic.test.ts` pins that count so a later "tidy-up" cannot quietly
  * restore them.
  */
-export const LETTER_VALUE: Readonly<Record<string, number>> = {
-  a: 1, b: 4, c: 2, d: 2, e: 1, f: 4, g: 3, h: 2, i: 1, j: 9, k: 6, l: 2, m: 4,
-  n: 1, o: 1, p: 2, q: 12, r: 1, s: 1, t: 1, u: 2, v: 5, w: 4, x: 9, y: 4, z: 12,
-};
-
-const COUNTS: Readonly<Record<string, number>> = {
-  e: 10, a: 7, i: 7, o: 7, n: 5, r: 5, t: 5, s: 5, l: 5, u: 4, d: 4, c: 3, h: 3,
-  m: 2, g: 2, p: 2, b: 2, y: 2, f: 2, w: 2, v: 1, k: 1, j: 1, x: 1, q: 1, z: 1,
-};
+/**
+ * THE ENGLISH values, kept under their old name because `logic.test.ts` pins
+ * that 14 of these 26 differ from the famous board's and `bonusBoard.ts` scores
+ * against them. The game reads `lang.value` now - see `lang.ts`, which owns
+ * both packs and is where a second language's letters live.
+ */
+export const LETTER_VALUE: Readonly<Record<string, number>> = EN.value;
 
 /** Four wilds - twice the usual two. A wild scores 0 but spells any letter. */
 export const WILDS = 4;
 
-export const BAG: readonly Tile[] = (() => {
+/**
+ * The bag for a pack. Both packs total the same number of tiles on purpose, so
+ * a level's rack size, how far a word can run and how many prize boxes are
+ * reachable all behave the same in either language - `logic.test.ts` pins that
+ * equality, because it is the assumption every other number in this file rests
+ * on and nothing else would notice it moving.
+ */
+export function bagFor(lang: Lang): Tile[] {
   const out: Tile[] = [];
-  for (const [ch, n] of Object.entries(COUNTS)) for (let i = 0; i < n; i++) out.push(ch);
+  for (const [ch, n] of Object.entries(lang.counts)) for (let i = 0; i < n; i++) out.push(ch);
   for (let i = 0; i < WILDS; i++) out.push("?");
   return out;
-})();
+}
+
+export const BAG: readonly Tile[] = bagFor(EN);
 export const TOTAL_TILES = BAG.length;
 
 /** Easy hands you more letters to work with. It never changes the DICTIONARY. */
@@ -94,9 +108,17 @@ export function rackFor(level: Level): number {
   return level === "easy" ? 9 : level === "hard" ? 7 : 8;
 }
 
-/** The score board a level records against - the scales are not comparable. */
-export function bestLevel(level: Level): string {
-  return level;
+/**
+ * The score board a run records against.
+ *
+ * ENGLISH KEEPS THE BARE LEVEL, so every record set before this game spoke two
+ * languages survives. Hebrew gets its own boards, because the two are not
+ * comparable in either direction: different letter values, a different bag, and
+ * a dictionary far smaller. One leaderboard over both would rank the languages
+ * rather than the players.
+ */
+export function bestLevel(level: Level, lang: Lang = EN): string {
+  return lang.id === "en" ? level : `${lang.id}-${level}`;
 }
 
 function shuffle<T>(xs: readonly T[], rng: () => number): T[] {
@@ -108,11 +130,12 @@ function shuffle<T>(xs: readonly T[], rng: () => number): T[] {
   return a;
 }
 
-export function newGame(level: Level, rng: () => number = Math.random): State {
-  const bag = shuffle(BAG, rng);
+export function newGame(level: Level, rng: () => number = Math.random, lang: Lang = EN): State {
+  const bag = shuffle(bagFor(lang), rng);
   const n = rackFor(level);
   return {
     level,
+    lang: lang.id,
     board: Array<Cell>(CELLS).fill(null),
     rack: bag.slice(0, n),
     bag: bag.slice(n),
@@ -162,7 +185,7 @@ function runThrough(board: Board, index: number, step: number): number[] {
   return run;
 }
 
-export function validate(board: Board, placements: readonly Placement[]): Verdict {
+export function validate(board: Board, placements: readonly Placement[], lang: Lang = EN): Verdict {
   if (placements.length === 0) return { ok: false, reason: "empty" };
   if (placements.some((p) => board[p.index] !== null)) return { ok: false, reason: "line" };
   if (placements.some((p) => !PLAYABLE[p.index])) return { ok: false, reason: "off" };
@@ -175,7 +198,7 @@ export function validate(board: Board, placements: readonly Placement[]): Verdic
 
   // The merged board: what it would look like if this play stood.
   const next: Cell[] = [...board];
-  for (const p of placements) next[p.index] = { letter: p.letter.toLowerCase(), wild: p.wild };
+  for (const p of placements) next[p.index] = { letter: lang.fold(p.letter), wild: p.wild };
 
   // Contiguity along the main axis, counting tiles already on the board.
   // Checked BEFORE the start-square rule: two tiles either side of the centre
@@ -200,27 +223,44 @@ export function validate(board: Board, placements: readonly Placement[]): Verdic
   const seen = new Set<string>();
   const words: Scored[] = [];
 
-  const collect = (run: number[]) => {
+  /**
+   * A RUN IS A WORD ONLY ONCE YOU KNOW WHICH WAY IT READS.
+   *
+   * `runThrough` walks the stage in ascending index, so a horizontal run comes
+   * back left to right. That IS the word in English and is the word BACKWARDS
+   * in Hebrew, where a row reads right to left - so `חתול` laid out on a row
+   * would be handed to the dictionary as `לותח` and refused, on a board that
+   * looks completely correct to the person who built it. A column is unaffected:
+   * both languages read one downwards.
+   *
+   * The reversal is decided by the PACK and not by the layout. The grid itself
+   * stays `dir="ltr"` so the index space and the swipe directions do not mirror
+   * (.claude/rules/rtl-spatial-grid-dir-ltr.md); what mirrors is the reading,
+   * which is a fact about the language.
+   */
+  const collect = (run: number[], step: number) => {
     if (run.length < 2) return true;
     const key = run.join(",");
     if (seen.has(key)) return true;
     seen.add(key);
-    const word = run.map((i) => next[i]!.letter).join("");
-    if (!WORDS.has(word)) return false;
+    const order = lang.rtl && step === 1 ? [...run].reverse() : run;
+    const word = order.map((i) => next[i]!.letter).join("");
+    if (!lang.has(word)) return false;
     // A word is worth its letters. No premium squares, no multipliers -
     // operator's call, 2026-08-24: "i dont need the bonus or special boxes".
     let sum = 0;
     for (const i of run) {
       const cell = next[i]!;
-      sum += cell.wild ? 0 : (LETTER_VALUE[cell.letter] ?? 0);
+      sum += cell.wild ? 0 : (lang.value[cell.letter] ?? 0);
     }
     words.push({ word, score: sum });
     return true;
   };
 
   // The main word along the axis of play, then every cross-word a new tile made.
-  if (!collect(runThrough(next, idxs[0], step))) return { ok: false, reason: "word" };
-  for (const p of placements) if (!collect(runThrough(next, p.index, step === 1 ? W : 1))) return { ok: false, reason: "word" };
+  const cross = step === 1 ? W : 1;
+  if (!collect(runThrough(next, idxs[0], step), step)) return { ok: false, reason: "word" };
+  for (const p of placements) if (!collect(runThrough(next, p.index, cross), cross)) return { ok: false, reason: "word" };
 
   // A PLAY MUST MAKE A WORD. With the start square and the touch rule gone
   // (2026-08-24) nothing else stops a single tile being dropped on an empty
@@ -245,16 +285,16 @@ export function validate(board: Board, placements: readonly Placement[]): Verdic
  * the renderer only ever builds placements from the rack, and a logic core that
  * can throw mid-turn loses the whole board rather than one illegal move.
  */
-export function apply(state: State, placements: readonly Placement[]): State {
-  const v = validate(state.board, placements);
+export function apply(state: State, placements: readonly Placement[], lang: Lang = EN): State {
+  const v = validate(state.board, placements, lang);
   if (!v.ok) return state;
 
   const board: Cell[] = [...state.board];
-  for (const p of placements) board[p.index] = { letter: p.letter.toLowerCase(), wild: p.wild };
+  for (const p of placements) board[p.index] = { letter: lang.fold(p.letter), wild: p.wild };
 
   const rack = [...state.rack];
   for (const p of placements) {
-    const want = p.wild ? "?" : p.letter.toLowerCase();
+    const want = p.wild ? "?" : lang.fold(p.letter);
     const at = rack.indexOf(want);
     rack.splice(at >= 0 ? at : 0, 1);
   }

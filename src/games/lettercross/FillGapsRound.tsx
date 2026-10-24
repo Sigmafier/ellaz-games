@@ -4,6 +4,7 @@ import { tierOf, type BonusTier } from "./bonus";
 import { isWord } from "./patterns";
 import { BARE_BUTTON, CHOICE_ROW, RoundShell, Tile, useNoPuzzleGuard, useRoundClock, type RoundText } from "./roundShell";
 import { FILL_MS, fillQuality, makeFill } from "./fillGaps";
+import type { Lang } from "./lang";
 
 /**
  * "Fill the missing letters in the word in front of you" - the fourth of
@@ -27,13 +28,15 @@ import { FILL_MS, fillQuality, makeFill } from "./fillGaps";
  *
  * THE ROUND DECIDES NOTHING. It reduces to a quality and hands it to `onStop`.
  */
-export function FillGapsRound({ glyph, t, onStop, playTap }: {
+export function FillGapsRound({ glyph, t, onStop, playTap, lang }: {
   glyph: ReactNode;
   t: RoundText;
   onStop: (tier: BonusTier) => void;
   playTap: () => void;
+  /** The pack this round asks its questions in. See `lang.ts`. */
+  lang: Lang;
 }) {
-  const puzzle = useMemo(() => makeFill(), []);
+  const puzzle = useMemo(() => makeFill(Math.random, lang), [lang]);
   const clock = useRoundClock(FILL_MS, (won) => onStop(tierOf(fillQuality(won))), playTap);
   useNoPuzzleGuard(clock, puzzle);
 
@@ -58,7 +61,9 @@ export function FillGapsRound({ glyph, t, onStop, playTap }: {
     if (next.filter(Boolean).length < gaps.length) { setPut(next); return; }
 
     const built = filledWith(next);
-    if (isWord(built)) { setPut(next); clock.finish(true); return; }
+    // Judged against THIS round's pack. Without it a Hebrew answer is checked
+    // against the English dictionary and every right word is refused.
+    if (isWord(built, lang)) { setPut(next); clock.finish(true); return; }
     // Wrong: the letters go back rather than staying to be picked over. Keeping
     // them would need a second gesture to clear before the next try, and the
     // thing this round is short of is time.
@@ -81,11 +86,15 @@ export function FillGapsRound({ glyph, t, onStop, playTap }: {
     <RoundShell glyph={glyph} t={t} clock={clock} playTap={playTap}>
       {puzzle && (
         <>
-          {/* `dir="ltr"`: the word is English whatever the app is speaking, and
-              an unpinned line mirrors in the Hebrew app - the gaps would land at
-              the wrong end. See .claude/rules/rtl-spatial-grid-dir-ltr.md */}
-          <div dir="ltr" aria-label={shown} style={{ display: "flex", gap: 4 }}>
-            {[...shown].map((ch, i) => {
+          {/* The word reads the way ITS LANGUAGE reads, never the way the app
+              does: pinned `ltr` for an English word (an unpinned line mirrors in
+              the Hebrew app and the gaps land at the wrong end), `rtl` for a
+              Hebrew one, so letter 0 sits on the right. This is a word, not a
+              spatial grid - .claude/rules/rtl-spatial-grid-dir-ltr.md pins the
+              BOARDS, which stay ltr. `lang.write` puts a final form back on the
+              last letter for the eye only; the gaps and the answer stay folded. */}
+          <div dir={lang.rtl ? "rtl" : "ltr"} aria-label={lang.write(shown)} style={{ display: "flex", gap: 4 }}>
+            {[...lang.write(shown)].map((ch, i) => {
               const k = gaps.indexOf(i);
               const mine = k >= 0;
               const tone = ch === "_" ? "gap" : mine ? "filled" : "plain";

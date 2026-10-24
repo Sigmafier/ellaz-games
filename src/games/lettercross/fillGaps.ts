@@ -33,8 +33,8 @@
  * The two lists are `sharedLetter.ts`'s, for its reasons: the word SHOWN comes
  * from `puzzleWords.ts`, the answer is CHECKED against `words.ts`.
  */
-import { PUZZLE_WORDS } from "./puzzleWords";
-import { AZ, isWord } from "./patterns";
+import { EN, type Lang } from "./lang";
+import { isWord } from "./patterns";
 import { pick, shuffle } from "@shared/rng";
 import { MEDIUM_Q } from "./bonus";
 
@@ -65,31 +65,41 @@ export type FillPuzzle = {
 };
 
 /** Pool words long enough that two gaps can still leave a unique answer. */
-const CANDIDATES = PUZZLE_WORDS.filter((w) => w.length >= GAPS + 3);
+/**
+ * Long enough that two gaps still leave something to read. Per pack, memoised:
+ * the pool is frozen so this can never change at runtime, and a player who only
+ * ever opens one language never builds the other's list.
+ */
+const CAND = new Map<string, readonly string[]>();
+const candidates = (lang: Lang) => {
+  let xs = CAND.get(lang.id);
+  if (!xs) CAND.set(lang.id, (xs = lang.pool.filter((w) => w.length >= GAPS + 3)));
+  return xs;
+};
 
 /**
  * Every real word this pattern could be. Walks the gaps rather than the
  * dictionary: 26^GAPS lookups against a Set, instead of 28,515 string compares.
  */
-export function answersFor(pattern: string): string[] {
+export function answersFor(pattern: string, lang: Lang = EN): string[] {
   const gaps = [...pattern].map((c, i) => (c === "_" ? i : -1)).filter((i) => i >= 0);
   const out: string[] = [];
   const walk = (k: number, cur: string[]) => {
     if (k === gaps.length) {
       const w = cur.join("");
-      if (isWord(w)) out.push(w);
+      if (isWord(w, lang)) out.push(w);
       return;
     }
-    for (const c of AZ) { cur[gaps[k]] = c; walk(k + 1, cur); }
+    for (const c of lang.letters) { cur[gaps[k]] = c; walk(k + 1, cur); }
   };
   walk(0, [...pattern]);
   return out;
 }
 
 /** Which letters ever stand at a given position in a pool word of a given length. */
-function lettersByPosition(): Map<string, string[]> {
+function lettersByPosition(lang: Lang): Map<string, string[]> {
   const m = new Map<string, string[]>();
-  for (const w of PUZZLE_WORDS) {
+  for (const w of lang.pool) {
     for (let i = 0; i < w.length; i++) {
       const k = `${w.length}:${i}`;
       const seen = m.get(k);
@@ -99,7 +109,12 @@ function lettersByPosition(): Map<string, string[]> {
   }
   return m;
 }
-const AT_POSITION = lettersByPosition();
+const POSITIONS = new Map<string, Map<string, string[]>>();
+const atPosition = (lang: Lang) => {
+  let m = POSITIONS.get(lang.id);
+  if (!m) POSITIONS.set(lang.id, (m = lettersByPosition(lang)));
+  return m;
+};
 
 /**
  * The letters to offer.
@@ -132,17 +147,18 @@ const AT_POSITION = lettersByPosition();
  * wants two p's from one button. The row is a set of letters rather than a
  * letter per gap, so a repeat costs a slot instead of taking two.
  */
-function choicesFor(word: string, gaps: readonly number[], rng: () => number): string[] {
+function choicesFor(word: string, gaps: readonly number[], rng: () => number, lang: Lang): string[] {
   const picked = new Set<string>(gaps.map((i) => word[i]));
   const plausible = new Set<string>();
-  for (const i of gaps) for (const c of AT_POSITION.get(`${word.length}:${i}`) ?? []) plausible.add(c);
+  const at = atPosition(lang);
+  for (const i of gaps) for (const c of at.get(`${word.length}:${i}`) ?? []) plausible.add(c);
   for (const c of shuffle([...plausible], rng)) {
     if (picked.size >= CHOICES) break;
     picked.add(c);
   }
   // Only if a position is so narrow it cannot fill the row, so the row's SIZE
   // never leaks how tight the puzzle is.
-  for (const c of shuffle(AZ, rng)) {
+  for (const c of shuffle(lang.letters, rng)) {
     if (picked.size >= CHOICES) break;
     picked.add(c);
   }
@@ -161,15 +177,16 @@ function choicesFor(word: string, gaps: readonly number[], rng: () => number): s
  * cannot express "there was no puzzle" is a caller that will one day throw
  * inside a bonus round, in front of a child who had just won it.
  */
-export function makeFill(rng: () => number = Math.random): FillPuzzle | undefined {
+export function makeFill(rng: () => number = Math.random, lang: Lang = EN): FillPuzzle | undefined {
   const cut = (w: string, gaps: readonly number[]) =>
     [...w].map((c, i) => (gaps.includes(i) ? "_" : c)).join("");
 
+  const CANDIDATES = candidates(lang);
   const build = (w: string, gaps: number[]): FillPuzzle | undefined => {
     const pattern = cut(w, gaps);
-    const answers = answersFor(pattern);
+    const answers = answersFor(pattern, lang);
     if (answers.length !== 1 || answers[0] !== w) return undefined;
-    return { word: w, pattern, gaps, choices: choicesFor(w, gaps, rng) };
+    return { word: w, pattern, gaps, choices: choicesFor(w, gaps, rng, lang) };
   };
 
   for (let attempt = 0; attempt < 400; attempt++) {

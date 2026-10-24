@@ -25,13 +25,15 @@
  * player knows also fits it - the game would be right by its own list and wrong
  * to the person playing.
  *
- * ENGLISH IN EVERY LOCALE, deliberately. The dictionary is ENABLE1 and the board
- * game is an English word game whatever language the app is speaking, so a
- * Hebrew player already lays English words; a bonus screen in Hebrew would be a
- * different game. Only the chrome around it translates.
+ * IN THE RUN'S OWN LANGUAGE. Until 2026-08-27 this said "English in every
+ * locale", because the board game was English whatever the app spoke. Since
+ * the Hebrew pack the board and every bonus screen take the SAME pack - a
+ * Hebrew run's prize is a Hebrew puzzle, an English run's is an English one -
+ * and every other interface language still plays English (`lang.ts`,
+ * `packFor`).
  */
-import { PUZZLE_WORDS } from "./puzzleWords";
-import { AZ, blank, solvers } from "./patterns";
+import { EN, type Lang } from "./lang";
+import { blank, solvers } from "./patterns";
 import { pick, shuffle } from "@shared/rng";
 import { HARD_Q, MEDIUM_Q } from "./bonus";
 
@@ -60,9 +62,9 @@ export type SharedPuzzle = {
 };
 
 /** Every (word, blanked pattern) the pool offers, grouped by the letter removed. */
-function patternsByLetter(): Map<string, { p: string; w: string }[]> {
+function patternsByLetter(lang: Lang): Map<string, { p: string; w: string }[]> {
   const m = new Map<string, { p: string; w: string }[]>();
-  for (const w of PUZZLE_WORDS) {
+  for (const w of lang.pool) {
     for (let i = 0; i < w.length; i++) {
       const c = w[i];
       let bucket = m.get(c);
@@ -72,8 +74,21 @@ function patternsByLetter(): Map<string, { p: string; w: string }[]> {
   }
   return m;
 }
-/** Built once: it is 1,465 entries off a frozen list and cannot change at runtime. */
-const BY_LETTER = patternsByLetter();
+
+/**
+ * Built once PER PACK, off a frozen list that cannot change at runtime.
+ *
+ * It used to be one module-level constant, which was right while there was one
+ * pool. Keyed by pack it stays exactly as cheap - each language pays for its
+ * index the first time somebody opens a round in it, and a player who never
+ * switches language never builds the other one.
+ */
+const INDEX = new Map<string, Map<string, { p: string; w: string }[]>>();
+const byLetter = (lang: Lang) => {
+  let m = INDEX.get(lang.id);
+  if (!m) INDEX.set(lang.id, (m = patternsByLetter(lang)));
+  return m;
+};
 
 /**
  * The letters to offer beside the answer.
@@ -88,12 +103,12 @@ const BY_LETTER = patternsByLetter();
  * seven near-misses, so the row is always the same size and the count never
  * leaks how hard the puzzle is.
  */
-function choicesFor(patterns: readonly string[], answer: string, rng: () => number): string[] {
+function choicesFor(patterns: readonly string[], answer: string, rng: () => number, lang: Lang): string[] {
   const near = new Set<string>();
-  for (const p of patterns) for (const c of solvers([p])) if (c !== answer) near.add(c);
+  for (const p of patterns) for (const c of solvers([p], lang)) if (c !== answer) near.add(c);
   const picked = shuffle([...near], rng).slice(0, CHOICES - 1);
   if (picked.length < CHOICES - 1) {
-    for (const c of shuffle(AZ, rng)) {
+    for (const c of shuffle(lang.letters, rng)) {
       if (picked.length >= CHOICES - 1) break;
       if (c !== answer && !picked.includes(c)) picked.push(c);
     }
@@ -133,7 +148,8 @@ const OPEN_ENOUGH = 2;
  * cannot express "there was no puzzle" is a caller that will one day throw
  * inside a bonus round.
  */
-export function makeShared(count: number, rng: () => number = Math.random): SharedPuzzle | undefined {
+export function makeShared(count: number, rng: () => number = Math.random, lang: Lang = EN): SharedPuzzle | undefined {
+  const BY_LETTER = byLetter(lang);
   const letters = shuffle([...BY_LETTER.keys()], rng);
 
   const build = (
@@ -145,11 +161,11 @@ export function makeShared(count: number, rng: () => number = Math.random): Shar
     // player is reading fewer lines than the round says it is asking.
     if (new Set(picks.map((x) => x.w)).size !== count) return undefined;
     const patterns = picks.map((x) => x.p);
-    const only = solvers(patterns);
+    const only = solvers(patterns, lang);
     if (only.length !== 1 || only[0] !== ch) return undefined;
 
     if (want !== "any") {
-      const per = patterns.map((p) => solvers([p]));
+      const per = patterns.map((p) => solvers([p], lang));
       if (per.some((xs) => xs.length < OPEN_ENOUGH)) return undefined;
       if (want === "wide") {
         const near = new Set(per.flat());
@@ -161,7 +177,7 @@ export function makeShared(count: number, rng: () => number = Math.random): Shar
       words: picks.map((x) => x.w),
       patterns,
       answer: ch,
-      choices: choicesFor(patterns, ch, rng),
+      choices: choicesFor(patterns, ch, rng, lang),
     };
   };
 

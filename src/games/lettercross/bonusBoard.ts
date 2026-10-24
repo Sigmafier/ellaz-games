@@ -27,8 +27,8 @@
  * works is that the bonus is not a BREAK, it is a second helping. The comment
  * is gone rather than left standing as a second answer.
  */
-import { LETTER_VALUE, type Scored } from "./logic";
-import { WORDS } from "./words";
+import { type Scored } from "./logic";
+import { EN, type Lang } from "./lang";
 
 /** Columns. NINE, matching the main board, so the cell size does not change. */
 export const BW = 9;
@@ -56,17 +56,31 @@ export const emptyMini = (): MiniBoard => Array<MiniCell>(BW * BH).fill(null);
  * game into sixty seconds of being told no. It is a FLOOR and not a quota: a
  * generous deal is left alone.
  */
-const POOL = "eeeeeeeeeeaaaaaaaiiiiiiiooooooonnnnnrrrrrtttttsssssllllluuuuddddccchhhmmggppbbyyffwwvkjxqz";
-const VOWELS = "aeiou";
+/**
+ * THE DEAL POOL, one per pack, weighted from that language's own bag so the
+ * letters feel like the game's letters.
+ *
+ * THE VOWEL FLOOR IS THE WHOLE POINT OF THIS FUNCTION, and it is a floor rather
+ * than a quota - a generous deal is left alone. What counts as a vowel is the
+ * PACK's answer, not this file's: Hebrew has no vowel letters, so its pack
+ * names the four matres lectionis instead (see `lang.ts`). Sixteen independent
+ * draws hand out too few of them often enough to turn the biggest prize in the
+ * game into sixty seconds of being told no.
+ */
+const poolFor = (lang: Lang) =>
+  Object.entries(lang.counts).flatMap(([ch, n]) => Array<string>(n).fill(ch));
+
 export const MIN_VOWELS = 5;
 
-export function dealTiles(rng: () => number = Math.random, n: number = BONUS_TILES): string[] {
+export function dealTiles(rng: () => number = Math.random, n: number = BONUS_TILES, lang: Lang = EN): string[] {
+  const pool = poolFor(lang);
+  const vowels = lang.vowels;
   const out: string[] = [];
-  for (let i = 0; i < n; i++) out.push(POOL[Math.floor(rng() * POOL.length)]);
-  let short = MIN_VOWELS - out.filter((c) => VOWELS.includes(c)).length;
+  for (let i = 0; i < n; i++) out.push(pool[Math.floor(rng() * pool.length)]);
+  let short = MIN_VOWELS - out.filter((c) => vowels.includes(c)).length;
   for (let i = 0; i < out.length && short > 0; i++) {
-    if (VOWELS.includes(out[i])) continue;
-    out[i] = VOWELS[Math.floor(rng() * VOWELS.length)];
+    if (vowels.includes(out[i])) continue;
+    out[i] = vowels[Math.floor(rng() * vowels.length)];
     short--;
   }
   return out;
@@ -80,16 +94,19 @@ export function dealTiles(rng: () => number = Math.random, n: number = BONUS_TIL
  * the main game's connection and first-word rules, none of which apply here -
  * inside a bonus you lay words "as you wish". Parameterising it would put the
  * main game's core one typo away from a change made for a mini-game. What IS
- * shared is the only part that must never disagree: `WORDS` and `LETTER_VALUE`.
+ * shared is the only part that must never disagree: the PACK - its dictionary,
+ * its letter values, and which way a row reads.
  */
-function runsOf(board: MiniBoard): number[][] {
-  const runs: number[][] = [];
+type Run = { readonly cells: readonly number[]; readonly across: boolean };
+
+function runsOf(board: MiniBoard): Run[] {
+  const runs: Run[] = [];
   for (let r = 0; r < BH; r++) {
     let run: number[] = [];
     for (let c = 0; c <= BW; c++) {
       const i = r * BW + c;
       if (c < BW && board[i]) run.push(i);
-      else { if (run.length >= 2) runs.push(run); run = []; }
+      else { if (run.length >= 2) runs.push({ cells: run, across: true }); run = []; }
     }
   }
   for (let c = 0; c < BW; c++) {
@@ -97,7 +114,7 @@ function runsOf(board: MiniBoard): number[][] {
     for (let r = 0; r <= BH; r++) {
       const i = r * BW + c;
       if (r < BH && board[i]) run.push(i);
-      else { if (run.length >= 2) runs.push(run); run = []; }
+      else { if (run.length >= 2) runs.push({ cells: run, across: false }); run = []; }
     }
   }
   return runs;
@@ -125,14 +142,18 @@ export type MiniScore = {
  * illegal word would make an abandoned tile cost the player everything, which
  * is a rule nobody would guess and one BONUS did not have.
  */
-export function scoreMini(board: MiniBoard): MiniScore {
+export function scoreMini(board: MiniBoard, lang: Lang = EN): MiniScore {
   const words: Scored[] = [];
   const bad: string[] = [];
-  for (const run of runsOf(board)) {
-    const word = run.map((i) => board[i]!).join("");
-    if (!WORDS.has(word)) { bad.push(word); continue; }
+  for (const { cells, across } of runsOf(board)) {
+    // An across run comes back left to right, which is the word in English and
+    // the word backwards in Hebrew. Same reversal, and the same reason, as
+    // `collect` in logic.ts - a row reads the way its language reads.
+    const order = lang.rtl && across ? [...cells].reverse() : cells;
+    const word = order.map((i) => board[i]!).join("");
+    if (!lang.has(word)) { bad.push(word); continue; }
     let sum = 0;
-    for (const i of run) sum += LETTER_VALUE[board[i]!] ?? 0;
+    for (const i of cells) sum += lang.value[board[i]!] ?? 0;
     words.push({ word, score: sum });
   }
   const total = bad.length ? 0 : words.reduce((n, w) => n + w.score, 0);

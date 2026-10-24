@@ -145,7 +145,11 @@ describe("the wiring", () => {
   it("bumped the snapshot version when the shape changed", () => {
     // `bonus: number | null` became `rounds: readonly number[]`. A stored v4
     // read as a v5 restores a board with no queue and a prize quietly gone.
-    expect(SRC).toMatch(/version: 6,/);
+    //
+    // 7 since 2026-08-27: the state carries the LANGUAGE it was dealt in. A v6
+    // snapshot has no `lang`, so restoring one puts an English board under
+    // whichever pack is open - a board that refuses every word already on it.
+    expect(SRC).toMatch(/version: 7,/);
   });
 
 });

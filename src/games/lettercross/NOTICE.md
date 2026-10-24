@@ -40,6 +40,25 @@ misdescribes ENABLE as a version of the OSPD; the *content* was verified as
 genuine ENABLE (172,823 entries, `aa` ... `zyzzyvas`), but a better-attested
 source should replace it when one is to hand.
 
+## The Hebrew word list
+
+`wordsHe.ts` is AUTHORED, not generated, and is ours under the repository's MIT
+licence. Every free Hebrew dictionary of any size traces back to Hspell, whose
+licence covers the dictionary files and generated word lists and is AGPLv3, so
+shipping one would relicense the platform; a web-frequency list carries brand
+names, foreign words and typos. The operator chose a hand-written list on
+2026-08-27. Nothing in it was copied from a commercial board game's list.
+
+It is about 1,800 everyday words, grouped under labels so a Hebrew reader can
+proofread it, with no nikud and no word that needs an apostrophe. Being typed
+on purpose rather than filtered, it needs no blocklist. THE COST IS THE
+PLAYER'S: an ordinary word nobody wrote down is refused, which looks exactly
+like being told it is not a word. Adding words to it is a normal edit.
+
+The Hebrew puzzle pool (`PUZZLE_WORDS_HE` in `puzzleWords.ts`) is a separate,
+smaller allowlist of concrete words, and every entry of it is also in the
+dictionary (`plays-in-hebrew.test.ts`).
+
 ## The filtering, and the limit of it
 
 ENABLE contains **49 of 49** obscenities and slurs probed on 2026-08-24 -
@@ -72,26 +91,26 @@ word in it is also in this file, and it stays big enough to ask a puzzle from.
 
 **Four of the five bonus screens draw from it, and none of them imports this
 file.** `sharedLetter.ts` (two screens), `fillGaps.ts` and `anagram.ts` all take
-what they SHOW from the pool and ask `patterns.ts` what is TRUE.
+what they SHOW from the pool and ask their language pack what is TRUE.
 
-**TWO modules in the round tree import this one, not one.** `patterns.ts`, which
-answers "is that a word" for the three pool-fed screens, and `bonusBoard.ts`,
-the crossword - the fifth screen, and the only one that shows the player no
-dictionary word at all, because every letter on it came off their own deal. It
-imports this file to JUDGE what they built, which is the same thing `logic.ts`
-does for the main board and is the use this file has always been safe for.
+**ONE module imports this file, and it is `lang.ts`** (since the Hebrew pack,
+2026-08-27; ported onto main 2026-10-24). It owns both dictionaries and hands
+every caller a PREDICATE, `lang.has(word)`, never the set - so a round can ask
+about a word it already holds and has no way to get a word out. `patterns.ts`,
+`bonusBoard.ts` (the crossword screen, which shows no dictionary word at all)
+and `logic.ts` (the main board) all judge through that predicate now.
 
-That sentence said "`patterns.ts` is the only module" until 2026-08-25 and it
-was false the day it was written, in the one file here whose entire job is to be
-precise about this list. The safety property it was reaching for held the whole
-time - nothing shows a word from here - but a NOTICE that overstates its own
-boundary is worth less than one that names the exception, because the next
-reader checks the sentence rather than the tree.
+Until then the sentence here named readers, and it was wrong twice: it said
+"`patterns.ts` is the only module" while `bonusBoard.ts` also read this file,
+and after that was fixed it still described a set the code no longer had. A
+NOTICE that overstates its own boundary is worth less than one that names the
+exception, because the next reader checks the sentence rather than the tree.
 
-`rounds-are-wired.test.ts` asserts the boundary from both ends now: no round
-component may import `./words`, and the SET of round modules that do must be
-exactly those two - so a third arrival is a red build rather than a sentence
-that quietly stops being true.
+`rounds-are-wired.test.ts` asserts the boundary from both ends: no round
+component may import a dictionary, the SET of production modules that do must
+be exactly `lang.ts`, and the pack's type must expose a predicate rather than a
+readable set - so a second importer is a red build rather than a sentence that
+quietly stops being true.
 
 The split is not symmetrical in cost, which is why it is written down twice.
 Showing from here would eventually put an ugly word in front of a five-year-old

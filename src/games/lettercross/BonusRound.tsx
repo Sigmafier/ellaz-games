@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { haptic } from "@juice/index";
 import { tierOf, type BonusTier } from "./bonus";
 import {
-  BH, BONUS_MS, BW, dealTiles, emptyMini, miniQuality, scoreMini, type MiniCell,
+  BH, BONUS_MS, BW, dealTiles, emptyMini, miniQuality, scoreMini, BONUS_TILES, type MiniCell,
 } from "./bonusBoard";
+import type { Lang } from "./lang";
 // THE PALETTE IS THE SHELL'S, even though this round does not use the shell.
 // It carried its own `INK`/`EDGE` and inlined GOLD and WRONG as raw hex until
 // 2026-08-25 - byte-identical to the exports two files over, so a palette
@@ -50,11 +51,13 @@ export type BonusText = {
  * TAP-COMPLETABLE, never a drag: tap a tile, tap a square. Tap a placed tile to
  * take it back. Nothing here needs a sustained pointer.
  */
-export function BonusRound({ glyph, t, onStop, playTap }: {
+export function BonusRound({ glyph, t, onStop, playTap, lang }: {
   glyph: ReactNode;
   t: BonusText;
   onStop: (tier: BonusTier) => void;
   playTap: () => void;
+  /** The pack this round asks its questions in. See `lang.ts`. */
+  lang: Lang;
 }) {
   const [phase, setPhase] = useState<"ready" | "playing" | "done">("ready");
   const [board, setBoard] = useState<readonly MiniCell[]>(emptyMini);
@@ -64,7 +67,7 @@ export function BonusRound({ glyph, t, onStop, playTap }: {
   const [left, setLeft] = useState(BONUS_MS);
   const [result, setResult] = useState<{ total: number; bad: number } | null>(null);
 
-  const tiles = useMemo(() => dealTiles(), []);
+  const tiles = useMemo(() => dealTiles(Math.random, BONUS_TILES, lang), [lang]);
   /**
    * Read by the rAF loop and the timeout, both created once. A `phase` read
    * from one of those closures is for ever the phase at creation time, so the
@@ -80,7 +83,7 @@ export function BonusRound({ glyph, t, onStop, playTap }: {
     if (doneRef.current) return;
     doneRef.current = true;
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    const s = scoreMini(boardRef.current);
+    const s = scoreMini(boardRef.current, lang);
     setResult({ total: s.total, bad: s.bad.length });
     setPhase("done");
     playTap();

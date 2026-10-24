@@ -3,6 +3,7 @@ import { haptic } from "@juice/index";
 import { tierOf, type BonusTier } from "./bonus";
 import { BARE_BUTTON, CHOICE_ROW, RoundShell, Tile, useNoPuzzleGuard, useRoundClock, type RoundText } from "./roundShell";
 import { CHOICES, SHARED_MS, makeShared, sharedQuality } from "./sharedLetter";
+import type { Lang } from "./lang";
 
 /**
  * "The same letter is missing from these words" - two of BONUS's five screens.
@@ -29,14 +30,16 @@ import { CHOICES, SHARED_MS, makeShared, sharedQuality } from "./sharedLetter";
  * bonus, which is about arguing rather than about learning - a round that ends
  * with the blanks still blank teaches nothing, and this is a children's game.
  */
-export function SharedLetterRound({ count, glyph, t, onStop, playTap }: {
+export function SharedLetterRound({ count, glyph, t, onStop, playTap, lang }: {
   count: 2 | 3;
   glyph: React.ReactNode;
   t: RoundText;
   onStop: (tier: BonusTier) => void;
   playTap: () => void;
+  /** The pack this round asks its questions in. See `lang.ts`. */
+  lang: Lang;
 }) {
-  const puzzle = useMemo(() => makeShared(count), [count]);
+  const puzzle = useMemo(() => makeShared(count, Math.random, lang), [count, lang]);
   const clock = useRoundClock(
     SHARED_MS[count], (won) => onStop(tierOf(sharedQuality(count, won))), playTap);
   useNoPuzzleGuard(clock, puzzle);
@@ -60,14 +63,16 @@ export function SharedLetterRound({ count, glyph, t, onStop, playTap }: {
     <RoundShell glyph={glyph} t={t} clock={clock} playTap={playTap}>
       {puzzle && (
         <>
-          {/* `dir="ltr"` because the words are English whatever the app is
-              speaking, and an unpinned line mirrors in the Hebrew app - the
-              blank would land at the wrong end of the word.
-              See .claude/rules/rtl-spatial-grid-dir-ltr.md */}
-          <div dir="ltr" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+          {/* Each word reads the way ITS LANGUAGE reads: pinned `ltr` for an
+              English word (an unpinned line mirrors in the Hebrew app and the
+              blank lands at the wrong end), `rtl` for a Hebrew one so letter 0
+              sits on the right. A word, not a spatial grid - the boards stay
+              ltr (.claude/rules/rtl-spatial-grid-dir-ltr.md). `lang.write` puts
+              a final form back on the last letter for the eye only. */}
+          <div dir={lang.rtl ? "rtl" : "ltr"} style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
             {puzzle.patterns.map((pattern, i) => (
-              <div key={i} aria-label={shown(pattern)} style={{ display: "flex", gap: 4 }}>
-                {[...shown(pattern)].map((ch, k) => (
+              <div key={i} aria-label={lang.write(shown(pattern))} style={{ display: "flex", gap: 4 }}>
+                {[...lang.write(shown(pattern))].map((ch, k) => (
                   <Tile key={k} tone={ch === "_" ? "gap" : reveal && pattern[k] === "_" ? "filled" : "plain"}>
                     {ch === "_" ? "" : ch}
                   </Tile>

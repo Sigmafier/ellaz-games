@@ -219,26 +219,40 @@ describe("each round itself", () => {
    * A row of loose CHOICES is deliberately not counted: those are a set, not a
    * sequence, so which end they start from carries nothing.
    */
-  it("pins every row whose order means something LTR", () => {
-    const ROWS: Record<string, number> = {
+  it("pins every row whose order means something - a grid LTR, a word to its language", () => {
+    // Two kinds of row, and since the Hebrew pack (2026-08-27, ported
+    // 2026-10-24) they are pinned differently. A SPATIAL row - the crossword's
+    // board, the anagram's tray - is `dir="ltr"` in every language, so index
+    // space and screen space agree (.claude/rules/rtl-spatial-grid-dir-ltr.md).
+    // A WORD reads the way its language reads, so it carries the pack's
+    // direction: pinned `ltr` would draw a Hebrew word backwards, and leaving
+    // it unpinned would mirror an English word in the Hebrew app.
+    const BY_LANG = /<div dir=\{lang\.rtl \? "rtl" : "ltr"\}/g;
+    const ROWS: Record<string, { ltr: number; word: number }> = {
       // the crossword's board
-      "BonusRound.tsx": 1,
+      "BonusRound.tsx": { ltr: 1, word: 0 },
       // the column of gapped words
-      "SharedLetterRound.tsx": 1,
+      "SharedLetterRound.tsx": { ltr: 0, word: 1 },
       // the one gapped word
-      "FillGapsRound.tsx": 1,
-      // the word being built, AND the tiles it is built from
-      "AnagramRound.tsx": 2,
+      "FillGapsRound.tsx": { ltr: 0, word: 1 },
+      // the tiles it is built from (spatial), and the word being built
+      "AnagramRound.tsx": { ltr: 1, word: 1 },
     };
     for (const r of FILES) {
       // `<div dir=` and not a bare match, so the prose above each row - which
       // quotes the attribute to explain it - cannot stand in for the attribute.
-      const n = (r.src.match(/<div dir="ltr"/g) ?? []).length;
-      expect(n, `${r.file} pins ${n} rows LTR, not ${ROWS[r.file]}`).toBe(ROWS[r.file]);
+      const ltr = (r.src.match(/<div dir="ltr"/g) ?? []).length;
+      const word = (r.src.match(BY_LANG) ?? []).length;
+      expect(ltr, `${r.file} pins ${ltr} rows LTR, not ${ROWS[r.file].ltr}`).toBe(ROWS[r.file].ltr);
+      expect(word, `${r.file} gives ${word} words their language's direction, not ${ROWS[r.file].word}`)
+        .toBe(ROWS[r.file].word);
     }
-    // The control: the matcher must be able to report a missing pin at all.
+    // The control: the matchers must be able to report a missing pin at all.
     expect((SHELL.match(/<div dir="ltr"/g) ?? []).length,
       "the shell draws no letters, so it should have no pin").toBe(0);
+    expect((SHELL.match(BY_LANG) ?? []).length, "the shell draws no word").toBe(0);
+    expect(BY_LANG.test('<div dir={lang.rtl ? "rtl" : "ltr"} aria-label={x}>'),
+      "the word matcher cannot see the attribute it counts").toBe(true);
   });
 
   /**
@@ -281,7 +295,8 @@ describe("each round itself", () => {
 
     const ana = ROUNDS.find((r) => r.file === "AnagramRound.tsx")!.src;
     expect(ana).toMatch(/const reveal = clock\.phase === "done"/);
-    expect(ana).toMatch(/reveal && puzzle \? \[\.\.\.puzzle\.word\]/);
+    // Written through the pack, so a Hebrew reveal ends on its final form.
+    expect(ana).toMatch(/reveal && puzzle \? \[\.\.\.lang\.write\(puzzle\.word\)\]/);
   });
 
   /**
@@ -290,17 +305,25 @@ describe("each round itself", () => {
    * behind a blocklist, and a blocklist is not provably complete (NOTICE.md).
    * So no round component may reach for it directly.
    */
-  it("never imports the dictionary into a screen", () => {
+  it("never imports a dictionary into a screen", () => {
+    // EITHER dictionary. The Hebrew one is authored rather than filtered, so it
+    // is safe by construction where the English one needed a blocklist - but a
+    // gate that watched only `./words` would go quiet the day a screen reached
+    // for `./wordsHe`, and would report clean while doing it.
+    const READS_A_DICT = /from "\.\/words(He)?"/;
     for (const r of FILES) {
-      expect(r.src, `${r.file} imports words.ts, which it may not show`)
-        .not.toMatch(/from "\.\/words"/);
+      expect(r.src, `${r.file} imports a dictionary, which it may not show`)
+        .not.toMatch(READS_A_DICT);
     }
-    // The control: something in the tree does import it, or this proves nothing.
-    expect(read("patterns.ts")).toMatch(/from "\.\/words"/);
+    // The control moved to `lang.ts` on 2026-08-27, because that is now the one
+    // module that imports either list - see the two tests below. Without it
+    // every assertion above passes on a tree where nothing imports anything.
+    expect(read("lang.ts"), "nothing in the tree imports a dictionary - this proves nothing")
+      .toMatch(READS_A_DICT);
   });
 
-  it("keeps the modules allowed to READ the dictionary to exactly three, and names the scope", () => {
-    // NOTICE.md names this list, and it named it WRONG until 2026-08-25 - it
+  it("keeps the modules allowed to READ a dictionary to exactly one, and names it", () => {
+    // NOTICE.md names this set, and it named it WRONG until 2026-08-25 - it
     // said `patterns.ts` was the only one, while `bonusBoard.ts` had imported
     // the dictionary since the crossword shipped. The safety property held
     // (neither SHOWS a word from it), but the sentence was checkable and false,
@@ -308,49 +331,96 @@ describe("each round itself", () => {
     //
     // So the set is asserted rather than described. A new module arriving is a
     // red build naming itself, instead of a NOTICE that quietly stops being
-    // true - and each reader carries its reason:
+    // true.
     //
-    //   patterns.ts    answers "is that a word" for the three pool-fed screens
-    //   bonusBoard.ts  the crossword, which judges what the player built from
-    //                  their OWN deal and shows nothing from the dictionary
-    //   logic.ts       the 9x9 board itself, judging a word the player placed
+    // IT IS ONE NOW, AND THAT IS THE 2026-08-27 CHANGE. Hebrew arrived, which
+    // means a SECOND dictionary, and threading two of everything through six
+    // modules would have doubled this set rather than held it. `lang.ts` owns
+    // both lists and hands out a PREDICATE - `lang.has(word)` - so a round can
+    // ask about a word it already holds and cannot get a word out. The set of
+    // files that can enumerate a dictionary went from three to one, which is a
+    // stronger property than the one this test was written to defend.
+    //
+    // BOTH DICTIONARIES ARE IN THE PATTERN. Only the English one needed a
+    // blocklist (ENABLE carried 49 of 49 slurs probed) and the Hebrew one is
+    // authored, so it is safe by construction - but "this list happens to be
+    // safe" is not a reason to let a screen enumerate it, and a gate that
+    // watched one file would go quiet the day somebody reached for the other.
     //
     // THE POPULATION IS DERIVED, NOT LISTED. It was a hand-kept array of seven
     // filenames until 2026-08-25, which is the same defect one layer out: a
-    // sixth round module reading the dictionary would simply not have been in
-    // the array, so the assertion would have passed over it and the green run
-    // would have read as coverage. Any list that mirrors a directory goes stale
-    // the first time the directory grows - see
+    // module reading the dictionary would simply not have been in the array, so
+    // the assertion would have passed over it and the green run would have read
+    // as coverage. Any list that mirrors a directory goes stale the first time
+    // the directory grows - see
     // `.claude/rules/a-path-filter-is-a-hand-kept-mirror-of-an-import-graph.md`.
+    const DICTS = ["words.ts", "wordsHe.ts"];
     const PRODUCTION = readdirSync(new URL(".", import.meta.url))
-      .filter((f) => /\.tsx?$/.test(f) && !f.endsWith(".test.ts") && f !== "words.ts")
+      .filter((f) => /\.tsx?$/.test(f) && !f.endsWith(".test.ts") && !DICTS.includes(f))
       .sort();
-    const readers = PRODUCTION.filter((f) => /from "\.\/words"/.test(read(f)));
-    expect(readers, `the set of dictionary readers moved - update NOTICE.md and CLAUDE.md in the same change`)
-      .toEqual(["bonusBoard.ts", "logic.ts", "patterns.ts"]);
-    // Two positive controls, because each covers a different way to read green
-    // over nothing: the population must be real (a broken readdir yields []),
-    // and the matcher must be able to see a NON-reader (a regex that matches
-    // everything would return the whole directory and still "find" the three).
+    const READS_A_DICT = /from "\.\/words(He)?"/;
+    const readers = PRODUCTION.filter((f) => READS_A_DICT.test(read(f)));
+    expect(readers, "the set of dictionary readers moved - update NOTICE.md and CLAUDE.md in the same change")
+      .toEqual(["lang.ts"]);
+
+    // Three positive controls, because each covers a different way to read
+    // green over nothing: the population must be real (a broken readdir yields
+    // []), the matcher must be able to see a NON-reader (a regex matching
+    // everything would return the whole directory and still "find" lang.ts),
+    // and the matcher must actually fire on the Hebrew half - it was added in
+    // the same change that added the file, so nothing else would have caught a
+    // pattern that only sees `./words`.
     expect(PRODUCTION.length, "the directory scan found almost nothing - it is broken, not the tree")
       .toBeGreaterThan(10);
     expect(readers.length, "every production module matched - the regex is broken, not the tree")
       .toBeLessThan(PRODUCTION.length);
+    expect(READS_A_DICT.test('import { WORDS_HE } from "./wordsHe";'),
+      "the matcher cannot see the Hebrew dictionary - it would report clean over a screen that read it")
+      .toBe(true);
   });
 
-  it("keeps the ROUND TREE's own share of that set to exactly two", () => {
-    // The narrower claim, and the one NOTICE.md makes: within the round tree,
-    // two modules read the dictionary. `logic.ts` is the third reader overall
-    // and sits OUTSIDE this tree, which is exactly why the scope word matters -
-    // CLAUDE.md dropped it for a day and stated the narrow claim broadly, with
-    // this file's green run reading as proof of the wider sentence.
+  it("keeps a dictionary out of every round module, and out of the board", () => {
+    // The narrower claim, and the one NOTICE.md makes. It used to be "two of
+    // these read the dictionary"; it is now NONE of them, and `logic.ts` - the
+    // 9x9 board, which sits outside this tree - is none of them too.
+    //
+    // The scope word still matters even though both halves are now zero.
+    // CLAUDE.md dropped it for a day in 2026-08 and stated the narrow claim
+    // broadly, with this file's green run reading as proof of the wider
+    // sentence: the test scanned the round tree, so it could not notice that
+    // the prose had asked a bigger question. See
+    // `.claude/rules/a-comment-that-explains-a-cost-must-name-its-measurement.md`.
     const ROUND_TREE = [
       "patterns.ts", "bonusBoard.ts", "sharedLetter.ts", "fillGaps.ts",
       "anagram.ts", "bonus.ts", "puzzleWords.ts", "roundShell.tsx",
       "AnagramRound.tsx", "BonusRound.tsx", "FillGapsRound.tsx", "SharedLetterRound.tsx",
     ];
-    expect(ROUND_TREE.filter((f) => /from "\.\/words"/.test(read(f))).sort())
-      .toEqual(["bonusBoard.ts", "patterns.ts"]);
+    const READS_A_DICT = /from "\.\/words(He)?"/;
+    expect(ROUND_TREE.filter((f) => READS_A_DICT.test(read(f))).sort()).toEqual([]);
+    expect(READS_A_DICT.test(read("logic.ts")),
+      "the board reads a dictionary directly again - it should be asking its pack").toBe(false);
+
+    // Every assertion above passes over an empty population, and a mistyped
+    // filename is exactly how a population empties itself. So: the files exist,
+    // and the matcher fires on the one file that IS allowed to read one.
+    for (const f of ROUND_TREE) expect(read(f).length, `${f} did not read`).toBeGreaterThan(200);
+    expect(READS_A_DICT.test(read("lang.ts")),
+      "lang.ts stopped importing a dictionary - the matcher is broken, not the tree").toBe(true);
+  });
+
+  it("hands rounds a predicate rather than a dictionary they could read from", () => {
+    // The structural half of NOTICE.md's rule, and the reason the import gate
+    // above could be narrowed to one file without weakening anything.
+    //
+    // A `ReadonlySet<string>` on the pack would satisfy every assertion in this
+    // file - the import really would live in `lang.ts` alone - while handing
+    // each round something it can pull any member out of. The type is what
+    // stops that, so the type is what is pinned.
+    const lang = read("lang.ts");
+    expect(lang, "the pack exposes a readable dictionary again - a screen can enumerate it")
+      .not.toMatch(/readonly words:\s*ReadonlySet/);
+    expect(lang, "the pack no longer exposes the judging predicate at all")
+      .toMatch(/readonly has:\s*\(w: string\) => boolean/);
   });
 
   it("keeps NOTICE.md agreeing with that set", () => {
@@ -358,7 +428,12 @@ describe("each round itself", () => {
     const notice = read("NOTICE.md");
     expect(notice, "NOTICE.md still claims patterns.ts is the ONLY reader")
       .not.toMatch(/`patterns\.ts` is the only module in the round tree/);
-    expect(notice, "NOTICE.md no longer names bonusBoard.ts as the second reader")
-      .toContain("bonusBoard.ts");
+    // Since the Hebrew pack the set is ONE module, `lang.ts`. The old check
+    // here only asked that `bonusBoard.ts` be NAMED, which stays true of a
+    // NOTICE still calling it a reader - so it asserts the claim, not a word.
+    expect(notice, "NOTICE.md does not name lang.ts as the one module importing a dictionary")
+      .toMatch(/ONE module imports this file, and it is `lang\.ts`/);
+    expect(notice, "NOTICE.md still says two round modules import the dictionary")
+      .not.toMatch(/TWO modules in the round tree import this one/);
   });
 });

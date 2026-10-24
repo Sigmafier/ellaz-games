@@ -113,3 +113,104 @@ export const PUZZLE_BY_LENGTH: ReadonlyMap<number, readonly string[]> = (() => {
   for (const w of PUZZLE_WORDS) (m.get(w.length) ?? m.set(w.length, []).get(w.length)!).push(w);
   return m;
 })();
+
+
+/* ------------------------------------------------------------------- Hebrew */
+
+/**
+ * The Hebrew half, written 2026-08-27 when the operator asked to play the game
+ * in Hebrew. Same three rules, and a fourth that only shows up once there are
+ * two of these:
+ *
+ * 4. IT IS NOT THE ENGLISH LIST TRANSLATED. The two hold different things,
+ *    because a word's LENGTH and its LETTERS are the whole puzzle here and
+ *    translation drags one language's shape onto another's. `סוס` is three
+ *    letters and `horse` is five; a pool translated out of English would be
+ *    long where Hebrew is short and would starve the four-letter screens that
+ *    every round but the crossword draws from. Same discipline as
+ *    `wordsearch/words.ts`, and as the game pages, which are written twice and
+ *    never translated.
+ *
+ * WRITTEN THE WAY A PERSON WRITES THEM, final letters and all, so a Hebrew
+ * reader can proofread this file. The pool the ROUNDS see is folded - see
+ * `PUZZLE_WORDS_HE` below and the note in `lang.ts` about why a tile carries
+ * the base letter.
+ *
+ * NO NIKUD, and nothing that needs an apostrophe: `ג'ירפה` and `פיג'מה` are
+ * ordinary Hebrew words a child knows and there is no tile that can spell
+ * either, so they are out. That is the same rule `spell/words.ts` states for
+ * its own tray, and dropping the word beats spelling it wrong.
+ */
+const HE_WRITTEN_POOL = `
+כלב חתול סוס פרה עז כבש דג ציפור יונה נמלה דבורה פרפר
+עכבר ארנב שועל זאב דוב אריה נמר פיל קוף גמל צב נחש
+תוכי עורב נשר כריש דולפין סרטן צפרדע חיפושית עכביש
+ראש שיער עין אוזן אף פה שן לשון יד אצבע רגל ברך
+לב בטן גב כתף צוואר גרון עור עצם דם מוח
+לחם חלה עוגה חלב גבינה חמאה ביצה בשר עוף אורז
+תפוח אגס בננה ענב תות תפוז לימון אבטיח מלון אפרסק
+תמר תאנה רימון גזר בצל שום מלפפון עגבנייה חסה כרוב
+מים מיץ תה קפה סוכר מלח שמן דבש ריבה שוקולד גלידה
+אגוז שקד בוטן מרק סלט פיתה חומוס
+בית חדר מטבח דלת חלון קיר רצפה גג מדרגה מרפסת
+שולחן כיסא מיטה ארון מדף ספה מנורה נר מראה שטיח
+וילון כרית שמיכה סדין תמונה שעון מפתח מנעול
+כוס צלחת קערה סיר מזלג סכין כפית קנקן בקבוק דלי
+מגבת סבון מברשת מסרק מספריים דבק נייר
+שמש ירח כוכב ענן גשם שלג רוח ברק רעם קשת ערפל
+עץ ענף עלה שורש פרח ורד דשא עשב יער גינה שיח
+הר גבעה עמק מדבר חול אבן סלע ים אגם נהר נחל מפל
+בריכה מעיין באר גל חוף אי אדמה בוץ שלולית טיפה
+אדום כחול ירוק צהוב כתום סגול ורוד חום שחור לבן אפור
+חולצה מכנסיים חצאית שמלה מעיל סוודר כובע צעיף
+גרב נעל סנדל מגף כפפה חגורה כפתור כיס
+ספר מחברת דף עט עיפרון מחק סרגל ילקוט לוח גיר
+מורה תלמיד כיתה שיעור מבחן ציון אות מילה משפט סיפור שיר
+ציור מפה מספר חשבון
+מכונית אוטובוס משאית אופניים אופנוע עגלה רכבת מטוס
+מסוק אונייה סירה כביש שביל גשר מנהרה תחנה גלגל
+תוף חליל כינור גיטרה פסנתר חצוצרה מנגינה צליל קול
+צעצוע בובה כדור חבל קובייה פאזל קלף בלון עפיפון סביבון
+מתנה קופסה שקית סרט דגל מטבע ארנק שרשרת טבעת צמיד
+מקל חוט מחט כתר
+איש אישה ילד ילדה תינוק אבא אמא אח אחות סבא סבתא
+דוד דודה חבר שכן רופא נהג שוטר כבאי חייל טבח זמר צייר
+יום לילה בוקר ערב שבוע חודש שנה שעה דקה
+אביב קיץ סתיו חורף חג מסיבה חופש
+עיר כפר רחוב חנות שוק פארק מוזיאון מסעדה מלון
+בניין קומה מעלית חצר גדר שער
+פטיש מסמר בורג מברג מסור סולם מכחול ספוג
+עיגול ריבוע משולש קו נקודה פס כתם צורה
+ריצה קפיצה שחייה חלום שינה מנוחה חיוך צחוק דמעה
+`;
+
+/**
+ * The pool the rounds actually draw from: FOLDED, because every screen that
+ * uses it either cuts a letter out of a word or hands its letters back as
+ * tiles, and a tile carries the base form. Blanking the ם of `שלום` and
+ * offering the player a `מ` to put back is a puzzle with no answer.
+ *
+ * `HE_WRITTEN_POOL` above stays the readable copy, and the reveal on each
+ * screen writes the word out properly through `lang.write`.
+ */
+const HE_FINALS: Readonly<Record<string, string>> = { "ך": "כ", "ם": "מ", "ן": "נ", "ף": "פ", "ץ": "צ" };
+
+export const PUZZLE_WORDS_HE: readonly string[] = (() => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const w of HE_WRITTEN_POOL.split(/\s+/)) {
+    if (w.length < 2) continue;
+    const folded = [...w].map((c) => HE_FINALS[c] ?? c).join("");
+    if (seen.has(folded)) continue;
+    seen.add(folded);
+    out.push(folded);
+  }
+  return out;
+})();
+
+/** The Hebrew pool by length, the same shape every bonus screen asks for. */
+export const PUZZLE_BY_LENGTH_HE: ReadonlyMap<number, readonly string[]> = (() => {
+  const m = new Map<number, string[]>();
+  for (const w of PUZZLE_WORDS_HE) (m.get(w.length) ?? m.set(w.length, []).get(w.length)!).push(w);
+  return m;
+})();

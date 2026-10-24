@@ -31,7 +31,7 @@
  * as a child being quick. Every pool word has at least one ordering that is not
  * a word, measured across all four lengths, so this is always satisfiable.
  */
-import { PUZZLE_WORDS } from "./puzzleWords";
+import { EN, type Lang } from "./lang";
 import { isWord, letterKey } from "./patterns";
 import { pick, shuffle } from "@shared/rng";
 import { HARD_Q, MEDIUM_Q } from "./bonus";
@@ -67,7 +67,13 @@ export type AnagramPuzzle = {
   readonly letters: readonly string[];
 };
 
-const CANDIDATES = PUZZLE_WORDS.filter((w) => w.length >= MIN_LEN && w.length <= MAX_LEN);
+/** Per pack, memoised - the pool is frozen, so this cannot change at runtime. */
+const CAND = new Map<string, readonly string[]>();
+const candidates = (lang: Lang) => {
+  let xs = CAND.get(lang.id);
+  if (!xs) CAND.set(lang.id, (xs = lang.pool.filter((w) => w.length >= MIN_LEN && w.length <= MAX_LEN)));
+  return xs;
+};
 
 /**
  * Is this arrangement a right answer - uses EVERY letter, and is a real word?
@@ -77,18 +83,18 @@ const CANDIDATES = PUZZLE_WORDS.filter((w) => w.length >= MIN_LEN && w.length <=
  * made the multiset right is a pure function that stops being true the moment a
  * second caller exists.
  */
-export function isAnswer(letters: readonly string[], guess: string): boolean {
+export function isAnswer(letters: readonly string[], guess: string, lang: Lang = EN): boolean {
   if (guess.length !== letters.length) return false;
   if (letterKey(guess) !== letterKey(letters.join(""))) return false;
-  return isWord(guess);
+  return isWord(guess, lang);
 }
 
 /** Every real word these letters spell. Used by the tests, never by the screen. */
-export function answersFor(letters: readonly string[]): string[] {
+export function answersFor(letters: readonly string[], lang: Lang = EN): string[] {
   const k = letterKey(letters.join(""));
   const out = new Set<string>();
   const walk = (cur: string[], rest: string[]) => {
-    if (!rest.length) { const w = cur.join(""); if (isWord(w)) out.add(w); return; }
+    if (!rest.length) { const w = cur.join(""); if (isWord(w, lang)) out.add(w); return; }
     for (let i = 0; i < rest.length; i++) walk([...cur, rest[i]], [...rest.slice(0, i), ...rest.slice(i + 1)]);
   };
   walk([], [...letters]);
@@ -104,19 +110,19 @@ export function answersFor(letters: readonly string[]): string[] {
  * `anagram.test.ts` pins it across the whole pool rather than over seeds -
  * the question is about each word, so it can be asked of every one of them.
  */
-export function makeAnagram(rng: () => number = Math.random): AnagramPuzzle | undefined {
-  const chosen = pick(CANDIDATES, rng);
-  const order = scramble(chosen, rng);
+export function makeAnagram(rng: () => number = Math.random, lang: Lang = EN): AnagramPuzzle | undefined {
+  const chosen = pick(candidates(lang), rng);
+  const order = scramble(chosen, rng, lang);
   return order ? { word: chosen, letters: order } : undefined;
 }
 
-export function scramble(word: string, rng: () => number = Math.random): string[] | undefined {
+export function scramble(word: string, rng: () => number = Math.random, lang: Lang = EN): string[] | undefined {
   for (let attempt = 0; attempt < 60; attempt++) {
     const order = shuffle([...word], rng);
-    if (!isWord(order.join(""))) return order;
+    if (!isWord(order.join(""), lang)) return order;
   }
   const walk = (cur: string[], rest: string[]): string[] | undefined => {
-    if (!rest.length) return isWord(cur.join("")) ? undefined : cur;
+    if (!rest.length) return isWord(cur.join(""), lang) ? undefined : cur;
     for (let i = 0; i < rest.length; i++) {
       const got = walk([...cur, rest[i]], [...rest.slice(0, i), ...rest.slice(i + 1)]);
       if (got) return got;

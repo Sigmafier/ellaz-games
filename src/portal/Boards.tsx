@@ -98,6 +98,12 @@ const BOARD_LABELS: Record<string, Record<Locale, string>> = {
   expert: { he: "מומחה", en: "Expert", es: "Experto", sv: "Expert" },
   kids4: { he: "חיות 4×4", en: "Animals 4×4", es: "Animales 4×4", sv: "Djur 4×4" },
   kids6: { he: "חיות 6×6", en: "Animals 6×6", es: "Animales 6×6", sv: "Djur 6×6" },
+  // Lettercross played with the HEBREW pack records on its own boards
+  // (`bestLevel` in src/games/lettercross/logic.ts): different tiles, values
+  // and dictionary, so one board over both languages would rank the languages.
+  "he-easy": { he: "קל · עברית", en: "Easy · Hebrew", es: "Fácil · hebreo", sv: "Lätt · hebreiska" },
+  "he-medium": { he: "בינוני · עברית", en: "Med · Hebrew", es: "Media · hebreo", sv: "Medel · hebreiska" },
+  "he-hard": { he: "קשה · עברית", en: "Hard · Hebrew", es: "Difícil · hebreo", sv: "Svår · hebreiska" },
 };
 
 function boardLabel(board: string): Record<Locale, string> {

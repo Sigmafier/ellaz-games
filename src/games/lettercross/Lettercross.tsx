@@ -13,9 +13,10 @@ import { BonusRound } from "./BonusRound";
 import { FillGapsRound } from "./FillGapsRound";
 import { SharedLetterRound } from "./SharedLetterRound";
 import {
-  SIZE, CELLS, boardAt, LETTER_VALUE, newGame, apply, validate,
+  SIZE, CELLS, boardAt, newGame, apply, validate,
   isOver, bestLevel, type Level, type Placement, type State,
 } from "./logic";
+import { packFor, isLangId } from "./lang";
 
 const LEVEL_OPTIONS: ChromeLevel<Level>[] = [
   { id: "easy", label: { he: "קל", en: "Easy", es: "Fácil", sv: "Lätt" } },
@@ -91,21 +92,28 @@ type LettercrossSession = { level: Level; state: State; bestFired: boolean;
  * would come back to a collected box and no round - the prize gone with no
  * error anywhere. Carrying the open queue means leaving is a pause.
  *
- * `version` is 6 because the shape has changed five times, most recently when
+ * `version` is 7 because the shape has changed six times, most recently when
+ * the board learned which LANGUAGE it was dealt in (2026-08-27). A version 6
+ * snapshot has no `lang` at all, so restoring one would put an English board
+ * under whichever pack happened to be open. Before that it changed when
  * the prize boxes became SQUARES - the board grew from SIZE x SIZE to the whole
- * stage, so every index in an older snapshot means a different square. Nothing
+ * stage, so every index in an older snapshot meant a different square. Nothing
  * is migrated: a half-played
  * board is worth a few minutes, and migration code for it is a second copy of
  * the game's rules that nothing keeps in sync.
  */
 const SESSION: SessionSpec<LettercrossSession> = {
-  version: 6,
+  version: 7,
   validate: (value): value is LettercrossSession => {
     const s = value as Partial<LettercrossSession> | null;
     if (typeof s !== "object" || s === null) return false;
     if (s.level !== "easy" && s.level !== "medium" && s.level !== "hard") return false;
     const g = s.state as Partial<State> | undefined;
     if (typeof g !== "object" || g === null) return false;
+    // The pack the letters were dealt from. Shape only - `Lettercross.tsx`
+    // decides whether it is the pack being OPENED, which is a question this
+    // function cannot see the answer to.
+    if (!isLangId(g.lang)) return false;
     if (!Array.isArray(g.board) || g.board.length !== CELLS) return false;
     if (!Array.isArray(g.rack) || !Array.isArray(g.bag)) return false;
     if (typeof g.score !== "number" || !Number.isFinite(g.score)) return false;
@@ -228,11 +236,30 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
   const T = str(ctx.locale);
   const [level, setLevel] = useRememberedLevel(ctx, LEVEL_OPTIONS.map((l) => l.id), "medium");
 
+  /**
+   * WHICH LANGUAGE THIS RUN IS IN. Hebrew gets Hebrew tiles and a Hebrew
+   * dictionary; every other interface language gets the English pack, which is
+   * the honest fallback rather than a claim - see `lang.ts`.
+   */
+  const lang = useMemo(() => packFor(ctx.locale), [ctx.locale]);
+
   const restored = useMemo(() => ctx.session?.load(SESSION), [ctx]);
-  const resume = restored && restored.level === level ? restored : undefined;
+  /**
+   * A SNAPSHOT FROM THE OTHER LANGUAGE IS DISCARDED, exactly as one from
+   * another level is. A board holds letters, and a letter only means anything
+   * against the pack it was dealt from - restoring a Hebrew board under the
+   * English dictionary gives a game that refuses every word already standing on
+   * it, with nothing on screen to explain why.
+   *
+   * Discarded rather than migrated, per the convention: a half-played board is
+   * worth a few minutes, and there is no honest way to turn one language's
+   * board into another's anyway.
+   */
+  const resume = restored && restored.level === level && restored.state.lang === lang.id
+    ? restored : undefined;
 
   const [state, setState] = useState<State>(
-    () => resume?.state ?? newGame(level, mulberry32(seedFrom(`lettercross-${level}-${Date.now()}`))),
+    () => resume?.state ?? newGame(level, mulberry32(seedFrom(`lettercross-${level}-${Date.now()}`)), lang),
   );
   /** Tiles laid this turn but not yet played. Board state stays untouched. */
   const [pending, setPending] = useState<Placement[]>([]);
@@ -280,16 +307,16 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
   const over = isOver(state) && pending.length === 0;
   useGameSession(ctx, SESSION, () => ({ level, state, bestFired: bestFiredRef.current, reached, rounds }), { live: !over });
 
-  const best = ctx.score?.best(bestLevel(level));
+  const best = ctx.score?.best(bestLevel(level, lang));
 
   const reset = useCallback((next: Level) => {
-    setState(newGame(next, mulberry32(seedFrom(`lettercross-${next}-${Date.now()}`))));
+    setState(newGame(next, mulberry32(seedFrom(`lettercross-${next}-${Date.now()}`)), lang));
     setPending([]); setHeld(null); setAsking(null); setNote("");
     streakRef.current = 0;
     bestFiredRef.current = false;
     setReached([]);
     setRounds([]);
-  }, []);
+  }, [lang]);
 
   /** The board as it looks with this turn's tentative tiles on it. */
   const shown = useMemo(() => {
@@ -323,7 +350,7 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
   }, [asking, ctx]);
 
   const play = useCallback(() => {
-    const v = validate(state.board, pending);
+    const v = validate(state.board, pending, lang);
     if (!v.ok) {
       // A refusal is not an error. Say which rule, once, and leave the tiles
       // where they are so nothing has to be laid out again.
@@ -332,7 +359,7 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
       streakRef.current = 0;
       return;
     }
-    const next = apply(state, pending);
+    const next = apply(state, pending, lang);
     setState(next);
     setPending([]); setHeld(null); setNote("");
 
@@ -426,7 +453,7 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
     // `report` keeps the better value itself - which is also why this game
     // holds no `best` of its own (score-contract-convention.md).
     const scored = ctx.score?.report({
-      value: next.score, unit: "points", board: bestLevel(level),
+      value: next.score, unit: "points", board: bestLevel(level, lang),
     });
 
     // ...but the MOMENT is once per run. `isPersonalBest` is true on every turn
@@ -631,7 +658,7 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
                 }}>
                 {tile === "?" ? "★" : tile.toUpperCase()}
                 {tile !== "?" && (
-                  <sub style={{ fontSize: 10, fontWeight: 600, opacity: 0.6 }}>{LETTER_VALUE[tile]}</sub>
+                  <sub style={{ fontSize: 10, fontWeight: 600, opacity: 0.6 }}>{lang.value[tile]}</sub>
                 )}
               </button>
             );
@@ -660,6 +687,7 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
                      finish: T.finish, points: T.points, bad: T.bad }}
                 onStop={finishBonus}
                 playTap={tap}
+                lang={lang}
               />
             );
           }
@@ -672,6 +700,7 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
                 t={{ ...said, label: T.gaps, hint: T.gapsHint }}
                 onStop={finishBonus}
                 playTap={tap}
+                lang={lang}
               />
             );
           }
@@ -683,6 +712,7 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
                 t={{ ...said, label: T.anagram, hint: T.anagramHint, clear: T.clear }}
                 onStop={finishBonus}
                 playTap={tap}
+                lang={lang}
               />
             );
           }
@@ -695,6 +725,7 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
               t={{ ...said, label: T.letters, hint: count === 3 ? T.shared3 : T.shared2 }}
               onStop={finishBonus}
               playTap={tap}
+              lang={lang}
             />
           );
         })()}
@@ -712,7 +743,7 @@ export function Lettercross({ ctx }: { ctx: GameContext }) {
           }}>
             <div style={{ fontSize: 14, marginBottom: 6 }}>{T.pickLetter}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, justifyContent: "center", maxWidth: 320 }}>
-              {[..."abcdefghijklmnopqrstuvwxyz"].map((ch) => (
+              {lang.letters.map((ch) => (
                 <button key={ch} onClick={() => chooseWild(ch)}
                   style={{ width: 30, height: 34, borderRadius: 7, border: "1px solid var(--line)",
                     background: "var(--surface)", color: "var(--text)", fontWeight: 700 }}>{ch.toUpperCase()}</button>

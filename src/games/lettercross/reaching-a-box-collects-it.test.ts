@@ -326,11 +326,12 @@ describe("the game actually collects them", () => {
     expect(SRC).toMatch(/useGameSession\([\s\S]{0,200}?\breached\b/);
     // A LITERAL, so it has to be bumped by hand every time the shape moves -
     // 3 for `reached`, 4 for the open round, 5 when that became a QUEUE, 6
-    // when the boxes became squares and every index moved. What
+    // when the boxes became squares and every index moved, 7 when the board
+    // learned which LANGUAGE it was dealt in. What
     // this line really guards is that somebody LOOKED, so a stored snapshot
     // from the old shape is discarded instead of restoring a board whose rules
     // have changed underneath it.
-    expect(SRC).toMatch(/version:\s*6/);
+    expect(SRC).toMatch(/version:\s*7/);
     expect(SRC).toMatch(/s\.reached\)/);
   });
 

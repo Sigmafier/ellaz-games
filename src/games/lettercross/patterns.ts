@@ -14,8 +14,14 @@
  * letters and `isWord` returns a boolean. A round that wants a word to display
  * takes it from the pool it was built from.
  */
-import { WORDS } from "./words";
+import { EN, type Lang } from "./lang";
 
+/**
+ * THE ENGLISH ALPHABET, kept because the English rounds and their tests name
+ * it. A round asks its PACK for the letters it may offer now - `lang.letters` -
+ * because "every letter a puzzle could use" is the one thing in this file that
+ * is not the same question in two languages.
+ */
 export const AZ = "abcdefghijklmnopqrstuvwxyz".split("");
 
 /** The same word with position `i` replaced by a gap. */
@@ -25,7 +31,7 @@ export const blank = (w: string, i: number) => `${w.slice(0, i)}_${w.slice(i + 1
 export const fill = (p: string, c: string) => p.replace("_", c);
 
 /** Is this arrangement of letters a real word? Judging only - never a display. */
-export const isWord = (w: string) => WORDS.has(w);
+export const isWord = (w: string, lang: Lang = EN) => lang.has(w);
 
 /**
  * Every letter that turns EVERY one of these single-gap patterns into a real
@@ -33,8 +39,8 @@ export const isWord = (w: string) => WORDS.has(w);
  * its answer is the only one a player could defend, and "defend" means with a
  * word they know rather than with a word on our short list.
  */
-export function solvers(patterns: readonly string[]): string[] {
-  return AZ.filter((c) => patterns.every((p) => WORDS.has(fill(p, c))));
+export function solvers(patterns: readonly string[], lang: Lang = EN): string[] {
+  return lang.letters.filter((c) => patterns.every((p) => lang.has(fill(p, c))));
 }
 
 /* NO `shuffled` HERE ANY MORE - the three rounds call `shuffle` from
