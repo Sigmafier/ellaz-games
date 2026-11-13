@@ -1,0 +1,659 @@
+#!/usr/bin/env node
+/**
+ * The first visit has a byte budget, and this is what enforces it.
+ *
+ * WHY THIS EXISTS. The plan carried a 76,000 B gz ceiling from the day the
+ * payload work started, and nothing ever read it. `assert-first-visit.mjs`
+ * checks WHICH assets a first visit fetches - shell only, no game chunks, no
+ * lab, no analytics - and that check is good and stays. It has never counted
+ * bytes. So the payload went 69,624 -> 72,984 -> 74,290 -> 79,489 with every
+ * step honestly measured, honestly reported, and completely unstoppable,
+ * because a number in a document cannot fail a build.
+ *
+ * That is the same shape as the 21 approved thumbnails that sat unshipped for
+ * four days: a commitment written in prose, owned by no task, read by no check.
+ *
+ * WHAT IT COUNTS. Every script and stylesheet `index.html` fetches eagerly,
+ * plus `index.html` itself, gzipped - which is what a browser actually pulls
+ * before a child can choose a game. Not the precache manifest (the service
+ * worker fetches that in the background, after paint) and not lazy chunks.
+ *
+ * RAISING THE CEILING IS ALLOWED AND IS SUPPOSED TO BE DELIBERATE. Edit
+ * `CEILING` here, in a commit, with a reason. That is the whole point: the
+ * number becomes a decision with a diff instead of a drift nobody sees.
+ */
+import { readFileSync, existsSync, realpathSync } from "node:fs";
+import { gzipSync } from "node:zlib";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+const DIST = process.env.DIST_DIR || "dist";
+
+/**
+ * The base this build was made for, read from the artifact rather than from the
+ * environment - the same `distBase()` as `assert-first-visit.mjs`, deliberately,
+ * because two gates reading the same `dist/` must not disagree about what it is.
+ *
+ * This gate shipped without it and failed the Pages build on its first run: under
+ * `/ellaz/` the document references `/ellaz/assets/shell-*.js` while the file on
+ * disk is `dist/assets/shell-*.js`, so stripping only the leading slash looked
+ * for `ellaz/assets/...` and found nothing. Loudly, which is the one good part -
+ * a gate that had quietly counted zero bytes would have passed.
+ */
+function distBase(dist) {
+  try {
+    return JSON.parse(readFileSync(join(dist, "pages.json"), "utf8")).base;
+  } catch {
+    return "/";
+  }
+}
+
+/**
+ * Bytes, gzipped, for a first visit.
+ *
+ * 90,500 as of 2026-08-18 (was 90,000, was 86,000, was 82,000). History, so the next person
+ * raising it can see what they are joining:
+ *   69,624  2026-08-02  live baseline after the payload work
+ *   72,984  2026-08-04  the app moved onto real URLs (page-* runtime)
+ *   74,290  2026-08-06  the theme layer, carrying a second complete value set
+ *   79,489  2026-08-07  21 drawn game scenes (~3.5 KB) + the boards work
+ *   80,345  2026-08-07  the boards redesign (+302)
+ *   85,770  2026-08-09  session persistence (+546)
+ *   86,004  2026-08-11  Word Guess, game 23 (+234)
+ *
+ * THE 2026-08-11 RAISE TO 90,000, and why it is a raise rather than a shave.
+ *
+ * The previous ceiling had 230 B spare and CLAUDE.md already said in as many
+ * words that the next game would not fit. Word Guess needs 234, so it missed by
+ * FOUR BYTES. Four bytes is inside the noise of how one SVG path is written,
+ * and it was: trimming decoration off the new game's own home-grid card had
+ * already moved it from 34 over to 4 over. Another pass would have cleared the
+ * line by making a card worse, and a budget you meet by degrading the product
+ * in 30-byte increments has stopped measuring anything.
+ *
+ * So the number moves, deliberately, in this commit, which is exactly the
+ * mechanism the note below describes.
+ *
+ * What the 234 B buys: a game whose logic, renderer, both word lists and
+ * keyboard total 4.57 KB gz and are ALL lazy. The shell pays only for the
+ * DOM-free `meta.ts` in the static roster and one art scene in the grid. That
+ * is the per-game floor for this architecture, not this game being expensive -
+ * Falling Blocks cost 306 B on the same measurement.
+ *
+ * Why 4,000 again and not 1,000: the same reasoning as the last raise, which
+ * still holds. Six measured deltas ran 179 to 4,624 B, so 4,000 is four
+ * median-sized features or one art-sized one. Landing the ceiling just above
+ * the current reading would mean the raise after this one arrives with the
+ * next commit, and a ceiling that moves every commit is a formality.
+ *
+ * Still safe in absolute terms: the researched initial-shell budget for this
+ * class of app is 130-170 KB gz on low-end Android over 4G. At ~86 KB the site
+ * sits at roughly half, unchanged in substance from the note below.
+ *
+ * THE ARGUMENT FOR THE 4 KB, because the line above this one asks for one.
+ *
+ * A commit-level sweep of all 60 commits since the 2026-08-02 baseline, one
+ * extractor and one env throughout, attributes the growth precisely rather than
+ * approximately. Every delta below is measured, not estimated:
+ *
+ *   +4,624  090fe08  the game drawings  <- measured against its DIRECT parent
+ *   +1,762  04bfd6d  cloud backup
+ *   +1,332  4777ce8  the name pool
+ *     +498  9b3a7c8  restore and undo
+ *     +302  c360bdb  the boards redesign
+ *     +179  657dbb8  the two themes
+ *   -2,551           the pages + chunking work GAVE BACK
+ *
+ * The "~3.5 KB" above is right and now sharper: emptying the ART map at HEAD,
+ * with the module shape and every export preserved, moves the first visit
+ * 80,345 -> 76,465. The drawings cost 3,880 B gz, 4.8% of everything a child
+ * fetches before choosing a game. They are also above the fold on the one
+ * screen every session starts on, so deferring them buys bytes and spends a
+ * visible emoji-to-art flash on the primary surface.
+ *
+ * Why 4 KB and not less: the six measured deltas run 179 to 4,624, a 26x
+ * spread. 4,000 B is FOUR median-sized features (median 915) or ONE art-sized
+ * one. It is not "three features" - quoting the mean over that spread would be
+ * a forecast the data does not support.
+ *
+ * Why it is safe in absolute terms: the researched initial-shell budget for
+ * this class of app is 130-170 KB gz on low-end Android over 4G. At ~80 KB the
+ * site sits at roughly half.
+ *
+ * The unit is Node zlib at its default level, which is what `gzBytes` below
+ * uses. It is exact and consistent, and it is a PROXY for wire bytes rather
+ * than wire bytes: the same four assets fetched live and compressed with system
+ * `gzip -9` measure 79,812, and what the server negotiates is its own business.
+ * Compare like with like - never a number from here against one from elsewhere.
+ *
+ * The tightness above was deliberate and it stays deliberate: 3,996 B of
+ * headroom is one art-sized feature, and the next one still has to be argued
+ * for here.
+ *
+ * ALSO 2026-08-11, and it rides this same ceiling rather than asking for its
+ * own: `/` stopped being an empty shell.
+ *
+ * It shipped a 29-byte body - `<div id="root"></div>` and nothing else.
+ * Googlebot renders JavaScript so it saw the grid eventually, but no answer
+ * engine does: Vercel measured zero JS execution across 500M+ GPTBot fetches,
+ * and Anthropic documents the same of its own fetcher. So the site's canonical
+ * entry, its x-default target and its most-linked page did not exist to
+ * ChatGPT, Claude or Perplexity, while `/en/` - an emitted document - was fine.
+ *
+ * The emitted Hebrew home costs 867 B gz - 86,004 -> 86,871, against the figure
+ * the raise above states for its own commit, same script and same env, so the
+ * two are comparable. That buys an h1, a lede, the platform facts, all 23 games
+ * as crawlable links, and the room and boards links: 0 -> 132 words and 0 -> 23
+ * links on the page every other page links to.
+ *
+ * Compare it against the art map's 3,880 B, which buys a prettier grid for
+ * people who can already see the page. This is the best byte-for-reach trade
+ * this project has made, by a wide margin.
+ *
+ * An earlier draft of this note said 1,770 B. That was this build measured
+ * against a number quoted from a different commit set, which is exactly the
+ * "compare like with like" error the paragraph below warns about. 867 is the
+ * direct-parent figure and it is the one to quote.
+ *
+ * NOT spent on `DOCUMENT_CSS`. The emitted home is plain semantic markup styled
+ * by a dozen lines already in the shell stylesheet, because inlining the ~300
+ * document-CSS lines onto the one page that IS the first visit would have cost
+ * several times what the content did.
+ *
+ * THE WAY OUT OF THIS RATCHET IS STILL UNSHIPPED, and it is worth doing before
+ * the raise after this one. `useGameSession` and `useRememberedLevel` are in
+ * the shell only because they reach games through the `@shared` barrel, which
+ * is pinned there - and nothing on the home screen imports either. Carving them
+ * into the `page` chunk, the way `GameChrome` already is, needs the ~20 games
+ * that use them importing the direct module path first (snake already does).
+ * It is its own change, with `build:check` watching, and it would buy back
+ * several games' worth of ceiling instead of another 4 KB.
+ *
+ * 90,500 SINCE 2026-08-18, and the SIZE of this raise is the decision: 500 B,
+ * where the two above it were 4,000 B each.
+ *
+ * `match3` and `jigsaw` landed together and measured 90,027 B gz, 27 B over the
+ * previous 90,000. The 289 B they cost between them is entirely the roster's
+ * static `meta.ts` plus each game's link in the emitted home document - the
+ * shell chunk was checked for leakage and holds only their ids, titles, colours
+ * and emoji, with every line of rules and rendering in a lazy `game-*` chunk and
+ * both card scenes in `gameArtRest.ts`. So there was nothing in the change to
+ * make smaller; the term is the one `assert-slope.mjs` already measures and
+ * reports, and it passed at 122.0 B gz per game against its 140 budget.
+ *
+ * The ratchet above is still the real answer and it is still unshipped. This
+ * raise buys roughly three more games, which is deliberately not comfortable:
+ * step 3 of `docs/scaling-the-first-visit.md` (moving the roster metadata off
+ * the shell) is what turns 122 into 40, and the next raise should not happen
+ * before it. Raising to a number that felt roomy would have removed the only
+ * pressure that gets it done.
+ */
+/**
+ * The Node major the DEPLOY builds on, read out of the workflow so there is one
+ * source of truth rather than a number typed here that can go stale.
+ *
+ * WHY THIS IS HERE. Measured 2026-08-21, same commit and same lockfile: Node 22
+ * produced a first visit of 90,359 B gz and Node 24 produced 90,413. **54 bytes
+ * of difference from the toolchain alone**, against 141 bytes of headroom - so
+ * which Node you happen to run is nearly as large as the whole remaining budget,
+ * and every figure written into CLAUDE.md and the outreach drafts had been
+ * measured on the one that does NOT ship.
+ *
+ * The number is not wrong on either machine. It is a number about a DIFFERENT
+ * ARTIFACT, and nothing said so. This prints the difference instead of leaving
+ * it to be discovered.
+ */
+function ciNodeMajor() {
+  for (const wf of ["deploy-hostinger.yml", "deploy-pages.yml"]) {
+    const p = join(".github/workflows", wf);
+    if (!existsSync(p)) continue;
+    const m = /node-version:\s*['"]?(\d+)/.exec(readFileSync(p, "utf8"));
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
+
+// RAISED 90,500 -> 91,000 on 2026-08-22, for the GA consent bar, and the reason
+// is required to be here rather than in a commit message.
+//
+// The operator ruled on 2026-08-22, having been shown the measurement: Google
+// Analytics had been live for two days returning 204 on every hit and counting
+// nothing, because `analytics_storage` was denied by default and never updated.
+// The obvious repair - grant it and stay cookieless - was measured live and does
+// not exist: granting writes `_ga` even with `client_storage:'none'` untouched.
+// So the choice was no cookie and no data, or data and a banner. They chose the
+// banner, knowing the cost.
+//
+// The bar's own cost, TWO ARMS ON ONE TREE rather than a subtraction from
+// anything written down: 90,021 without it, 90,614 with, so 593 B gz. It was
+// trimmed first - shorter copy, leaner CSS - which bought 61 B and was not
+// enough; the four load-bearing properties (out of flow so it cannot shift the
+// page, hidden until script, two identical buttons, a 40px target) are the floor.
+//
+// 91,000 and not more, for the reason the last raise gave: at ~70 B a game this
+// leaves about five games of room, and a comfortable ceiling removes the only
+// pressure that gets `docs/scaling-the-first-visit.md` step 3 done.
+// Read on Node 24; CI builds on Node 22 and runs ~14 B apart.
+//
+// RAISED 91,000 -> 91,200 on 2026-08-25, for the service-worker fix, and the
+// number below is quoted off CI rather than off this machine - which is what
+// the NOTE above exists to insist on.
+//
+//   run 32861903220, commit 8fea36c, Node 22:  91,008 B gz of 91,000, 8 B over
+//
+// The deploy reded at this gate and nothing was uploaded, so ellaz.fun went on
+// serving the previous build. That is the gate working; it is also why main
+// could not deploy until this line moved.
+//
+// WHAT THE 8 BYTES ARE, and it is not what it was first attributed to. Two arms
+// on one tree, one machine, one hour: 90,866 without the change, 91,001 with,
+// so 135 B gz. Split by chunk, and the split is structural rather than inferred:
+//
+//   entry index-*.js   1,116 -> 1,232   +116   ONLY main.tsx feeds this chunk,
+//                                              and the only edit to main.tsx is
+//                                              the service-worker gating
+//   shell-*.js        38,377 -> 38,397   +20   coins back in the home bar, minus
+//                                              the deleted leaderboards row,
+//                                              plus the shared header pill
+//   index.html         3,953 ->  3,952    -1
+//
+// So this is the SERVICE-WORKER fix almost entirely: `registerType: "autoUpdate"`
+// installs an unconditional `window.location.reload()` on activate, with no
+// option to suppress it, so stopping a new build from throwing a child out of
+// the game they are playing means taking vite-plugin-pwa's non-auto branch -
+// which carries the "installed" / "waiting" / "externalwaiting" / "controlling"
+// handling the auto branch does not.
+//
+// THE LANGUAGE GLOBE COSTS THIS BUDGET NOTHING, though it was reasonably
+// suspected. Measured on the artifact: its copy lives in `src/content/site.ts`
+// and its markup in `src/build/layout.ts`, both of which ship to nobody, and
+// `no-app-imports.test.ts` proves the app cannot reach `src/content`. The words
+// "Language" and the Hebrew for it occur exactly once in the shell in BOTH arms
+// - they are the app picker's own pre-existing i18n strings.
+//
+// TRIMMED FIRST, as the last raise did, and there was nothing to take. The one
+// candidate was `applyWhenSafe`'s `why` parameter, which exists only for two
+// `import.meta.env.DEV` debug lines; reading the minified shell shows terser had
+// already dead-coded the parameter AND both string literals at the call sites
+// (`const r=i=>{...}` with `n=()=>r()`). It ships as ~140 raw bytes with no slack.
+// The alternatives were worse than the 8 bytes: hand-rolling SW registration to
+// dodge the library's branch trades 80-odd bytes for a class of bug this repo
+// already has three rule files about, and shaving unrelated CSS would hide real
+// growth behind a saving that has nothing to do with it.
+//
+// 91,200 and not more. 192 B of headroom over the CI reading, which is one game
+// at the measured 192 B gz per game (`docs/scaling-the-first-visit.md`) and
+// roughly 4x the toolchain spread, so it is a ceiling rather than a tripwire -
+// 91,100 would have left half a game and reded on the next one. The pressure the
+// comment above wants kept is kept: one game of room, then this conversation
+// happens again, which is the point.
+//
+// AND THE SPREAD IS NOT A CONSTANT. This file says 54 B eleven lines up and
+// ~14 B one line up, and both are true of the trees they were measured on. This
+// change adds a third reading: 8fea36c is ~90,992 on Node 24 here against 91,008
+// on Node 22 in CI, so ~16 B, with Node 22 the HIGHER of the two. Do not treat
+// any of the three as the number; treat "the toolchain moves this by tens of
+// bytes" as the fact, and read the absolute off a CI run.
+//
+// 91,200 -> 91,600 on 2026-08-25, for the World's second shelf. Two arms of one
+// tree, one hour, `git archive HEAD` into a scratch dir so a peer's in-flight
+// games could not contaminate either side: 90,482 without it, 91,019 with -
+// +537 B gz for 55 more shop items, three more slots in the room, a preview
+// step before every purchase and five more strings in the two shell
+// dictionaries.
+//
+// What the 537 is NOT is the content. The 52 new drawings (6.8 KB gz) and their
+// 52 catalogue ROWS (2.4 KB) are carved into a lazy `world-art` chunk that
+// neither the first visit nor a game page fetches; the 537 is the registry that
+// merges the two halves, the subscription that redraws when the lazy one lands,
+// and the three new categories. The catalogue can now treble again for about
+// the same number.
+//
+// The raise is 400 and not 0, and that is the deliberate part. Measured leaves
+// 181 B spare, which is inside the toolchain spread this file spends fifteen
+// lines warning about - so the next lane's ordinary 200 B change would red for
+// a reason that has nothing to do with it, on a repo that has two other lanes
+// working today. 91,600 puts the room back to ~580 B, which is about where this
+// file has been operating, and keeps the pressure the comment above wants kept.
+//
+// 91,600 -> 56,000 on 2026-08-26, and this is the only entry here that is a CUT.
+// `react` and `react-dom` are aliased onto `preact/compat`, so the reconciler
+// went 45,374 -> 7,936 B gz and a first visit went 90,519 -> 52,956. That is
+// 38 KB that was never a game: half of what a child downloaded before choosing
+// anything was a rendering library.
+//
+// WHY 56,000 AND NOT 60,000. 60,000 was the target the plan carried, and at a
+// measured 52,956 it would leave 7 KB - room for ~215 games at the current
+// 32.5 B slope, which is not a ceiling, it is a shrug. 56,000 leaves ~3 KB,
+// which is still ~93 games of room and still reds INSTANTLY on the regression
+// this number exists for: React coming back is +37 KB.
+//
+// WHY IT IS NOT LOWER. The toolchain spread this file spends fifteen lines
+// warning about is tens of bytes, three lanes work this repo at once, and a
+// ceiling with no room red-lines a correct commit for reasons that have nothing
+// to do with it. 3 KB is where the pressure stays real without being a tripwire.
+//
+// THE SWAP IS ONE `git revert` AWAY, and the evidence for it is not this number:
+// `scripts/repro/repro-preact-swap.mjs` drives all 38 games in a real browser
+// with both lazy-arrival controls, and the home, the room and the boards render
+// BYTE-IDENTICAL to the React arm at 390x844. Read that before reading this.
+// 56,000 -> 56,800 on 2026-09-07, to buy the fonts back off the critical path.
+//
+// WHAT WAS BOUGHT. The webfont used to arrive via `@import` at the top of the
+// shell stylesheet - five serial hops from the document, on a third-party
+// origin, costing 350 ms of blocked render on desktop and 1,300 ms on mobile,
+// with a mobile LCP of 4.2 s that was 2,440 ms of pure render delay. The fonts
+// are now ours, declared in `src/ui/fonts.css` and preloaded per locale from
+// each document's head. gtag.js (167 KiB, 206 ms of main thread) moved to the
+// first real interaction in the same pass.
+//
+// WHAT IT COST HERE, and why the gate cannot see the trade. Roughly 900 B gz:
+// the `@font-face` blocks now live in the shell stylesheet, which this gate
+// counts, while the 242 KiB of third-party bytes the change REMOVED were never
+// counted - they were not fetched by `index.html`, they were fetched by a
+// stylesheet, which is exactly the blind spot that let the problem exist.
+//
+// WHY THE FONT CSS IS NOT SMALLER. It is 15 `@font-face` blocks - one per
+// family, weight and subset - mirroring what Google served. Collapsing them to
+// 6 with a `font-weight: 400 800` range would save several hundred bytes and
+// CHANGE RENDERING: the app asks for weight 700 in several places, and against
+// declared weights 400/600/800 the CSS font-matching algorithm resolves that to
+// 800, while a variable range would resolve it to a true, lighter 700. The
+// promise of this change was that nothing renders differently, so the bytes stay.
+//
+// WHY 56,800 AND NOT 56,100. Measured 55,980 on Node 24; the deploy builds on
+// Node 22 and this file's own warning puts that spread at ~54 B. A ceiling with
+// 20 B of room measures the Node version, not the payload. 820 B is ~25 games
+// at the 32.5 B slope - thinner than the ~3 KB the note below argues for, and
+// deliberately so: the next raise should have to be argued too.
+//
+// 56,800 -> 56,820 on 2026-09-14, operator ruling, to stop a difficulty change
+// resizing the game. `.ellaz-board` gained one term, `- var(--b-gap)`, so a grid
+// board's gaps are not counted as cells (echo was 495px on one level and 490px on
+// the next; `repro-difficulty-keeps-the-game-size.mjs` went 8 games -> 0).
+// Measured on one tree, Node 24: 56,794 before, 56,808 after - 6 B of that is the
+// term in the inlined stylesheet, the rest is content-hash names in the shell's
+// chunk map. Two terms with fallbacks measured 56,810, so this is already the
+// cheap spelling.
+// 56,820 -> 56,980 on 2026-09-21, for chess and backgammon - the first two
+// games here that play BACK, and the 44th and 45th in the catalogue.
+//
+// WHAT WAS MEASURED, on one clean build of one tree, Node 24:
+//   first visit  56,857 B gz   (45 games)   <- 37 B over the old ceiling
+//   slope        34.0 B gz per game, measured by `assert:slope` removing the
+//                last 8 games from a copy: 56,857 (45) vs 56,585 (37),
+//                272 B over 8. Budget 45, O(1) target 40. BOTH MET.
+// So the catalogue is still growing inside every budget it has; what ran out
+// is the ceiling's slack, not the discipline. The old ceiling's own note said
+// "820 B is ~25 games at the 32.5 B slope", and this is where that ran down.
+//
+// WHY 56,980 AND NOT 56,900. 123 B of headroom, which is ONE Node-22-vs-24
+// spread (~54 B, direction unknown - this file's own warning above) plus about
+// two more games at the measured slope. 56,900 would be 43 B, thinner than the
+// spread, so it would be measuring the Node version rather than the payload -
+// the exact mistake the 2026-09-14 note argues against. It is still deliberately
+// tight: the next raise has to be argued too.
+//
+// NOT MEASURED: the CI number. The warning above puts the local-vs-CI spread at
+// ~54 B and says to quote CI before acting on a figure, so 56,857 is a Node 24
+// reading and the first deploy after this is what confirms the headroom.
+//
+// TWO INDEPENDENT RAISES landed on either side of this merge and neither delta
+// applies to the other's tree, per this file's own warning above ("re-measure
+// on the merged tree, do not add deltas") - so both stories are kept and the
+// CEILING below is a fresh measurement of the tree that carries both.
+//
+// Story one: Swedish went UP then DOWN. It joined SHIPPED_LOCALES and the first
+// visit measured 57,575, so the ceiling was raised to 57,700 first. The operator
+// then asked why every child downloads every language's name-pool words at all -
+// `names.ts` is SHELL (the wallet and profile read it on every screen) and the
+// WORDS lived in the same file, so four languages of adjectives and nouns rode
+// into every first visit though nothing on the home grid renders a name. They
+// moved to `sdk/nameWords.ts` behind its own `name-words` chunk:
+//   before Swedish               56,846 B gz   (shell 39,897)
+//   Swedish added                57,575        (shell 40,622)   +729
+//   name pool split out          56,302        (shell 39,335)   -1,273
+// So Swedish ended up costing the first visit NOTHING and the site 544 B
+// SMALLER than before Swedish existed.
+//
+// Story two: the Toybox beta shelf, RAISED 56,980 -> 57,200 the same day. The
+// operator chose the home screen over a free footer-only link, knowing it cost
+// first-visit bytes:
+//   without ToyboxShelf   56,846 B gz
+//   with    ToyboxShelf   56,992 B gz      the strip costs 146 B
+//
+// MEASURED ON THE MERGED TREE, both changes together, one build, Node 24:
+//   first visit          56,533 B gz
+// which is 85 B MORE than the two deltas added together would predict
+// (56,302 name-pool-split + 146 B ToyboxShelf = 56,448) - the two changes shift
+// chunk-splitting boundaries slightly against each other, which is exactly why
+// this file's own warning says to re-measure the merged tree rather than trust
+// arithmetic across two arms.
+//
+// STILL IN THE SHELL, deliberately, and it is ~221 B gz: the non-English shop
+// item names, the two theme labels, and the 15 above-the-fold game titles.
+// Those are genuinely needed on the home grid in the reader's own language
+// (`world/items.ts` is shell because Home draws the child's real room), so
+// moving them needs a per-language overlay for AUTHORED strings rather than a
+// code split. That is real work for ~221 B and it is not worth it yet.
+//
+// WHY 56,650. 117 B of headroom above the 56,533 merged-tree reading - one
+// Node-22-vs-24 spread (~54 B, direction unknown, see the warning above) plus
+// about two games at the 31.0 B/game slope measured by this same build
+// (see assert:slope below). Same arithmetic the 2026-09-14, 2026-09-21 and
+// 2026-09-22 notes use, and still tight enough that the next raise has to be
+// argued. NOT MEASURED: the CI number for this merged tree - the deploy that
+// follows this push is what confirms the headroom, per the warning above.
+//
+// RAISED 56,650 -> 57,450 ON 2026-09-26, for the Toybox ROW that replaced the strip.
+//
+// The operator: "show them properly in homepage, instead link items". Three
+// mocks were rendered on the live home and they picked B - the Brawl as a banner
+// with its own hero and a PLAY, the three betas as picture cards under it - and
+// then picked a raise over "keep the limit and go smaller", shown both numbers.
+// They were shown a +766 B row against the 57,200 limit on a tree 13 commits
+// old; re-measured on origin/main the same row costs 739 B.
+//
+// MEASURED, two arms, both `git archive origin/main` (c13a1834), Node 24:
+//
+//   origin/main, the strip   56,658 B gz     (CI, Node 22, read 56,643 for it)
+//   with the row             57,397 B gz     the row costs 739 B
+//
+// What the 739 buys: the component, three strings in the two dictionaries the
+// shell carries statically (he, en), and `?campaign=` on every link - without
+// which the home had been opening a bare versus match since 2026-09-22. The
+// pictures are NOT in it: four PNGs of 645 to 973 B, lazy, and outside the
+// precache glob.
+//
+// WHY 57,450. 53 B above the measured row, one Node-22-vs-24 spread, and
+// nothing for games that are coming - this raise buys the row and only the row.
+//
+// RAISED TO 57,530 ON 2026-09-26, for the 46th game, and the clause above is
+// why this is a raise rather than a surprise: that ceiling deliberately kept
+// nothing back for a new game, so a new game has to come and argue for its own
+// bytes. Measured on the MERGED tree - this branch rebased onto origin/main -
+// with the game as the only variable, which is the only way the number means
+// anything (`CLAUDE.md`: a delta is only a per-game cost if the game is the
+// only variable):
+//
+//   merged tree, holdtheline out of both roster lists   57,456 B gz
+//   merged tree, holdtheline in                         57,506 B gz
+//   the 46th game costs                                    50 B gz
+//
+// The first row is worth reading twice: `origin/main` is ALREADY 6 B over the
+// old ceiling on this machine, before this branch adds anything. It is green in
+// CI because CI reads about 15 B lower than this box does - the Node-22-vs-24
+// spread the paragraph above names, and
+// `a-number-belongs-to-the-toolchain-that-ships-it.md`. So part of this raise is
+// main's and is not being hidden behind the new game.
+//
+// 57,530 is the measured 57,506 plus 24 B, which covers that spread and nothing
+// else. Nothing is kept back for game 47 - the next one argues for itself, the
+// same way this one did. `assert:slope` is the gate that actually holds the
+// growth: it reads 31.6 B gz per game against a 45 B budget, so the catalogue
+// is still O(1) and this is a one-off step rather than a slope getting away.
+//
+// RAISED TO 57,571 ON 2026-09-27, for the 47th game (Snake Survivors), argued
+// the same way and for the same reason: the 57,530 above kept nothing back.
+// Two arms from ONE tree - `git archive origin/main` (b34e3457) plus this game -
+// built back to back, the second with the game taken out of all five lists that
+// name it (the two rosters, both art tables, the content index), Node 24:
+//
+//   game out of every list   57,504 B gz     (= origin/main's own reading)
+//   game in                  57,547 B gz
+//   the 47th game costs          43 B gz
+//
+// 57,571 is 57,547 plus the same 24 B Node-22-vs-24 spread, and nothing for
+// game 48 - it argues for itself. `assert:slope` still holds the growth.
+//
+// RAISED TO 57,606 ON 2026-09-28, for the 48th game (Puzzle Snake), argued the
+// same way. Two arms from ONE tree - `git archive origin/main` (8fa96c54) plus
+// this game - built back to back, the second with the game taken out of the
+// five lists that name it, Node 24, the IN arm built twice:
+//
+//   game out of every list   57,528 B gz     (= origin/main's own reading)
+//   game in                  57,582 B gz     (both IN builds)
+//   the 48th game costs          54 B gz
+//
+// 57,606 is 57,582 plus the same 24 B Node-22-vs-24 spread, and nothing for
+// game 49 - it argues for itself. `assert:slope` still holds the growth.
+//
+// RAISED TO 57,662 ON 2026-09-28, for the 49th game (Snake Arena), argued the
+// same way. Two arms from ONE tree - `git archive origin/main` (95ae8bc8, the
+// Game-table commit) plus this game and the round-3 snake changes - built back
+// to back, the second with the game taken out of the five lists that name it,
+// Node 24, the IN arm built twice:
+//
+//   origin/main alone        57,596 B gz
+//   game out of every list   57,596 B gz     (round 3's other changes cost 0)
+//   game in                  57,638 B gz     (both IN builds)
+//   the 49th game costs          42 B gz     (the same 42 it read on d650ccb9)
+//
+// 57,662 is 57,638 plus the same 24 B Node-22-vs-24 spread, and nothing for
+// game 50 - it argues for itself. `assert:slope` still holds the growth.
+//
+// RAISED 2026-09-30 by 20 B gz for the Light/Dark switch, and by nothing else.
+// The boot script now reads the mode's own key and sets `data-mode` before the
+// first paint - the whole of the switch's first-visit cost; its picker and the
+// dark values ride the lazy theme chunk and the sheets. Two arms, same machine:
+//
+//   42d220c8 (contrast fix)          57,653 B gz
+//   42d220c8 + the switch            57,673 B gz     (+20)
+//
+// Operator 2026-09-30: "Yes, raise the cap".
+//
+// RAISED 2026-09-30 by 56 B gz for the career P4 (diamonds, the diamond shelf,
+// the Career page), and by nothing else. Two arms from ONE tree - `git archive`
+// of origin/main c292f9fb, then the P4 change - same machine, Node 24:
+//
+//   c292f9fb alone                   57,657 B gz
+//   c292f9fb + P4                    57,713 B gz     (+56)
+//
+// What reaches the shell: the `boss_defeated` price in economy.ts (it must live
+// there - games report reasons, economy.ts alone prices them) and the `career`
+// page kind in pageContext.ts. Everything else rides the lazy `career` chunk. A
+// Career button on the Home header measured +98 B more; the operator dropped it
+// (2026-09-30: "Drop it") so the page opens from Neon's diamond pill instead.
+const CEILING = 57_738;
+
+function gzBytes(path) {
+  return gzipSync(readFileSync(path)).length;
+}
+
+/**
+ * What a first visit costs, in gzipped bytes, for the build at `dist`.
+ *
+ * EXPORTED SO THERE IS ONE MEASUREMENT, NOT TWO. `assert-slope.mjs` needs the
+ * same number for each of its two build arms, and a second implementation of
+ * "what does a first visit fetch" is the drift this repo has been bitten by
+ * twice - two implementations of the same quantity agree right up until they do
+ * not, and then one of them is quoted at the other. This one is the answer.
+ *
+ * Throws rather than exiting, so a caller measuring N arms can say WHICH arm was
+ * broken instead of dying anonymously.
+ */
+export function firstVisit(dist) {
+  const base = distBase(dist);
+  /** A URL as it appears under `dist/`: no base, no leading slash. */
+  const rel = (url) => (url.startsWith(base) ? url.slice(base.length) : url).replace(/^\//, "");
+
+  const indexPath = join(dist, "index.html");
+  if (!existsSync(indexPath)) throw new Error(`no ${indexPath} - run the build first.`);
+
+  const html = readFileSync(indexPath, "utf8");
+  const refs = [...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)].map((m) => m[1]);
+
+  // A first visit that fetches NOTHING is a broken build, not a tiny one. Without
+  // this the whole gate passes vacuously on an empty index.html - which is the
+  // failure mode of every check that measures an absence.
+  if (refs.length === 0) {
+    throw new Error(`${indexPath} references no js or css. Refusing to measure it.`);
+  }
+
+  const rows = [[gzBytes(indexPath), "index.html"]];
+  let total = rows[0][0];
+
+  for (const ref of refs) {
+    const path = join(dist, rel(ref));
+    if (!existsSync(path)) {
+      throw new Error(`index.html references ${ref}, which is not in ${dist}.`);
+    }
+    const size = gzBytes(path);
+    total += size;
+    rows.push([size, ref]);
+  }
+
+  rows.sort((a, b) => b[0] - a[0]);
+  return { total, rows };
+}
+
+function main() {
+  let measured;
+  try {
+    measured = firstVisit(DIST);
+  } catch (err) {
+    console.error(`assert-payload: ${err.message}`);
+    process.exit(1);
+  }
+  const { total, rows } = measured;
+
+  for (const [size, name] of rows) {
+    console.log(`  ${String(size).padStart(7)} B gz  ${name}`);
+  }
+
+  const ci = ciNodeMajor();
+  const here = Number(process.versions.node.split(".")[0]);
+  if (ci !== null && ci !== here) {
+    console.log(
+      `\nNOTE  this is Node ${here}; the deploy builds on Node ${ci}. Measured 2026-08-21,\n` +
+        `      the same commit differs by ~54 B gz between the two. Quote the number\n` +
+        `      from a CI run before writing it anywhere a reader will act on.`,
+    );
+  }
+  const pct = Math.round((total / CEILING) * 100);
+  console.log(
+    `\nfirst visit: ${total.toLocaleString()} B gz of ${CEILING.toLocaleString()} (${pct}%)`,
+  );
+
+  if (total > CEILING) {
+    console.error(
+      `\nFAIL  first visit is ${(total - CEILING).toLocaleString()} B gz over the ceiling.\n` +
+        `      Either make it smaller, or raise CEILING in scripts/assert-payload.mjs\n` +
+        `      in this commit with a reason. Do not raise it silently.`,
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `OK  first visit is within budget (${(CEILING - total).toLocaleString()} B gz spare).`,
+  );
+}
+
+// Run as a CLI, stay quiet as an import. `realpathSync` on both sides because
+// `npm run` invokes this by a relative path while an import resolves a real one,
+// and a guard that gets that wrong makes the gate silently never run - the exact
+// shape .claude/rules/a-diagnostic-that-truncates-what-it-compares.md records
+// costing a false "6 controls survived".
+if (process.argv[1] && pathToFileURL(realpathSync(resolve(process.argv[1]))).href === import.meta.url) {
+  main();
+}

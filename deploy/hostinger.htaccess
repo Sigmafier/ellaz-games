@@ -1,0 +1,159 @@
+# Apache config for the ellaz.fun production build (Hostinger).
+#
+# Copied to dist/.htaccess by .github/workflows/deploy-hostinger.yml. It lives
+# here rather than in public/ so it ships ONLY to Hostinger — the GitHub Pages
+# build runs on nginx and would just carry it as dead weight.
+
+# --- Real pages, and no SPA catch-all ---------------------------------------
+# Every route is now a real document on disk: /games/<id>/index.html and its
+# English twin, /world/, /en/. Apache's DirectoryIndex serves each of those for
+# the directory URL, and DirectorySlash (on by default) 301s /games/2048 to
+# /games/2048/ so the two forms do not both answer 200.
+#
+# The SPA catch-all that used to live here is GONE on purpose. With real pages
+# the only thing it still caught was a typo, and answering a typo with 200 plus
+# the home page is a soft 404 — which search engines treat worse than the
+# missing page it was covering for. A real 404 is the honest answer.
+ErrorDocument 404 /404.html
+
+# --- The 2026-08-14 language flip -------------------------------------------
+# English took the bare URLs and Hebrew moved to /he/. Two consequences, and
+# only ONE of them can be answered with a redirect:
+#
+#   /en/games/snake/  ->  /games/snake/     301, below. The English pages moved
+#                                           to a new address and the old one is
+#                                           indexed, so it has to point at the
+#                                           new one or ~31 URLs become 404s and
+#                                           lose everything they had earned.
+#                                           (1 home + one per game + world +
+#                                           boards. The exact number MOVES with
+#                                           the roster and was 31 on 2026-08-14
+#                                           - re-derive it from dist/pages.json
+#                                           rather than trusting this line.)
+#
+#   /games/snake/     ->  (nothing)         NOT redirectable, and it must not
+#                                           be attempted. That URL still exists
+#                                           and still answers 200 - it is the
+#                                           ENGLISH page now. Hebrew's new home
+#                                           at /he/games/snake/ has no old
+#                                           address to inherit; Google simply
+#                                           recrawls the bare URL, finds English
+#                                           where Hebrew was, and follows the
+#                                           hreflang cluster to the Hebrew one.
+#                                           That is the accepted cost of the
+#                                           flip, written down so nobody later
+#                                           "fixes" it with a rule that would
+#                                           send every English reader to /he/.
+#
+# 301 rather than 302: this is permanent, and only a 301 passes the ranking the
+# old URLs had. It is also the one thing here that is expensive to get wrong -
+# browsers and crawlers cache a 301 aggressively, so a bad one outlives its fix.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # --- One hostname ---------------------------------------------------------
+  # www.ellaz.fun answers 200 rather than redirecting, so Google crawls both
+  # hosts. Measured as Googlebot on 2026-08-20: every www page serves the
+  # CORRECT canonical (https://ellaz.fun/...), so the mirror is already being
+  # declined for the index - this is crawl budget spent on a host that can
+  # never rank, not duplicate content. Five of the thirteen URLs in Search
+  # Console's "Crawled - currently not indexed" bucket that day were www.
+  #
+  # Unlike the /en/ flip below, this one is safe in both directions, and the
+  # difference is worth naming so nobody reads the warning there as applying
+  # here: www is a HOSTNAME, not a locale. There is no page on the other side
+  # that must keep answering 200, nothing we publish links to www, and no
+  # canonical anywhere points at it.
+  #
+  # First in the file so the ordinary case costs one hop. A request for
+  # www.ellaz.fun/en/games/snake/ takes two - host, then the locale rule below
+  # - which is fine. It cannot loop: the target never matches ^www\.
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
+  # --- One removed game, five addresses Google still holds ------------------
+  # `sortsize` (the big/small game) shipped 2026-08-02, was indexed in every
+  # locale, and was removed deliberately on 2026-08-14 in `0207a33`. Search
+  # Console first saw the 404s on 2026-08-18 and still lists three of them.
+  #
+  # These are not worthless URLs. The 2026-08-21 Pages export records
+  # /en/games/sortsize/ at POSITION 8 with 2 impressions and /games/sortsize/ at
+  # 23.33 with 3 - so Google was serving them to real searchers after the game
+  # was already gone. A 404 throws that away; nothing else on the site earns
+  # position 8.
+  #
+  # The target is the kids SHELF, not another game. Redirecting a removed game
+  # to a different game (`sort` is Color Sort, an unrelated mechanic) is a
+  # bait-and-switch that Google reads as a soft 404; the category page is the
+  # honest answer to "the specific thing is gone" - here are the 25 games it
+  # sat among, in the reader's own language.
+  #
+  # FIRST, above the /en/ rule, so /en/games/sortsize/ resolves in ONE hop
+  # rather than chaining 301 -> 301. `(?:en/)?` is non-capturing because the
+  # English pages live at the bare path; the second rule keeps he/es/fr in
+  # their own locale rather than dumping a Hebrew reader onto English.
+  # Both are anchored at both ends and the trailing slash is optional, so
+  # /games/sortsizes/ or /games/sortsize/anything cannot be swept in.
+  RewriteRule ^(?:en/)?games/sortsize/?$ /games/kids/ [R=301,L]
+  RewriteRule ^(he|es|fr)/games/sortsize/?$ /$1/games/kids/ [R=301,L]
+
+  # Anchored at the start and requiring the boundary slash, so it matches the
+  # /en/ DIRECTORY and nothing that merely begins with those letters. Without
+  # the `/` a future /english-rules/ page would be swept into it silently.
+  # `$1` may be empty, which is what turns /en/ itself into /.
+  RewriteRule ^en/(.*)$ /$1 [R=301,L]
+
+  # The slashless form, which used to be handled for free. DirectorySlash 301s
+  # /en to /en/ only while `dist/en/` exists on disk - and it does not any more,
+  # so without this line the shortest and most-typed of the old URLs is the one
+  # that 404s. `^en$` is exact: it cannot reach /english or /en-us.
+  RewriteRule ^en$ / [R=301,L]
+</IfModule>
+
+# MultiViews would let Apache guess: a request for /games/2048 could be answered
+# with some other file whose name it liked, before DirectorySlash ever got the
+# chance to redirect. Off.
+<IfModule mod_negotiation.c>
+  Options -MultiViews
+</IfModule>
+
+# --- Caching ----------------------------------------------------------------
+# Order is load-bearing: the immutable rule is broad, the no-cache rule below
+# it narrows back the three files that must never go stale. A later
+# `Header set` replaces an earlier one for the same header.
+<IfModule mod_headers.c>
+  # Hashed build output is content-addressed — a change is a new filename, so
+  # these can be cached forever.
+  <FilesMatch "\.(js|css|woff2?)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # The shell, the service worker and the manifest ARE the update mechanism.
+  # Cache any of them and a deploy never reaches a returning player — exactly
+  # the stale-bundle failure the PWA's autoUpdate mode exists to prevent.
+  #
+  # This FilesMatch is basename-scoped, which is what makes it reach the 46
+  # nested content pages too: `games/2048/index.html` matches `^index\.html$`
+  # the same way the shell does. They carry no content hash, so a revalidate on
+  # every visit is exactly right for them.
+  <FilesMatch "^(index\.html|404\.html|sw\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # robots.txt and the sitemap change whenever a game is added. An hour is long
+  # enough to be free and short enough that a crawler is never a day behind.
+  <FilesMatch "^(robots\.txt|sitemap\.xml|llms\.txt)$">
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+</IfModule>
+
+# --- MIME types -------------------------------------------------------------
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+  AddType image/svg+xml            .svg
+</IfModule>
+
+# --- Compression ------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml application/manifest+json text/plain application/xml
+</IfModule>

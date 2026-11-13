@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:standalone": "vite build --config vite.standalone.config.ts"
+    "build:standalone": "vite build --config vite.standalone.config.ts",
+    "build:check": "npm run build && TIER_REQUIREMENTS=1 node scripts/assert-tier.mjs && node scripts/assert-first-visit.mjs && node scripts/assert-payload.mjs && node scripts/assert-pages.mjs && node scripts/assert-slope.mjs",
+    "assert:live": "node scripts/assert-live.mjs",
+    "assert:crawlable": "node scripts/assert-crawlable.mjs"
   },
   "dependencies": {
     "phaser": "^4.2.1",

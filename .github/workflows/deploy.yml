@@ -1,0 +1,298 @@
+# THE GAMES SITE'S DEPLOY - it runs in the PUBLIC repo Sigmafier/ellaz-games.
+#
+# Lives in the private repo at scripts/public-mirror/workflows/deploy.yml, which
+# GitHub never runs from there (only a ROOT .github/workflows/ is read), and
+# scripts/public-mirror/build.sh copies it into the snapshot's .github/workflows/.
+#
+# WHY HERE (2026-11-13): the private repo shares the Sigmafier org's 2,000 free
+# Actions minutes with five other private repos, ran out on 2026-11-12, and the
+# billing will not be raised. A PUBLIC repo's GitHub-hosted minutes are free and
+# unlimited. The private repo's deploy-hostinger.yml stays as the full definition
+# (it also builds the Toybox) and is switched off; src/build/public-workflows.test.ts
+# holds the upload step below byte-identical to it.
+#
+# WHAT IT DOES NOT DO: build or upload /toybox/. The Toybox is built from studio/,
+# which stays private, and ships from the operator's PC (scripts/deploy-toybox.sh).
+# This deploy never deletes anything on the server (`mirror -R` without --delete,
+# `put` per file), so /toybox/ is left as it is - and assert-live.mjs still checks
+# its door and shelf over the network on every run.
+#
+# A push here only ever comes from scripts/public-mirror/push.sh, which pushes
+# only when the snapshot changed.
+name: Deploy to Hostinger (ellaz.fun)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      # Files in this repo that cannot change dist/ - each push of them would
+      # be a full FTP upload for nothing, and every upload is a fresh chance to
+      # die mid-transfer (.claude/rules/a-deploy-ledger-that-can-disagree-with-the-disk.md
+      # in the private repo).
+      - "listing-images/**"
+      - "README.md"
+      - "LICENSE"
+      - "scripts/repro/**"
+      - "scripts/assert-crawlable.mjs"
+      - ".github/workflows/crawlable.yml"
+      - ".github/workflows/live-smoke.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: hostinger
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check FTP credentials
+        id: creds
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          if [ -n "$FTP_SERVER" ] && [ -n "$FTP_USERNAME" ] && [ -n "$FTP_PASSWORD" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::FTP_SERVER / FTP_USERNAME / FTP_PASSWORD are not set - skipping the ellaz.fun deploy. Add them under Settings > Secrets and variables > Actions."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.creds.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+        if: steps.creds.outputs.ready == 'true'
+
+      # `npm run build` is also the type-check gate (tsc --noEmit), and
+      # build:check adds the tier, first-visit, payload, pages and slope gates.
+      - name: Build for the root domain
+        if: steps.creds.outputs.ready == 'true'
+        run: npm run build:check
+        env:
+          # Without the key the analytics chunk is not deferred, it is DELETED
+          # at build time - so a missing secret changes the payload, not just
+          # the counting (.claude/rules/precache-glob-sweeps-new-chunks.md).
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
+
+      - name: Refuse a build that carries a toybox
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          # This deploy must never put /toybox/ in dist/: the shelf is uploaded
+          # from the private repo, and a half-shelf here would overwrite it.
+          test ! -e dist/toybox || { echo "::error::dist/toybox exists - this deploy does not own /toybox/"; exit 1; }
+
+      - name: Add the Apache config (404 document + cache headers)
+        if: steps.creds.outputs.ready == 'true'
+        run: cp deploy/hostinger.htaccess dist/.htaccess
+
+      - name: Upload to Hostinger
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          # "./", NOT "public_html/". The FTP account is chrooted to
+          # /home/<id>/domains/ellaz.fun/public_html, so its root already IS the
+          # docroot — verified by listing it. Uploading to public_html/ would
+          # nest the whole site one level down, where nothing serves it, and the
+          # deploy would go green while ellaz.fun stayed frozen.
+          FTP_SERVER_DIR: ${{ vars.FTP_SERVER_DIR || './' }}
+        run: |
+          set -euo pipefail
+          command -v lftp >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq lftp; }
+
+          # The script goes in a 0600 file rather than on the command line: an
+          # argv carrying the password is readable from `ps` by anything else on
+          # the runner, and GitHub's log masking does not reach that far.
+          umask 077
+          SCRIPT="$(mktemp)"
+          {
+            # Hostinger presents a wildcard cert for *.hstgr.io, which matches
+            # neither the FTP IP nor ftp.ellaz.fun — strict verification fails
+            # the handshake outright. Verified 2026-08-02 by reading the served
+            # cert. The control channel and the data channel are both still
+            # encrypted; only the name check is off.
+            echo 'set ssl:verify-certificate no'
+            echo 'set ftp:ssl-force true'
+            echo 'set ftp:ssl-protect-data true'
+            echo 'set ftp:passive-mode true'
+            # Hostinger's FTP was answering in ~30s under load on 2026-08-08,
+            # which is what tripped the previous action's default timeout.
+            echo 'set net:timeout 60'
+            echo 'set net:max-retries 4'
+            echo 'set net:reconnect-interval-base 5'
+
+            # lftp uploads to a temp name and renames on completion, so a dead
+            # transfer never leaves a half-written file under the real name.
+            # Keep that - but NOT under lftp's default `.in.*`, which is a
+            # DOTFILE. Hostinger refused the rename on 2026-08-08:
+            #   550 /assets/game-shadows-DHQKHaBb.js: Rename of hidden file
+            #   /assets/.in.game-shadows-DHQKHaBb.js failed
+            # and that killed a whole pass. Shared hosting commonly restricts
+            # dotfiles; a visible temp name keeps the atomicity and drops the
+            # restriction. Do NOT "fix" this by setting xfer:use-temp-file
+            # false - that trades an intermittent failure for a torn file.
+            echo 'set xfer:temp-file-name "lftp-tmp-*"'
+            echo 'set cmd:fail-exit true'
+            echo "open -u \"$FTP_USERNAME\",\"$FTP_PASSWORD\" \"$FTP_SERVER\""
+            echo "cd \"$FTP_SERVER_DIR\""
+
+            # Retire the previous action's ledger. It currently asserts that
+            # files which are not on the server are on the server, so leaving it
+            # would re-arm the exact outage the moment anyone reverts this step.
+            # Before fail-exit, because a missing file here is a success.
+            echo 'rm -f .ftp-deploy-sync-state.json'
+            echo 'set cmd:fail-exit true'
+
+            # Remote directories first, so a `put` never lands nowhere. The
+            # mirrored trees are left out: mirror creates its own target.
+            #
+            # dist/toybox IS in this walk, unlike the mirrored trees, because its
+            # seven html pages are transferred by PASS 3 with `put -O <dir>` and a
+            # put needs its directory to exist. mkdir -pf is idempotent, so the
+            # handful of dirs mirror also creates cost nothing.
+            (cd dist && find . -type f -not -path './assets/*' -not -path './og/*' \
+                 -not -path './art/*' -not -path './toybox/bundle/*' -printf '%h\n') |
+              sort -u | while read -r d; do
+                [ "$d" = "." ] || echo "mkdir -pf \"${d#./}\""
+              done
+
+            # PASS 1 - the CONTENT-HASHED trees, by mirror. Mirror is EXACT on
+            # these and nowhere else: every name in them contains a hash of its
+            # own bytes, so a changed file is a NEW file and "does the remote
+            # have this name" is the whole question. Nothing here can be wrong
+            # about what is already there, which is the actual invariant - "no
+            # ledgers" was only ever a consequence of it.
+            #
+            # `og/` (184 share cards) and `art/` (38 game pictures) JOINED THIS
+            # PASS on 2026-08-26, when their names gained a hash. They were 222
+            # forced transfers on every single deploy at ~0.68 s each, for files
+            # that change when a game or its copy changes and not otherwise:
+            # measured on the artifact, the forced set went 417 -> 195.
+            #
+            # `toybox/bundle` JOINED THIS PASS on 2026-09-22 with the beta shelf.
+            # It is the toybox build's `assetsDir`, and every name in it carries
+            # a content hash for exactly the reason the three above do - so the
+            # same argument applies unchanged. The REST of dist/toybox/ (the
+            # sprite atlases, the campaign JSON) has unhashed names and goes in
+            # PASS 2, forced, because mirror decides by size and time and this
+            # repo has already been burned once by a file that changed without
+            # changing length.
+            for tree in assets og art toybox/bundle; do
+              # The toybox is optional: the PUBLIC repo's deploy builds no
+              # shelf (studio/ is private), and a mirror of a missing local
+              # directory would fail the upload under cmd:fail-exit.
+              if [ "$tree" = toybox/bundle ] && [ ! -d dist/toybox/bundle ]; then continue; fi
+              echo "mirror -R --parallel=4 --no-perms --verbose=1 dist/$tree $tree"
+            done
+
+            # PASS 2 - everything else that is REFERENCED, forced.
+            # PASS 3 - the files that NAME the hashes, forced, last.
+            #
+            # `put`, not `mirror`, and the reason is a bug this gate caught in
+            # the commit that introduced it. `mirror` decides by comparing SIZE
+            # and TIME, and an index.html that differs from the remote one only
+            # in a content hash is BYTE-IDENTICAL IN LENGTH - so mirror skipped
+            # all 49 pages while happily uploading the new assets. The result
+            # was the outage's exact signature from the opposite direction: new
+            # chunks present on the server, old HTML still pointing at the old
+            # ones. That is the ledger defect again, wearing mirror's heuristic
+            # instead of a JSON file, and it is why the correctness-critical
+            # files are transferred unconditionally rather than diffed.
+            #
+            # No --delete anywhere: an orphaned old hash costs a few KB and is
+            # what keeps stale HTML working if a run dies between the passes.
+            for pass in other html; do
+              if [ "$pass" = other ]; then
+                find dist -type f -not -path 'dist/assets/*' -not -path 'dist/og/*' \
+                     -not -path 'dist/art/*' -not -path 'dist/toybox/bundle/*' \
+                     -not -name '*.html' -not -name 'sw.js' | sort
+              else
+                find dist -type f \( -name '*.html' -o -name 'sw.js' \) | sort
+              fi |
+                while read -r f; do
+                  rel="${f#dist/}"; d="$(dirname "$rel")"
+                  echo "put -O \"$d\" \"$f\""
+                done
+            done
+            echo 'bye'
+          } > "$SCRIPT"
+
+          # A generator that silently produces nothing would upload nothing and
+          # still exit 0. Assert the shape before handing it to lftp.
+          #
+          # THE FLOOR IS DERIVED, NOT TYPED. It was `-ge 50`, written when the
+          # site had 49 pages - a constant against a list that grows, so at 200
+          # pages a walk that dropped three quarters of them would still pass.
+          # The route table now says how many documents there are, and it is
+          # written by the EMITTER rather than by this shell walk, so the two
+          # cannot be wrong together: a broken `find` here reds against a number
+          # that came from somewhere else entirely.
+          PAGES=$(node -e 'const m=require("./dist/pages.json");
+            process.stdout.write(String(m.pages.filter(p=>p.file.endsWith(".html")).length))')
+          case "$PAGES" in ''|*[!0-9]*)
+            echo "::error::could not read the page count out of dist/pages.json"; exit 1;;
+          esac
+          PUTS=$(grep -c '^put ' "$SCRIPT")
+          echo "lftp script: $PUTS forced transfers + 3 mirrors ($PAGES documents expected)"
+          [ "$PUTS" -ge "$PAGES" ] || {
+            echo "::error::only $PUTS put commands for $PAGES documents - the file walk is broken"
+            exit 1
+          }
+
+          # RETRY THE WHOLE UPLOAD. Hostinger's FTP is intermittently slow to
+          # answer - it is what tripped the old 30s default, and on 2026-08-08 a
+          # run died at `cd` with "max-retries exceeded" before transferring a
+          # single byte. A deploy that reds on a flaky socket trains everyone to
+          # ignore red, and an ignored gate is the same as no gate.
+          #
+          # Retrying is safe HERE, and only because of how the upload is built:
+          # every transfer is FORCED or keyed on a content hash, so running it
+          # twice puts the same bytes in the same places. That is the payoff of
+          # having no ledger - a partial attempt leaves nothing for the next one
+          # to be wrong about. Do NOT add a retry to a stateful sync: there it
+          # would compound the original bug instead of absorbing it.
+          for attempt in 1 2 3; do
+            if lftp -f "$SCRIPT"; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::upload failed after 3 attempts - this is the host, not the build"
+              rm -f "$SCRIPT"; exit 1
+            fi
+            echo "::warning::upload attempt $attempt failed, retrying in $((attempt * 20))s"
+            sleep $((attempt * 20))
+          done
+          rm -f "$SCRIPT"
+
+      # ── The gate this repo did not have ───────────────────────────────────
+      #
+      # A green upload is not a changed website - that is the whole lesson of
+      # 2026-08-08, and it had already been written down in
+      # .claude/rules/verify-the-deploy-target-not-just-the-run.md before it
+      # took the site down anyway, because nothing MECHANISED it.
+      #
+      # This asserts the live html references the same hashed assets as the
+      # dist/ we just built, and that every one of them is fetchable. Both
+      # halves are needed: "all assets 200" passes on a completely stale site,
+      # and "the html matches" passes on a site whose chunks never arrived.
+      - name: Verify the live site is serving this build
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          SITE_URL: https://ellaz.fun
+          BASE_PATH: /
+        run: node scripts/assert-live.mjs
+
+      - name: Ping IndexNow
+        if: steps.creds.outputs.ready == 'true'
+        continue-on-error: true
+        run: node scripts/indexnow.mjs
