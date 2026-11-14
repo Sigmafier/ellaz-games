@@ -1,27 +1,30 @@
-import { describe, expect, it } from "vitest";
 import {
-  HIGHEST,
   LEVELS,
-  LOWEST,
-  MIDDLE_C,
+  RANGE,
   SONGS,
   SONG_IDS,
   TRAIL,
   blackCentre,
   blacks,
-  clampStart,
+  centreOf,
+  clampOffset,
+  firstVisibleC,
   freqOf,
   isBlack,
   isDone,
   keyForMidi,
   keysFor,
+  layoutFor,
   midiForKey,
   newFollow,
+  offsetForC,
+  offsetToShow,
+  playableSong,
   press,
   pushTrail,
-  shiftStart,
+  scrolls,
   songById,
-  spanFor,
+  songsFor,
   timeline,
   upcoming,
   wanted,
@@ -43,87 +46,109 @@ describe("pitch", () => {
 });
 
 describe("the keyboards", () => {
-  it("basic is ten white keys, C4 to E5", () => {
-    const keys = keysFor("basic", false);
+  it("basic is ten white keys, C4 to E5, and never scrolls", () => {
+    const keys = keysFor("basic");
     expect(keys).toEqual([60, 62, 64, 65, 67, 69, 71, 72, 74, 76]);
     expect(blacks(keys)).toEqual([]);
-    // a PC does not change the basic keyboard
-    expect(keysFor("basic", true)).toEqual(keys);
+    expect(scrolls("basic")).toBe(false);
   });
 
-  it("advanced adds the seven black keys over the same span", () => {
-    const keys = keysFor("advanced", true);
-    expect(keys.length).toBe(17);
-    expect(whites(keys)).toEqual(keysFor("basic", false));
-    expect(blacks(keys)).toEqual([61, 63, 66, 68, 70, 73, 75]);
+  it("plus is three octaves with the black keys, pro is five", () => {
+    expect(keysFor("advanced")).toHaveLength(37);
+    expect(whites(keysFor("advanced"))).toHaveLength(22);
+    expect(keysFor("pro")).toHaveLength(61);
+    expect(whites(keysFor("pro"))).toHaveLength(36);
+    expect(keysFor("pro")[0]).toBe(36);
+    expect(keysFor("pro")[60]).toBe(96);
+    expect(scrolls("advanced") && scrolls("pro")).toBe(true);
   });
 
-  it("pro is two octaves on a PC and the small span on a phone", () => {
-    expect(keysFor("pro", true)).toHaveLength(25);
-    expect(whites(keysFor("pro", true))).toHaveLength(15);
-    expect(keysFor("pro", false)).toEqual(keysFor("advanced", false));
-    expect(spanFor("pro", true)).toBe(24);
-    expect(spanFor("advanced", true)).toBe(16);
+  it("runs from RANGE's low note to its high one", () => {
+    for (const level of LEVELS) {
+      const keys = keysFor(level);
+      expect([keys[0], keys[keys.length - 1]]).toEqual([...RANGE[level]]);
+    }
   });
 
-  it("only pro honours a window start", () => {
-    expect(keysFor("advanced", true, 36)[0]).toBe(MIDDLE_C);
-    expect(keysFor("pro", true, 36)[0]).toBe(36);
-  });
-
-  it("a pro window snaps to a C and stays inside C2..C7", () => {
-    expect(clampStart(63, 24)).toBe(60);
-    expect(clampStart(-100, 24)).toBe(LOWEST);
-    expect(clampStart(1000, 24)).toBe(72);
-    const top = keysFor("pro", true, 1000);
-    expect(top[top.length - 1]).toBe(HIGHEST);
-    expect(clampStart(Number.NaN, 24)).toBe(MIDDLE_C);
-  });
-
-  it("shifting stops at either end instead of wrapping", () => {
-    let s = MIDDLE_C;
-    for (let i = 0; i < 10; i++) s = shiftStart(s, -1, 24);
-    expect(s).toBe(LOWEST);
-    for (let i = 0; i < 10; i++) s = shiftStart(s, 1, 24);
-    expect(s).toBe(72);
-    expect(shiftStart(60, 1, 16)).toBe(72);
-    // C6 + 16 semitones would end on E7, past C7, so the small window tops out on C5
-    expect(shiftStart(72, 1, 16)).toBe(72);
+  it("each keyboard holds the one below it", () => {
+    for (const [lo, hi] of [["basic", "advanced"], ["advanced", "pro"]] as const) {
+      const big = keysFor(hi);
+      expect(keysFor(lo).filter((m) => !big.includes(m))).toEqual([]);
+    }
   });
 
   it("puts each black key on the line between its two white keys", () => {
-    const keys = keysFor("advanced", false);
-    expect(blackCentre(keys, 61)).toBe(1); // between C and D
-    expect(blackCentre(keys, 66)).toBe(4); // between F and G
-    expect(blackCentre(keys, 75)).toBe(9); // between D5 and E5
-    expect(blackCentre(keys, 60)).toBe(-1);
-    expect(blackCentre(keysFor("basic", false), 61)).toBe(-1);
+    const keys = keysFor("advanced"); // from C3
+    expect(blackCentre(keys, 49)).toBe(1); // C#3, between C3 and D3
+    expect(blackCentre(keys, 54)).toBe(4); // F#3
+    expect(blackCentre(keys, 48)).toBe(-1);
+    expect(blackCentre(keysFor("basic"), 61)).toBe(-1);
+    expect(centreOf(keys, 48)).toBe(0.5);
+    expect(centreOf(keys, 49)).toBe(1);
+    expect(centreOf(keys, 10)).toBe(-1);
+  });
+});
+
+describe("the visible part of a long keyboard", () => {
+  it("shares the view when every key fits, and scrolls when it would not", () => {
+    expect(layoutFor(10, 355, 34)).toEqual({ keyPx: 35.5, contentPx: 355, scroll: false });
+    const phone = layoutFor(36, 355, 34);
+    expect(phone.scroll).toBe(true);
+    expect(phone.keyPx).toBe(34);
+    expect(phone.contentPx).toBe(36 * 34);
+    // a PC full screen holds all five octaves at once
+    expect(layoutFor(36, 1500, 30).scroll).toBe(false);
+    // a phone turned to landscape shows more than twice as many keys as upright
+    const upright = 355 / layoutFor(36, 355, 34).keyPx;
+    const landscape = 820 / layoutFor(36, 820, 34).keyPx;
+    expect(landscape / upright).toBeGreaterThan(2);
+    expect(layoutFor(0, 300, 30).contentPx).toBe(0);
+  });
+
+  it("never scrolls past either end", () => {
+    expect(clampOffset(-50, 1000, 300)).toBe(0);
+    expect(clampOffset(5000, 1000, 300)).toBe(700);
+    expect(clampOffset(200, 1000, 300)).toBe(200);
+    expect(clampOffset(200, 200, 300)).toBe(0);
+    expect(clampOffset(Number.NaN, 1000, 300)).toBe(0);
+  });
+
+  it("leaves a visible key alone and centres one that is off screen", () => {
+    expect(offsetToShow(5, 30, 0, 1080, 300)).toBe(0); // x 150, in view
+    expect(offsetToShow(20, 30, 0, 1080, 300)).toBe(450); // x 600 -> centred
+    expect(offsetToShow(35.5, 30, 0, 1080, 300)).toBe(780); // the last key: clamped
+    expect(offsetToShow(-1, 30, 99, 1080, 300)).toBe(99);
+  });
+
+  it("finds the first C on screen, and puts a C at the left edge", () => {
+    const keys = keysFor("pro");
+    expect(firstVisibleC(keys, 0, 30)).toBe(36);
+    expect(firstVisibleC(keys, 30, 30)).toBe(48); // C2 scrolled off
+    const at = offsetForC(keys, 60, 30, 1080, 300);
+    expect(at).toBe(14 * 30);
+    expect(firstVisibleC(keys, at, 30)).toBe(60);
   });
 });
 
 describe("the computer keyboard", () => {
-  it("maps the home row to the white keys and the row above to the black", () => {
-    const keys = keysFor("advanced", true);
-    expect(["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"].map((k) => midiForKey(k, keys))).toEqual(
-      whites(keys),
-    );
-    expect(["w", "e", "t", "y", "u", "o", "p"].map((k) => midiForKey(k, keys))).toEqual(blacks(keys));
-    expect(midiForKey("A", keys)).toBe(60);
+  it("maps the home row to white keys and the row above to black, from the first C on screen", () => {
+    const keys = keysFor("pro");
+    expect(["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"].map((k) => midiForKey(k, keys, 60))).toEqual([
+      60, 62, 64, 65, 67, 69, 71, 72, 74, 76,
+    ]);
+    expect(["w", "e", "t", "y", "u", "o", "p"].map((k) => midiForKey(k, keys, 60))).toEqual([61, 63, 66, 68, 70, 73, 75]);
+    expect(midiForKey("A", keys, 48)).toBe(48);
+    expect(keyForMidi(61, keys, 60)).toBe("W");
+    expect(keyForMidi(90, keys, 60)).toBeUndefined();
   });
 
   it("plays nothing for a key that is not on this keyboard", () => {
-    expect(midiForKey("w", keysFor("basic", false))).toBeUndefined();
-    expect(midiForKey("'", keysFor("basic", false))).toBeUndefined();
-    expect(midiForKey("q", keysFor("pro", true))).toBeUndefined();
-    expect(midiForKey("a", [])).toBeUndefined();
-  });
-
-  it("labels follow the window", () => {
-    const keys = keysFor("pro", true, 48);
-    expect(midiForKey("a", keys)).toBe(48);
-    expect(keyForMidi(48, keys)).toBe("A");
-    expect(keyForMidi(49, keys)).toBe("W");
-    expect(keyForMidi(48 + 20, keys)).toBeUndefined();
+    expect(midiForKey("w", keysFor("basic"), 60)).toBeUndefined();
+    expect(midiForKey("'", keysFor("basic"), 60)).toBeUndefined();
+    expect(midiForKey("q", keysFor("pro"), 60)).toBeUndefined();
+    expect(midiForKey("a", [], 60)).toBeUndefined();
+    // from C6, ' would be F7 - past the top of the keyboard
+    expect(midiForKey("'", keysFor("pro"), 84)).toBeUndefined();
   });
 });
 
@@ -133,17 +158,35 @@ describe("the songs", () => {
     expect(new Set(SONG_IDS).size).toBe(SONGS.length);
   });
 
-  // The promise every keyboard makes: a song can be played on it.
-  it.each(SONGS.map((s) => [s.id, s] as const))("%s fits every keyboard, the basic one included", (_id, song) => {
+  const rank = (l: string) => LEVELS.indexOf(l as never);
+
+  // The promise every keyboard makes: a song it lists can be played on it.
+  it.each(SONGS.map((s) => [s.id, s] as const))("%s fits every keyboard from its own up", (_id, song) => {
     for (const level of LEVELS) {
-      for (const pc of [false, true]) {
-        const keys = keysFor(level, pc);
-        const missing = song.notes.map(([m]) => m).filter((m) => !keys.includes(m));
-        expect(missing, `${song.id} on ${level}/${pc ? "pc" : "phone"}`).toEqual([]);
-      }
+      if (rank(level) < rank(song.min)) continue;
+      const keys = keysFor(level);
+      const missing = song.notes.map(([m]) => m).filter((m) => !keys.includes(m));
+      expect(missing, `${song.id} on ${level}`).toEqual([]);
     }
     for (const [, beats] of song.notes) expect(beats).toBeGreaterThan(0);
     expect(song.notes.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it("starts a song at the lowest keyboard it fits, never higher", () => {
+    for (const song of SONGS) {
+      const below = LEVELS[rank(song.min) - 1];
+      if (!below) continue;
+      const keys = keysFor(below);
+      expect(song.notes.some(([m]) => !keys.includes(m)), `${song.id} would fit ${below}`).toBe(true);
+    }
+  });
+
+  it("lists more songs on each keyboard up, and swaps one a keyboard cannot play", () => {
+    expect(songsFor("basic").length).toBeLessThan(songsFor("advanced").length);
+    expect(songsFor("advanced").length).toBeLessThanOrEqual(songsFor("pro").length);
+    expect(songsFor("basic").every((s) => s.min === "basic")).toBe(true);
+    expect(playableSong("elise", "basic")).toBe("bus");
+    expect(playableSong("elise", "pro")).toBe("elise");
   });
 
   it("the wheels on the bus starts C F F F F A C A F", () => {
@@ -152,6 +195,10 @@ describe("the songs", () => {
 
   it("where is thumbkin starts G A B G twice", () => {
     expect(songById("thumb").notes.slice(0, 8).map(([m]) => m)).toEqual([67, 69, 71, 67, 67, 69, 71, 67]);
+  });
+
+  it("für elise starts E D# E D# E B D C A", () => {
+    expect(songById("elise").notes.slice(0, 9).map(([m]) => m)).toEqual([76, 75, 76, 75, 76, 71, 74, 72, 69]);
   });
 });
 

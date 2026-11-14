@@ -5,18 +5,18 @@ export const pianoFr: GameCopy = {
   name: "Piano",
   metaTitle: "Piano en ligne gratuit - jouer et apprendre | Ellaz",
   metaDescription:
-    "Un piano gratuit dans le navigateur, sur mobile, tablette et ordinateur. Trois claviers, de dix touches colorées à deux octaves avec pédale, et cinq comptines.",
+    "Un piano gratuit dans le navigateur, sur mobile, tablette et ordinateur. Trois claviers, de dix touches colorées à cinq octaves qui défilent, et 16 airs.",
 
   lede: "Un piano gratuit dans le navigateur. On touche une touche et elle sonne, avec autant de doigts qu'on veut, ou depuis le clavier de l'ordinateur. En mode chansons, il allume la touche suivante et vous attend, sans chrono et sans fausse note qui coûte quoi que ce soit.",
 
   body: [
-    "Le sélecteur de niveau choisit un clavier, rien de plus. Le clavier de base, ce sont dix touches blanches, du do du milieu jusqu'au mi de l'octave suivante, chacune de sa couleur et avec son nom écrit dessus. Le Plus garde la même étendue et ajoute les sept touches noires, soit 17 touches. Le clavier pro, sur un ordinateur, en compte 25 : deux octaves entières qui montent ou descendent d'une octave à la fois, de C2 à C7, avec une pédale de sustain et un interrupteur pour les noms des notes.",
+    "Le sélecteur de niveau choisit un clavier, rien de plus. Le clavier de base, ce sont dix touches blanches, du do du milieu jusqu'au mi de l'octave suivante, chacune de sa couleur et avec son nom écrit dessus, et il ne bouge pas. Le Plus couvre trois octaves, de C3 à C6 : 37 touches avec les noires. Le pro en couvre cinq, de C2 à C7, soit 61 touches.",
 
-    "Sur un téléphone, le pro reste à 17 touches. C'est voulu.",
+    "Ces deux-là dépassent l'écran. C'est voulu.",
 
-    "Vingt-cinq touches sur un écran de téléphone, ce serait une rangée de touches qu'aucun doigt ne vise.",
+    "Une touche blanche ne descend jamais sous 36 pixels sur un écran tactile (26 pour le pro sur un écran large), comme sur les pianos en ligne : un écran plus large montre simplement plus de touches, et une carte de tout le clavier, au-dessus des touches, fait glisser le reste. Un téléphone tenu droit montre une dizaine de touches blanches ; couché, ou avec le piano plein écran, plus du double.",
 
-    "Le mode chansons propose cinq airs traditionnels, et Les roues de l'autobus avec Frère Jacques ouvrent la liste. La plus courte, Petit Jean, fait 24 notes ; la plus longue, Ah vous dirai-je maman, en fait 42. Toutes les notes des cinq tombent sur des touches blanches entre do et mi, donc chaque chanson se joue sur le clavier de dix touches. Les tests du jeu le vérifient, chanson par chanson et clavier par clavier. Une autre touche ? Elle sonne, tout simplement. La chanson attend toujours la même note, et la bonne touche frétille un peu pour se signaler.",
+    "Le mode chansons propose 16 airs, et Les roues de l'autobus avec Frère Jacques ouvrent la liste. Huit airs faciles se jouent sur tous les claviers ; huit classiques, qui demandent les noires et plus de place, apparaissent dès le Plus : la Lettre à Élise, Greensleeves, le Canon de Pachelbel, la Marche turque, la Petite musique de nuit, Dans l'antre du roi de la montagne, la Gymnopédie n° 1 de Satie et Au matin de Grieg. Le plus court fait 18 notes ; le plus long, Vive le vent, en fait 51. Les tests du jeu vérifient que chaque air tient sur chaque clavier où il figure, et le clavier défile tout seul jusqu'à la note suivante. Une autre touche ? Elle sonne, tout simplement. La chanson attend toujours la même note, et la bonne touche frétille un peu pour se signaler.",
 
     "L'aveu, maintenant : il n'y a pas de score. Le jeu libre ne garde aucun record, comme la boîte à musique et le coloriage, parce que la seule façon de classer un enfant qui joue d'un instrument, c'est de le juger. Finir une chanson rapporte des pièces et une étoile, et personne ne chronomètre.",
   ],
@@ -26,7 +26,7 @@ export const pianoFr: GameCopy = {
     { title: "Choisissez un clavier", body: "Base, Plus ou Pro. Chaque cran ajoute des touches et retire de l'aide." },
     { title: "Passez aux chansons", body: "Choisissez un air et jouez la touche qui s'allume. La bande du haut montre les notes à venir." },
     { title: "Écoutez d'abord", body: "Le bouton d'écoute joue la chanson à 100 temps par minute et allume chaque touche au passage." },
-    { title: "Jouez au clavier", body: "Sur ordinateur, la rangée A S D F donne les blanches et celle du dessus les noires. En pro, Z et X changent d'octave." },
+    { title: "Jouez au clavier", body: "Sur ordinateur, la rangée A S D F donne les blanches et celle du dessus les noires, à partir du premier do à l'écran. Z et X déplacent un long clavier d'une octave." },
   ],
 
   tips: [
@@ -47,7 +47,7 @@ export const pianoFr: GameCopy = {
     { title: "3 à 4 ans", body: "Le clavier de base en jeu libre. Chaque toucher fait un son, et cela suffit." },
     { title: "5 à 7 ans", body: "Les chansons sur le clavier de base, la touche suivante qui brille. Les roues de l'autobus pour commencer." },
     { title: "8 ans et plus", body: "Le clavier Plus, puis les mêmes chansons avec un simple point comme indice." },
-    { title: "Adultes", body: "Le pro sur ordinateur : deux octaves, la pédale, et tout au clavier." },
+    { title: "Adultes", body: "Le pro sur ordinateur : cinq octaves, la pédale, et tout au clavier." },
   ],
 
   accessibility:
@@ -61,11 +61,11 @@ export const pianoFr: GameCopy = {
   ],
 
   faq: [
-    { q: "Peut-on jouer de ce piano sur un téléphone ?", a: "Oui. Les touches sont faites pour le tactile et acceptent plusieurs doigts. Sur téléphone, le plus grand clavier fait 17 touches pour qu'elles restent larges." },
-    { q: "Peut-on jouer avec le clavier de l'ordinateur ?", a: "Oui. A S D F G H J K L sont les blanches, W E T Y U O P les noires. Sur le clavier pro, Z et X descendent et montent d'une octave." },
-    { q: "Quelles chansons peut-on apprendre ?", a: "Les roues de l'autobus, Frère Jacques, Ah vous dirai-je maman, Petit Jean et le thème de l'Hymne à la joie. Que des airs traditionnels." },
+    { q: "Peut-on jouer de ce piano sur un téléphone ?", a: "Oui. Les touches sont faites pour le tactile et acceptent plusieurs doigts. En Plus et en pro, le clavier dépasse l'écran : faites glisser la carte au-dessus des touches, ou tournez le téléphone pour en voir davantage." },
+    { q: "Peut-on jouer avec le clavier de l'ordinateur ?", a: "Oui. A S D F G H J K L sont les blanches, W E T Y U O P les noires, à partir du premier do à l'écran. En Plus et en pro, Z et X descendent et montent d'une octave." },
+    { q: "Quelles chansons peut-on apprendre ?", a: "Huit airs faciles sur tous les claviers : Les roues de l'autobus, Frère Jacques, Ah vous dirai-je maman, Petit Jean, l'Hymne à la joie, la Berceuse de Brahms, Vive le vent et le Largo du Nouveau Monde de Dvořák. Dès le Plus, huit classiques s'y ajoutent. Que des airs traditionnels ou tombés dans le domaine public." },
     { q: "Que se passe-t-il si on appuie sur la mauvaise touche ?", a: "Elle sonne comme les autres et la chanson attend toujours la bonne note. Pas de punition, pas de vies, pas de points." },
-    { q: "Quelle différence entre les trois claviers ?", a: "Base : dix touches blanches colorées. Plus : 17 touches avec les noires. Pro : 25 touches sur ordinateur, changement d'octave et pédale." },
+    { q: "Quelle différence entre les trois claviers ?", a: "Base : dix touches blanches colorées qui ne bougent pas. Plus : trois octaves, 37 touches avec les noires. Pro : cinq octaves, 61 touches." },
     { q: "Y a-t-il une pédale ?", a: "Oui, un bouton de pédale sur tous les claviers. Activée, chaque note dure environ trois fois plus." },
     { q: "Faut-il télécharger quelque chose ?", a: "Non. Tout se passe dans le navigateur, gratuitement et sans inscription, et après la première visite ça marche aussi hors ligne." },
   ],

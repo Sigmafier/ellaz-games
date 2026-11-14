@@ -12,25 +12,29 @@ import {
   HINT,
   LEVELS,
   MIDDLE_C,
-  SONGS,
   TIER,
   blackCentre,
   blacks,
-  canShift,
-  clampStart,
+  centreOf,
+  clampOffset,
+  firstVisibleC,
   hasBlacks,
   isMode,
   isSongId,
   keyForMidi,
   keysFor,
+  layoutFor,
   midiForKey,
   newFollow,
+  offsetForC,
+  offsetToShow,
   pitchClass,
+  playableSong,
   press,
   pushTrail,
-  shiftStart,
+  scrolls,
   songById,
-  spanFor,
+  songsFor,
   timeline,
   upcoming,
   wanted,
@@ -51,7 +55,15 @@ import { pianoSpec } from "./sound";
 // Several fingers play several keys at once: each pointer is tracked by id.
 //
 // A PC also plays from the computer keyboard (A S D F ... for the white keys,
-// W E T Y U ... for the black), and in pro Z and X slide the keyboard an octave.
+// W E T Y U ... for the black, from the first C on screen), and Z and X slide
+// a long keyboard an octave.
+//
+// A LONG KEYBOARD SCROLLS UNDER A MAP. Plus and Pro own more keys than a screen
+// holds at a size a finger can hit (`RANGE`, `layoutFor`). Dragging ON the keys
+// is the glissando, so it cannot also be the scroll: the map of the whole range
+// above the keys is what moves it, like the online pianos the operator pointed
+// at - drag its window, or tap where you want to be. A trackpad's sideways
+// swipe and Z / X move it too, and songs bring their next note into view.
 //
 // NO RECORD. Free play keeps nothing. Finishing a song is a `level_complete`
 // through `winMoment`, fired from the key handler - never from a state updater -
@@ -83,6 +95,17 @@ const SONG_TITLES: Record<SongId, Record<Locale, string>> = {
   twinkle: { he: "נצנץ כוכב קטן", en: "Twinkle, Twinkle", es: "Estrellita", sv: "Blinka lilla" },
   jonathan: { he: "יונתן הקטן", en: "Little Jonathan", es: "Juanito", sv: "Lilla Hans" },
   joy: { he: "האודה לשמחה", en: "Ode to Joy", es: "Himno de la alegría", sv: "Ode till glädjen" },
+  lullaby: { he: "שיר הערש של ברהמס", en: "Brahms' Lullaby", es: "Canción de cuna de Brahms", sv: "Brahms vaggvisa" },
+  jingle: { he: "ג'ינגל בלס", en: "Jingle Bells", es: "Cascabel", sv: "Bjällerklang" },
+  nacht: { he: "מוזיקה לילית קטנה", en: "Eine kleine Nachtmusik", es: "Pequeña serenata nocturna", sv: "Eine kleine Nachtmusik" },
+  elise: { he: "לאליזה", en: "Für Elise", es: "Para Elisa", sv: "Für Elise" },
+  green: { he: "גרינסליבס", en: "Greensleeves", es: "Greensleeves", sv: "Greensleeves" },
+  mountain: { he: "בהיכל מלך ההרים", en: "Hall of the Mountain King", es: "En la gruta del rey de la montaña", sv: "I bergakungens sal" },
+  canon: { he: "הקאנון של פכלבל", en: "Pachelbel's Canon", es: "Canon de Pachelbel", sv: "Pachelbels kanon" },
+  turkish: { he: "המארש הטורקי", en: "Turkish March", es: "Marcha turca", sv: "Turkisk marsch" },
+  largo: { he: "הדרך הביתה (דבוז'אק)", en: "Going Home (Dvořák)", es: "Largo del Nuevo Mundo", sv: "Largo ur Nya världen" },
+  gymno: { he: "ג'ימנופדי מס' 1", en: "Gymnopédie No. 1", es: "Gymnopédie n.º 1", sv: "Gymnopédie nr 1" },
+  morning: { he: "מצב רוח של בוקר", en: "Morning Mood", es: "La mañana", sv: "Morgonstämning" },
 };
 
 const WORDS: Record<
@@ -94,8 +117,7 @@ const WORDS: Record<
     stop: string;
     sustain: string;
     labels: string;
-    down: string;
-    up: string;
+    map: string;
     notes: string;
     keys: string;
     playAny: string;
@@ -113,8 +135,7 @@ const WORDS: Record<
     stop: "עצרו",
     sustain: "פדל",
     labels: "שמות התווים",
-    down: "אוקטבה למטה",
-    up: "אוקטבה למעלה",
+    map: "מפת המקלדת - גררו כדי לזוז",
     notes: "תווים",
     keys: "קלידים",
     playAny: "נגנו על כל קליד",
@@ -131,8 +152,7 @@ const WORDS: Record<
     stop: "Stop",
     sustain: "Sustain",
     labels: "Note names",
-    down: "Octave down",
-    up: "Octave up",
+    map: "Keyboard map - drag to move along",
     notes: "Notes",
     keys: "Keys",
     playAny: "Play any key",
@@ -149,8 +169,7 @@ const WORDS: Record<
     stop: "Parar",
     sustain: "Pedal",
     labels: "Nombres de notas",
-    down: "Bajar una octava",
-    up: "Subir una octava",
+    map: "Mapa del teclado: arrastra para moverte",
     notes: "Notas",
     keys: "Teclas",
     playAny: "Toca cualquier tecla",
@@ -167,8 +186,7 @@ const WORDS: Record<
     stop: "Stopp",
     sustain: "Pedal",
     labels: "Tonnamn",
-    down: "En oktav ner",
-    up: "En oktav upp",
+    map: "Klaviaturkarta - dra för att flytta",
     notes: "Toner",
     keys: "Tangenter",
     playAny: "Spela på vilken tangent som helst",
@@ -209,6 +227,27 @@ const HINT_RING = "#FFC730";
 
 /** How tall the strip above the keys is, as a share of the board. */
 const STRIP = 0.22;
+/** On a keyboard that scrolls, the strip gives up part of that to the map. */
+const STRIP_WITH_MAP = 0.15;
+const MAP = 0.1;
+
+/**
+ * The narrowest a white key gets, px. A finger needs more than a mouse:
+ * 36 on a touch screen leaves ten keys across an upright phone, the same as
+ * Basic; 30 under a mouse puts 25 on a laptop's board.
+ */
+const MIN_KEY_TOUCH = 36;
+const MIN_KEY_MOUSE = 30;
+/**
+ * Pro on a WIDE window - a phone turned sideways, the full-screen piano, a PC -
+ * goes thinner (operator 2026-11-14: "the keys should be thinner in pro
+ * landscape"): a pianist's hand, more of the five octaves at once. 26 on touch
+ * puts about 31 white keys across a phone held sideways, against 23 at 36.
+ */
+const MIN_KEY_PRO_WIDE_TOUCH = 26;
+const MIN_KEY_PRO_WIDE_MOUSE = 24;
+/** The keys' window, px, from which Pro counts as wide. An upright phone is ~355. */
+const WIDE_VIEW = 600;
 
 /* ------------------------------------------------------------------ glyphs */
 
@@ -232,8 +271,6 @@ function Glyph({ d, filled = false }: { d: string; filled?: boolean }) {
 
 const PLAY_D = "M7.5 5.2 19 12 7.5 18.8z";
 const STOP_D = "M6.4 6.4h11.2v11.2H6.4z";
-const DOWN_D = "M15 5l-7 7 7 7";
-const UP_D = "M9 5l7 7-7 7";
 /** A pedal: a foot plate on a stem. */
 const PEDAL_D = "M12 3v9M7 15h10a2 2 0 0 1 0 4H7a2 2 0 0 1 0-4z";
 /** Four corners: the full-screen piano. */
@@ -265,22 +302,28 @@ function readBool(ctx: GameContext, key: string, fallback: boolean): boolean {
   return typeof v === "boolean" ? v : fallback;
 }
 
-function readStart(ctx: GameContext): number {
+/** The C a long keyboard last had at its left edge, or null on a first visit. */
+function readStart(ctx: GameContext): number | null {
   const v = ctx.storage.get<unknown>(START_KEY, null);
-  return typeof v === "number" && Number.isFinite(v) ? v : MIDDLE_C;
+  return typeof v === "number" && Number.isInteger(v) && pitchClass(v) === 0 ? v : null;
+}
+
+function coarsePointer(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(pointer: coarse)").matches
+    : false;
 }
 
 /* ----------------------------------------------------------------- the game */
 
 export function Piano({ ctx }: { ctx: GameContext }) {
   const [level, setLevel] = useRememberedLevel(ctx, LEVELS, "basic");
-  // Read ONCE at mount: a PC run gets the two-octave pro keyboard and the PC
-  // board shape; a window resized mid-run keeps the keyboard it started with.
+  // Read ONCE at mount: the board's shape, and how narrow a key may get.
   const [pc] = useState(isPcArena);
+  const [coarse] = useState(coarsePointer);
   const [mode, setModeState] = useState<Mode>(() => readMode(ctx));
-  const [songId, setSongId] = useState<SongId>(() => readSong(ctx));
-  const [follow, setFollow] = useState<Follow>(() => newFollow(readSong(ctx)));
-  const [start, setStart] = useState<number>(() => clampStart(readStart(ctx), spanFor("pro", pc)));
+  const [songId, setSongId] = useState<SongId>(() => playableSong(readSong(ctx), level));
+  const [follow, setFollow] = useState<Follow>(() => newFollow(songId));
   const [sustain, setSustain] = useState(() => readBool(ctx, SUSTAIN_KEY, false));
   const [labels, setLabels] = useState(() => readBool(ctx, LABELS_KEY, true));
   const [trail, setTrail] = useState<number[]>([]);
@@ -296,26 +339,130 @@ export function Piano({ ctx }: { ctx: GameContext }) {
    */
   const [big, setBig] = useState(false);
   const [turned, setTurned] = useState(false);
+  /** The keys' window, px of LAYOUT width (never a transformed rect). */
+  const [viewW, setViewW] = useState(0);
+  /** How far a long keyboard is scrolled, px. */
+  const [offset, setOffset] = useState(0);
 
   const T = WORDS[ctx.locale];
   const names = NOTE_NAMES[ctx.locale];
 
-  // A song always starts the keyboard at middle C, so every song is on screen.
-  const windowStart = mode === "songs" ? MIDDLE_C : start;
-  const keys = useMemo(() => keysFor(level, pc, windowStart), [level, pc, windowStart]);
+  const keys = useMemo(() => keysFor(level), [level]);
   const whiteKeys = useMemo(() => whites(keys), [keys]);
   const blackKeys = useMemo(() => blacks(keys), [keys]);
+  const proWide = level === "pro" && viewW >= WIDE_VIEW;
+  const minKey = proWide
+    ? coarse
+      ? MIN_KEY_PRO_WIDE_TOUCH
+      : MIN_KEY_PRO_WIDE_MOUSE
+    : coarse
+      ? MIN_KEY_TOUCH
+      : MIN_KEY_MOUSE;
+  const lay = layoutFor(whiteKeys.length, viewW, minKey);
+  const long = scrolls(level) && lay.scroll;
+  const keyPx = lay.keyPx;
+  const shown = long ? clampOffset(offset, lay.contentPx, viewW) : 0;
+  const base = long ? firstVisibleC(keys, shown, keyPx) : keys[0];
 
   /* --------------------------------------------- refs the handlers read */
 
   const boardRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(follow);
   followRef.current = follow;
-  const live = useRef({ mode, level, keys, sustain, songId });
-  live.current = { mode, level, keys, sustain, songId };
+  const live = useRef({ mode, level, keys, sustain, songId, base, long, keyPx, contentPx: lay.contentPx, viewW });
+  live.current = { mode, level, keys, sustain, songId, base, long, keyPx, contentPx: lay.contentPx, viewW };
   const demoTimers = useRef<number[]>([]);
   const startedRef = useRef(false);
+
+  /* ------------------------------------------------------- the scrolling */
+
+  // The window's width, from LAYOUT: `clientWidth` is untouched by fitStage's
+  // scale and by the full-screen piano's quarter turn, a rect is not
+  // (a-canvas-that-measures-its-own-box-cannot-see-a-transform-on-it.md).
+  useEffect(() => {
+    const el = viewRef.current;
+    if (!el) return;
+    const read = () => setViewW(el.clientWidth);
+    read();
+    if (typeof ResizeObserver !== "function") return;
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  /** Scroll to an offset, kept inside the row. */
+  const scrollTo = useCallback((px: number) => {
+    const { contentPx, viewW: w } = live.current;
+    setOffset(clampOffset(px, contentPx, w));
+  }, []);
+
+  /** Remember where a long keyboard was left, as the C at its edge. */
+  const remember = useCallback(() => {
+    const { long: l, keys: ks, keyPx: k, contentPx, viewW: w } = live.current;
+    if (!l) return;
+    setOffset((o) => {
+      ctx.storage.set(START_KEY, firstVisibleC(ks, clampOffset(o, contentPx, w), k));
+      return o;
+    });
+  }, [ctx]);
+
+  // A new level, or a new width: put the remembered C at the left edge - or,
+  // on a first visit, middle C in the middle, where a pianist's hands start.
+  useEffect(() => {
+    if (!long) return;
+    const c = readStart(ctx);
+    setOffset(
+      c === null
+        ? clampOffset(centreOf(keys, MIDDLE_C) * keyPx - viewW / 2, lay.contentPx, viewW)
+        : offsetForC(keys, c, keyPx, lay.contentPx, viewW),
+    );
+    // keyPx and contentPx follow viewW and level; listing them would re-centre
+    // on every render that rounds differently.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx, level, long, viewW]);
+
+  // Songs and the listen demo bring the note they want into view.
+  const want = mode === "songs" ? wanted(follow) : undefined;
+  const focus = demo ?? want;
+  useEffect(() => {
+    if (!long || focus === undefined) return;
+    setOffset((o) => offsetToShow(centreOf(keys, focus), keyPx, o, lay.contentPx, viewW));
+  }, [focus, keys, keyPx, lay.contentPx, long, viewW]);
+
+  // A trackpad's sideways swipe (or Shift + wheel) slides the keyboard. Native
+  // and not passive, so it can keep the page from swiping back a history step.
+  useEffect(() => {
+    const el = viewRef.current;
+    if (!el) return;
+    let settle = 0;
+    const onWheel = (e: WheelEvent) => {
+      if (!live.current.long) return;
+      const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0;
+      if (!dx) return;
+      e.preventDefault();
+      setOffset((o) => clampOffset(o + dx, live.current.contentPx, live.current.viewW));
+      window.clearTimeout(settle);
+      settle = window.setTimeout(remember, 250);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      window.clearTimeout(settle);
+    };
+  }, [remember]);
+
+  /** Slide a long keyboard by whole octaves (Z / X). */
+  const shiftBy = useCallback(
+    (octaves: number) => {
+      const { long: l, keyPx: k } = live.current;
+      if (!l) return;
+      setOffset((o) => clampOffset(o + octaves * 7 * k, live.current.contentPx, live.current.viewW));
+      window.setTimeout(remember, 0);
+    },
+    [remember],
+  );
 
   /* ------------------------------------------------------------ the sound */
 
@@ -462,33 +609,65 @@ export function Piano({ ctx }: { ctx: GameContext }) {
 
   const onPointerEnd = (e: ReactPointerEvent<HTMLDivElement>) => release(e.pointerId);
 
-  /* ------------------------------------------------ the computer keyboard */
+  /* ------------------------------------------------------------- the map */
 
-  const shiftBy = useCallback(
-    (octaves: number) => {
-      setStart((s) => {
-        const next = shiftStart(s, octaves, spanFor("pro", pc));
-        ctx.storage.set(START_KEY, next);
-        return next;
-      });
-    },
-    [ctx, pc],
-  );
+  /**
+   * The map of the whole keyboard. Press inside the lit window and drag it;
+   * press anywhere else and the window centres there, then follows the drag.
+   * Positions come from `offsetX` over the map's own layout width, so a scaled
+   * frame and the turned full-screen piano read the same as a flat page.
+   */
+  const grab = useRef<{ id: number; dx: number } | null>(null);
+
+  const mapFrac = (e: ReactPointerEvent<HTMLDivElement>): number => {
+    const w = e.currentTarget.clientWidth || 1;
+    return e.nativeEvent.offsetX / w;
+  };
+
+  const onMapDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const { contentPx, viewW: w } = live.current;
+    if (!contentPx) return;
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* fine without */
+    }
+    const x = mapFrac(e) * contentPx;
+    const inside = x >= shown && x <= shown + w;
+    const dx = inside ? x - shown : w / 2;
+    grab.current = { id: e.pointerId, dx };
+    if (!inside) scrollTo(x - dx);
+  };
+
+  const onMapMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const g = grab.current;
+    if (!g || g.id !== e.pointerId) return;
+    scrollTo(mapFrac(e) * live.current.contentPx - g.dx);
+  };
+
+  const onMapEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (grab.current?.id !== e.pointerId) return;
+    grab.current = null;
+    remember();
+  };
+
+  /* ------------------------------------------------ the computer keyboard */
 
   useEffect(() => {
     const down = new Map<string, number>();
     const onDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       const k = e.key.toLowerCase();
-      const { level: lv, mode: m, keys: ks } = live.current;
-      if (canShift(lv) && m === "free" && (k === "z" || k === "x")) {
+      const { keys: ks, base: b, long: l } = live.current;
+      if (l && (k === "z" || k === "x")) {
         e.preventDefault();
         if (!e.repeat) shiftBy(k === "z" ? -1 : 1);
         return;
       }
-      const midi = midiForKey(k, ks);
+      const midi = midiForKey(k, ks, b);
       if (midi === undefined) return;
       // ' opens Firefox's quick find, and ; is harmless - hold both for the game.
       e.preventDefault();
@@ -528,21 +707,21 @@ export function Piano({ ctx }: { ctx: GameContext }) {
     }
   }, [ctx, level]);
 
-  /** Start the current song again from its first note. */
-  const freshSong = useCallback(
-    (id: SongId) => {
-      const f = newFollow(id);
-      followRef.current = f;
-      setFollow(f);
-    },
-    [],
-  );
+  /** Start a song again from its first note. */
+  const freshSong = useCallback((id: SongId) => {
+    const f = newFollow(id);
+    followRef.current = f;
+    setFollow(f);
+  }, []);
 
   const chooseLevel = useCallback(
     (next: Level) => {
       stopDemo();
       setLevel(next);
-      freshSong(live.current.songId);
+      // A classic the new keyboard cannot play gives way to one it can.
+      const id = playableSong(live.current.songId, next);
+      setSongId(id);
+      freshSong(id);
       setTrail([]);
       ctx.analytics.levelStart(next);
     },
@@ -623,7 +802,8 @@ export function Piano({ ctx }: { ctx: GameContext }) {
   // iPhone), the same layer is a fixed box over the page - fitStage leaves a
   // phone frame at scale 1 (the board gate reads 1 for this game), so fixed is
   // fixed to the window. Either way, a screen that stays portrait gets the
-  // keyboard drawn sideways rather than squeezed.
+  // keyboard drawn sideways rather than squeezed - and because the keyboard is
+  // as long as its window allows, landscape shows two to three times the keys.
   const enterBig = () => {
     ctx.audio.unlock();
     setBig(true);
@@ -682,12 +862,12 @@ export function Piano({ ctx }: { ctx: GameContext }) {
   /* ----------------------------------------------------------- the screen */
 
   const song = songById(songId);
-  const want = mode === "songs" ? wanted(follow) : undefined;
   const hint = HINT[level];
   const done = mode === "songs" && want === undefined;
-  // Basic always names its keys; advanced and pro follow the names switch.
+  // Basic always names its keys; plus and pro follow the names switch.
   const showNames = level === "basic" || labels;
   const coloured = level === "basic";
+  const showLetters = pc && labels;
 
   const nameOf = (m: number) => names[pitchClass(m)];
   const whiteW = 100 / whiteKeys.length;
@@ -697,18 +877,20 @@ export function Piano({ ctx }: { ctx: GameContext }) {
       ? [{ icon: "layers" as const, label: T.notes, value: `${follow.at}/${song.notes.length}`, ltr: true, compact: true }]
       : [{ icon: "layers" as const, label: T.keys, value: keys.length, compact: true }];
 
-  // Every footer key is the same 56px tall, in ONE row, on every level and in
-  // both modes - so changing the level never changes the game's height.
+  // Every footer key is 56px tall, so changing the level never changes the
+  // game's height.
   const keyStyle: CSSProperties = { minWidth: 56, height: 56, fontSize: 24, padding: "0 12px" };
   const onKey = (on: boolean): CSSProperties =>
     on ? { ...keyStyle, outline: "3px solid var(--brand)", outlineOffset: -3 } : keyStyle;
 
+  const stripCount = Math.max(4, Math.min(12, Math.floor((viewW || 300) / 52)));
+
   const strip = (() => {
     if (mode === "songs") {
       if (done) return <span style={{ fontWeight: 800, color: "#fff" }}>{T.done}</span>;
-      const next = upcoming(follow, pc ? 10 : 6);
+      const next = upcoming(follow, stripCount);
       return (
-        <div dir="ltr" style={{ display: "flex", gap: 6, alignItems: "center", overflow: "hidden", width: "100%" }}>
+        <div dir="ltr" style={{ display: "flex", gap: 6, alignItems: "center", overflow: "hidden", width: "100%", height: "100%" }}>
           {next.map(([m], i) => (
             <span
               key={`${follow.at + i}`}
@@ -738,7 +920,7 @@ export function Piano({ ctx }: { ctx: GameContext }) {
     }
     if (trail.length === 0) return <span style={{ color: "rgba(255,255,255,.7)", fontWeight: 700 }}>{T.playAny}</span>;
     return (
-      <div dir="ltr" style={{ display: "flex", gap: 6, alignItems: "center", overflow: "hidden" }}>
+      <div dir="ltr" style={{ display: "flex", gap: 6, alignItems: "center", overflow: "hidden", height: "100%" }}>
         {trail.map((m, i) => (
           <span
             key={`${i}-${m}`}
@@ -768,7 +950,8 @@ export function Piano({ ctx }: { ctx: GameContext }) {
   /**
    * The songs as a LIST, not a row of buttons: a native select scales to any
    * number of songs, opens the phone's own picker, and costs one control's
-   * width whatever the titles' lengths in any language.
+   * width whatever the titles' lengths in any language. It lists only what this
+   * keyboard can play.
    */
   const songPicker = (extra: CSSProperties) => (
     <select
@@ -791,7 +974,7 @@ export function Piano({ ctx }: { ctx: GameContext }) {
         ...extra,
       }}
     >
-      {SONGS.map((sg) => (
+      {songsFor(level).map((sg) => (
         <option key={sg.id} value={sg.id}>
           {SONG_TITLES[sg.id][ctx.locale]}
         </option>
@@ -808,27 +991,105 @@ export function Piano({ ctx }: { ctx: GameContext }) {
       <Key size={22} act aria-label={T.close} onClick={exitBig} style={{ ...keyStyle, height: 48, minWidth: 48 }}>
         <Glyph d={CLOSE_D} />
       </Key>
-      {mode === "songs" && songPicker({ flex: "0 1 260px", minWidth: 0 })}
+      {mode === "songs" && songPicker({ flex: "0 1 280px", minWidth: 0 })}
       {mode === "songs" && (
         <Key size={22} go aria-label={listening ? T.stop : T.listen} onClick={onListen} style={{ ...keyStyle, height: 48 }}>
           <Glyph d={listening ? STOP_D : PLAY_D} filled />
         </Key>
       )}
-      {canShift(level) && mode === "free" && (
-        <>
-          <Key size={22} act aria-label={T.down} onClick={() => shiftBy(-1)} style={{ ...keyStyle, height: 48 }}>
-            <Glyph d={DOWN_D} />
-          </Key>
-          <span style={{ minWidth: 40, textAlign: "center", fontWeight: 800, color: "#fff" }}>{`C${Math.floor(start / 12) - 1}`}</span>
-          <Key size={22} act aria-label={T.up} onClick={() => shiftBy(1)} style={{ ...keyStyle, height: 48 }}>
-            <Glyph d={UP_D} />
-          </Key>
-        </>
-      )}
       <span style={{ flex: "1 1 auto" }} />
+      {level !== "basic" && (
+        <Key size={22} aria-label={T.labels} aria-pressed={labels} onClick={toggleLabels} style={{ ...onKey(labels), height: 48 }}>
+          <Glyph d={LABEL_D} />
+        </Key>
+      )}
       <Key size={22} aria-label={T.sustain} aria-pressed={sustain} onClick={toggleSustain} style={{ ...onKey(sustain), height: 48 }}>
         <Glyph d={PEDAL_D} />
       </Key>
+    </div>
+  );
+
+  /** The map of a long keyboard: every key, small, with the visible part lit. */
+  const map = scrolls(level) && (
+    <div
+      role="scrollbar"
+      aria-label={T.map}
+      aria-orientation="horizontal"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={lay.contentPx > viewW ? Math.round((shown / (lay.contentPx - viewW)) * 100) : 0}
+      onPointerDown={onMapDown}
+      onPointerMove={onMapMove}
+      onPointerUp={onMapEnd}
+      onPointerCancel={onMapEnd}
+      style={{
+        flex: `0 0 ${MAP * 100}%`,
+        minHeight: 18,
+        position: "relative",
+        background: "#0F1428",
+        borderRadius: 8,
+        overflow: "hidden",
+        touchAction: "none",
+        cursor: long ? "grab" : "default",
+        opacity: long ? 1 : 0.55,
+      }}
+    >
+      {/* children ignore the pointer, so `offsetX` is always measured on the map itself */}
+      <div aria-hidden="true" style={{ position: "absolute", inset: 2, display: "flex", gap: 1, pointerEvents: "none" }}>
+        {whiteKeys.map((m) => (
+          <span
+            key={m}
+            style={{
+              flex: "1 1 0",
+              background: m === focus ? HINT_RING : "#D9DCE8",
+              borderRadius: 2,
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              fontSize: 8,
+              fontWeight: 800,
+              lineHeight: 1,
+              color: "#1B1E2B",
+              overflow: "hidden",
+            }}
+          >
+            {pitchClass(m) === 0 ? String(Math.floor(m / 12) - 1) : ""}
+          </span>
+        ))}
+      </div>
+      <div aria-hidden="true" style={{ position: "absolute", inset: 2, pointerEvents: "none" }}>
+        {blackKeys.map((m) => (
+          <span
+            key={m}
+            style={{
+              position: "absolute",
+              top: 0,
+              height: "55%",
+              left: `${(blackCentre(keys, m) - 0.3) * whiteW}%`,
+              width: `${0.6 * whiteW}%`,
+              background: m === focus ? HINT_RING : "#1B1E2B",
+              borderRadius: 1,
+            }}
+          />
+        ))}
+      </div>
+      {long && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: `${(shown / lay.contentPx) * 100}%`,
+            width: `${(viewW / lay.contentPx) * 100}%`,
+            border: `2px solid ${HINT_RING}`,
+            background: "rgba(255,199,48,.22)",
+            borderRadius: 6,
+            boxSizing: "border-box",
+            pointerEvents: "none",
+          }}
+        />
+      )}
     </div>
   );
 
@@ -864,19 +1125,6 @@ export function Piano({ ctx }: { ctx: GameContext }) {
             dir="ltr"
             style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 8 }}
           >
-            {canShift(level) && mode === "free" && (
-              <>
-                <Key size={24} act aria-label={T.down} onClick={() => shiftBy(-1)} style={keyStyle}>
-                  <Glyph d={DOWN_D} />
-                </Key>
-                <span dir="ltr" style={{ minWidth: 40, textAlign: "center", fontWeight: 800, color: "var(--text)" }}>
-                  {`C${Math.floor(start / 12) - 1}`}
-                </span>
-                <Key size={24} act aria-label={T.up} onClick={() => shiftBy(1)} style={keyStyle}>
-                  <Glyph d={UP_D} />
-                </Key>
-              </>
-            )}
             <Key size={24} aria-label={T.sustain} aria-pressed={sustain} onClick={toggleSustain} style={onKey(sustain)}>
               <Glyph d={PEDAL_D} />
             </Key>
@@ -896,256 +1144,276 @@ export function Piano({ ctx }: { ctx: GameContext }) {
         className={BOARD_CLASS}
         style={{
           // One box per device, on every level: a phone keyboard is 1.45 wide
-          // per unit of height, a PC one 2.4. More keys make each key narrower,
-          // never the game taller - `assert:difficulty` holds that. The box
-          // stays in the page while the keyboard is full screen, so nothing
-          // under it moves.
+          // per unit of height, a PC one 2.4. More keys never make the game
+          // taller - `assert:difficulty` holds that. The box stays in the page
+          // while the keyboard is full screen, so nothing under it moves.
           ...boardVars({ vw: 94, vh: 66, cap: 620, chrome: 111, ratio: pc ? 2.4 : 1.45 }),
           aspectRatio: pc ? "2.4 / 1" : "1.45 / 1",
           position: "relative",
         }}
       >
-      <div
-        ref={layerRef}
-        style={
-          big
-            ? {
-                position: "fixed",
-                inset: 0,
-                zIndex: 2147483000,
-                background: "#0F1428",
-                overflow: "hidden",
+        <div
+          ref={layerRef}
+          style={
+            big
+              ? {
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 2147483000,
+                  background: "#0F1428",
+                  overflow: "hidden",
+                  touchAction: "none",
+                }
+              : { position: "absolute", inset: 0 }
+          }
+        >
+          <div
+            style={
+              big && turned
+                ? {
+                    // Drawn sideways: a box the window's height wide and its
+                    // width tall, turned a quarter about its top-left corner
+                    // and slid back into view. Hit testing follows the
+                    // transform, so a key is still the key under the finger.
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100vh",
+                    height: "100vw",
+                    transformOrigin: "top left",
+                    transform: "rotate(90deg) translateY(-100%)",
+                    display: "flex",
+                    flexDirection: "column",
+                    padding: "max(10px, env(safe-area-inset-top)) 10px 10px",
+                    boxSizing: "border-box",
+                  }
+                : big
+                  ? {
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      padding:
+                        "max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))",
+                      boxSizing: "border-box",
+                    }
+                  : { width: "100%", height: "100%", display: "flex", flexDirection: "column" }
+            }
+          >
+            {big && bigBar}
+            <div
+              ref={boardRef}
+              className="ellaz-play-surface"
+              // LTR, always: low notes on the left is how every piano is built,
+              // and an RTL row would put middle C on the visual right in Hebrew
+              // (rtl-spatial-grid-dir-ltr.md).
+              dir="ltr"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerEnd}
+              onPointerCancel={onPointerEnd}
+              onLostPointerCapture={onPointerEnd}
+              style={{
+                flex: "1 1 auto",
+                minHeight: 0,
+                position: "relative",
+                background: CASE,
+                borderRadius: 16,
+                padding: 6,
+                boxSizing: "border-box",
                 touchAction: "none",
-              }
-            : { position: "absolute", inset: 0 }
-        }
-      >
-      <div
-        style={
-          big && turned
-            ? {
-                // Drawn sideways: a box the window's height wide and its width
-                // tall, turned a quarter about its top-left corner and slid
-                // back into view. Hit testing follows the transform, so a key
-                // is still the key under the finger.
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100vh",
-                height: "100vw",
-                transformOrigin: "top left",
-                transform: "rotate(90deg) translateY(-100%)",
+                userSelect: "none",
+                WebkitUserSelect: "none",
                 display: "flex",
                 flexDirection: "column",
-                padding: "max(10px, env(safe-area-inset-top)) 10px 10px",
-                boxSizing: "border-box",
-              }
-            : big
-              ? {
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  padding:
-                    "max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))",
-                  boxSizing: "border-box",
-                }
-              : { width: "100%", height: "100%", display: "flex", flexDirection: "column" }
-        }
-      >
-      {big && bigBar}
-      <div
-        ref={boardRef}
-        className="ellaz-play-surface"
-        // LTR, always: low notes on the left is how every piano is built, and
-        // an RTL row would put middle C on the visual right in Hebrew
-        // (rtl-spatial-grid-dir-ltr.md).
-        dir="ltr"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
-        onLostPointerCapture={onPointerEnd}
-        style={{
-          flex: "1 1 auto",
-          minHeight: 0,
-          position: "relative",
-          background: CASE,
-          borderRadius: 16,
-          padding: 6,
-          boxSizing: "border-box",
-          touchAction: "none",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-        }}
-      >
-        <div
-          aria-live="polite"
-          style={{
-            flex: `0 0 ${STRIP * 100}%`,
-            minHeight: 0,
-            background: CASE_STRIP,
-            borderRadius: 10,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0 10px",
-            overflow: "hidden",
-            fontFamily: "Fredoka, inherit",
-            fontSize: 16,
-            textAlign: "center",
-          }}
-        >
-          {strip}
-        </div>
-        <div style={{ position: "relative", flex: "1 1 auto", minHeight: 0, display: "flex", gap: 2 }}>
-          {whiteKeys.map((m) => {
-            const down = lit(m);
-            const target = want === m;
-            const letter = pc && labels ? keyForMidi(m, keys) : undefined;
-            return (
-              <button
-                key={m}
-                type="button"
-                data-midi={m}
-                aria-label={nameOf(m)}
-                onClick={(e) => {
-                  // A keyboard user's Enter or Space (detail 0); a pointer
-                  // already played the key on pointerdown.
-                  if (e.detail === 0) strike(m);
-                }}
+                gap: 6,
+              }}
+            >
+              <div
+                aria-live="polite"
                 style={{
-                  flex: "1 1 0",
-                  minWidth: 0,
-                  padding: 0,
-                  border: "none",
-                  borderRadius: "0 0 8px 8px",
-                  background: down ? IVORY_DOWN : IVORY,
-                  boxShadow:
-                    target && hint === "glow"
-                      ? `inset 0 0 0 4px ${HINT_RING}, 0 0 14px ${HINT_RING}`
-                      : down
-                        ? "inset 0 3px 6px rgba(0,0,0,.25)"
-                        : "inset 0 -5px 0 rgba(0,0,0,.12)",
-                  transform: down ? "translateY(2px)" : "none",
-                  transition: "background .06s, transform .06s",
+                  flex: `0 0 ${(scrolls(level) ? STRIP_WITH_MAP : STRIP) * 100}%`,
+                  minHeight: 0,
+                  background: CASE_STRIP,
+                  borderRadius: 10,
                   display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "flex-end",
                   alignItems: "center",
-                  gap: 4,
-                  paddingBottom: 8,
-                  cursor: "pointer",
-                  touchAction: "none",
-                  position: "relative",
+                  justifyContent: "center",
+                  padding: "0 10px",
                   overflow: "hidden",
+                  fontFamily: "Fredoka, inherit",
+                  fontSize: 16,
+                  textAlign: "center",
                 }}
               >
-                {coloured && (
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: "absolute",
-                      insetInline: 0,
-                      bottom: 0,
-                      height: "36%",
-                      background: NOTE_COLORS[pitchClass(m)],
-                      opacity: down ? 1 : 0.85,
-                    }}
-                  />
-                )}
-                {target && hint === "dot" && (
-                  <span
-                    aria-hidden="true"
-                    style={{ width: 12, height: 12, borderRadius: 99, background: HINT_RING, position: "relative" }}
-                  />
-                )}
-                {showNames && (
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: "relative",
-                      fontWeight: 800,
-                      fontSize: whiteKeys.length > 10 ? 12 : 15,
-                      color: "#1B1E2B",
-                      lineHeight: 1,
-                    }}
-                  >
-                    {nameOf(m)}
-                  </span>
-                )}
-                {letter && (
-                  <span aria-hidden="true" style={{ position: "relative", fontSize: 11, color: "#5b6172", lineHeight: 1 }}>
-                    {letter}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-          {hasBlacks(level) &&
-            blackKeys.map((m) => {
-              const down = lit(m);
-              const target = want === m;
-              const centre = blackCentre(keys, m);
-              const letter = pc && labels ? keyForMidi(m, keys) : undefined;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  data-midi={m}
-                  aria-label={nameOf(m)}
-                  onClick={(e) => {
-                    if (e.detail === 0) strike(m);
-                  }}
+                {strip}
+              </div>
+              {map}
+              <div ref={viewRef} style={{ position: "relative", flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
+                <div
                   style={{
                     position: "absolute",
                     top: 0,
-                    // Physical `left`, on purpose: the row is pinned LTR above.
-                    left: `calc(${centre * whiteW}% - ${whiteW * 0.31}%)`,
-                    width: `${whiteW * 0.62}%`,
-                    height: "60%",
-                    padding: 0,
-                    border: "none",
-                    borderRadius: "0 0 6px 6px",
-                    background: down ? EBONY_DOWN : EBONY,
-                    boxShadow:
-                      target && hint === "glow"
-                        ? `0 0 0 3px ${HINT_RING}, 0 0 12px ${HINT_RING}`
-                        : "inset 0 -4px 0 rgba(255,255,255,.12), 0 2px 3px rgba(0,0,0,.4)",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "flex-end",
-                    alignItems: "center",
-                    gap: 3,
-                    paddingBottom: 6,
-                    cursor: "pointer",
-                    touchAction: "none",
-                    zIndex: 1,
+                    bottom: 0,
+                    left: 0,
+                    // A long keyboard is wider than its window and slides
+                    // under it; a short one is exactly the window.
+                    width: long ? `${lay.contentPx}px` : "100%",
+                    transform: long ? `translateX(${-shown}px)` : "none",
+                    transition: grab.current ? "none" : "transform .18s ease-out",
                   }}
                 >
-                  {target && hint === "dot" && (
-                    <span aria-hidden="true" style={{ width: 9, height: 9, borderRadius: 99, background: HINT_RING }} />
-                  )}
-                  {showNames && level === "pro" && (
-                    <span aria-hidden="true" style={{ fontSize: 9, fontWeight: 800, color: "#fff", lineHeight: 1 }}>
-                      {nameOf(m)}
-                    </span>
-                  )}
-                  {letter && (
-                    <span aria-hidden="true" style={{ fontSize: 10, color: "#aab0c4", lineHeight: 1 }}>
-                      {letter}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                  {whiteKeys.map((m, i) => {
+                    const down = lit(m);
+                    const target = want === m;
+                    const letter = showLetters ? keyForMidi(m, keys, base) : undefined;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        data-midi={m}
+                        aria-label={`${nameOf(m)}${Math.floor(m / 12) - 1}`}
+                        onClick={(e) => {
+                          // A keyboard user's Enter or Space (detail 0); a
+                          // pointer already played the key on pointerdown.
+                          if (e.detail === 0) strike(m);
+                        }}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          bottom: 0,
+                          left: `calc(${i * whiteW}% + 1px)`,
+                          width: `calc(${whiteW}% - 2px)`,
+                          padding: 0,
+                          border: "none",
+                          borderRadius: "0 0 8px 8px",
+                          background: down ? IVORY_DOWN : IVORY,
+                          boxShadow:
+                            target && hint === "glow"
+                              ? `inset 0 0 0 4px ${HINT_RING}, 0 0 14px ${HINT_RING}`
+                              : down
+                                ? "inset 0 3px 6px rgba(0,0,0,.25)"
+                                : "inset 0 -5px 0 rgba(0,0,0,.12)",
+                          transform: down ? "translateY(2px)" : "none",
+                          transition: "background .06s, transform .06s",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "flex-end",
+                          alignItems: "center",
+                          gap: 4,
+                          paddingBottom: 8,
+                          cursor: "pointer",
+                          touchAction: "none",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {coloured && (
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              position: "absolute",
+                              insetInline: 0,
+                              bottom: 0,
+                              height: "36%",
+                              background: NOTE_COLORS[pitchClass(m)],
+                              opacity: down ? 1 : 0.85,
+                            }}
+                          />
+                        )}
+                        {target && hint === "dot" && (
+                          <span
+                            aria-hidden="true"
+                            style={{ width: 12, height: 12, borderRadius: 99, background: HINT_RING, position: "relative" }}
+                          />
+                        )}
+                        {showNames && (
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              position: "relative",
+                              fontWeight: 800,
+                              fontSize: keyPx >= 40 ? 15 : 12,
+                              color: "#1B1E2B",
+                              lineHeight: 1,
+                            }}
+                          >
+                            {nameOf(m)}
+                            {/* the octave, on every C, so a long keyboard says where it is */}
+                            {pitchClass(m) === 0 && scrolls(level) ? (
+                              <sub style={{ fontSize: "0.7em" }}>{Math.floor(m / 12) - 1}</sub>
+                            ) : null}
+                          </span>
+                        )}
+                        {letter && (
+                          <span aria-hidden="true" style={{ position: "relative", fontSize: 11, color: "#5b6172", lineHeight: 1 }}>
+                            {letter}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {hasBlacks(level) &&
+                    blackKeys.map((m) => {
+                      const down = lit(m);
+                      const target = want === m;
+                      const centre = blackCentre(keys, m);
+                      const letter = showLetters ? keyForMidi(m, keys, base) : undefined;
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          data-midi={m}
+                          aria-label={`${nameOf(m)}${Math.floor(m / 12) - 1}`}
+                          onClick={(e) => {
+                            if (e.detail === 0) strike(m);
+                          }}
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            // Physical `left`, on purpose: the row is pinned LTR above.
+                            left: `${(centre - 0.31) * whiteW}%`,
+                            width: `${whiteW * 0.62}%`,
+                            height: "60%",
+                            padding: 0,
+                            border: "none",
+                            borderRadius: "0 0 6px 6px",
+                            background: down ? EBONY_DOWN : EBONY,
+                            boxShadow:
+                              target && hint === "glow"
+                                ? `0 0 0 3px ${HINT_RING}, 0 0 12px ${HINT_RING}`
+                                : "inset 0 -4px 0 rgba(255,255,255,.12), 0 2px 3px rgba(0,0,0,.4)",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "flex-end",
+                            alignItems: "center",
+                            gap: 3,
+                            paddingBottom: 6,
+                            cursor: "pointer",
+                            touchAction: "none",
+                            zIndex: 1,
+                          }}
+                        >
+                          {target && hint === "dot" && (
+                            <span aria-hidden="true" style={{ width: 9, height: 9, borderRadius: 99, background: HINT_RING }} />
+                          )}
+                          {labels && keyPx >= 34 && (
+                            <span aria-hidden="true" style={{ fontSize: 9, fontWeight: 800, color: "#fff", lineHeight: 1 }}>
+                              {nameOf(m)}
+                            </span>
+                          )}
+                          {letter && (
+                            <span aria-hidden="true" style={{ fontSize: 10, color: "#aab0c4", lineHeight: 1 }}>
+                              {letter}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      </div>
-      </div>
       </div>
     </GameChrome>
   );

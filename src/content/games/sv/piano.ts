@@ -5,16 +5,16 @@ export const pianoSv: GameCopy = {
   name: "Piano",
   metaTitle: "Gratis piano online - spela och lär dig barnsånger | Ellaz",
   metaDescription:
-    "Ett gratis piano i webbläsaren för mobil, surfplatta och dator. Tre klaviaturer, från tio färgade tangenter till två oktaver med pedal, och fem barnsånger.",
+    "Ett gratis piano i webbläsaren för mobil, surfplatta och dator. Tre klaviaturer, från tio färgade tangenter till fem oktaver som rullar, och 16 sånger.",
 
   lede: "Ett gratis piano i webbläsaren. Tryck på en tangent så låter den, med så många fingrar du vill, eller spela från datorns tangentbord. I sångläget lyser nästa tangent och pianot väntar på dig, utan klocka och utan straff.",
 
   body: [
     "Tryck. Det låter.",
 
-    "Nivåvalet väljer bara en klaviatur. Bas är tio vita tangenter från mitt-C upp till E en oktav och en ters ovanför, var och en i sin egen färg och med tonnamnet utskrivet. Plus har samma omfång plus de sju svarta tangenterna, alltså 17 tangenter. Proffs på en dator har 25 tangenter, två hela oktaver som flyttas en oktav i taget någonstans mellan C2 och C7, med en pedal och en knapp för tonnamnen. På en telefon stannar Proffs på 17 tangenter, eftersom 25 tangenter över en telefonskärm blir tangenter som inget finger träffar.",
+    "Nivåvalet väljer bara en klaviatur. Bas är tio vita tangenter från mitt-C upp till E en oktav och en ters ovanför, var och en i sin egen färg och med tonnamnet utskrivet, och den står still. Plus har tre oktaver, C3 till C6, alltså 37 tangenter med de svarta. Proffs har fem, C2 till C7, 61 tangenter. De två är längre än skärmen med flit, som pianon på nätet: en vit tangent blir aldrig smalare än 36 pixlar på en pekskärm (Proffs på en bred skärm går ner till 26), så en bredare skärm visar helt enkelt fler tangenter, och en karta över hela klaviaturen ovanför tangenterna drar fram resten. En telefon på höjden visar ungefär tio vita tangenter; på bredden, eller med pianot i helskärm, mer än dubbelt så många.",
 
-    "Sångläget har fem gamla melodier, och Hjulen på bussen och Broder Jakob står först. Den kortaste, Lilla Hans, har 24 toner och den längsta, Blinka lilla, har 42. Varje ton i alla fem ligger på en vit tangent mellan C och E, så varje sång går att spela på basklaviaturen med tio tangenter. Spelets tester kontrollerar det, sång för sång och klaviatur för klaviatur.",
+    "Sångläget har 16 melodier, och Hjulen på bussen och Broder Jakob står först. Åtta lätta sånger går att spela på alla klaviaturer; åtta klassiker, som behöver de svarta tangenterna och mer plats, dyker upp från Plus: Für Elise, Greensleeves, Pachelbels kanon, Turkisk marsch, Eine kleine Nachtmusik, I bergakungens sal, Saties Gymnopédie nr 1 och Griegs Morgonstämning. Den kortaste har 18 toner och den längsta, Bjällerklang, har 51. Spelets tester kontrollerar att varje sång ryms på varje klaviatur den står på, och klaviaturen rullar själv fram till nästa ton.",
 
     "Fel tangent då? Den låter som vilken tangent som helst. Sången väntar kvar på samma ton och rätt tangent vickar lite för att visa sig. Ingenting går förlorat.",
 
@@ -26,7 +26,7 @@ export const pianoSv: GameCopy = {
     { title: "Välj klaviatur", body: "Bas, Plus eller Proffs. Varje steg upp har fler tangenter och ger mindre hjälp." },
     { title: "Byt till sånger", body: "Välj en sång och spela tangenten som lyser. Remsan ovanför visar vilka toner som kommer." },
     { title: "Lyssna först", body: "Lyssna-knappen spelar hela sången i 100 slag per minut och tänder varje tangent när den låter." },
-    { title: "Spela med tangentbordet", body: "På en dator är raden A S D F de vita tangenterna och raden ovanför de svarta. I Proffs flyttar Z och X en oktav." },
+    { title: "Spela med tangentbordet", body: "På en dator är raden A S D F de vita tangenterna och raden ovanför de svarta, från första C på skärmen. Z och X flyttar en lång klaviatur en oktav." },
   ],
 
   tips: [
@@ -47,7 +47,7 @@ export const pianoSv: GameCopy = {
     { title: "3 till 4 år", body: "Basklaviaturen i fritt spel. Varje tryck blir ett ljud, och det räcker." },
     { title: "5 till 7 år", body: "Sånger på basklaviaturen med nästa tangent lysande. Hjulen på bussen är en bra första." },
     { title: "8 år och uppåt", body: "Plus-klaviaturen, sedan samma sånger med bara en prick som ledtråd." },
-    { title: "Vuxna", body: "Proffs på en dator: två oktaver, pedalen och allt spelbart från tangentbordet." },
+    { title: "Vuxna", body: "Proffs på en dator: fem oktaver, pedalen och allt spelbart från tangentbordet." },
   ],
 
   accessibility:
@@ -61,11 +61,11 @@ export const pianoSv: GameCopy = {
   ],
 
   faq: [
-    { q: "Går pianot att spela på mobilen?", a: "Ja. Tangenterna är gjorda för pekskärm och tar flera fingrar samtidigt. På en telefon är den största klaviaturen 17 tangenter så att de förblir breda." },
-    { q: "Kan man spela med datorns tangentbord?", a: "Ja. A S D F G H J K L är de vita tangenterna och W E T Y U O P de svarta. På Proffs flyttar Z och X ner och upp en oktav." },
-    { q: "Vilka sånger finns?", a: "Hjulen på bussen, Broder Jakob, Blinka lilla stjärna, Lilla Hans och temat ur Ode till glädjen. Alla är traditionella melodier." },
+    { q: "Går pianot att spela på mobilen?", a: "Ja. Tangenterna är gjorda för pekskärm och tar flera fingrar samtidigt. På Plus och Proffs är klaviaturen längre än skärmen: dra kartan ovanför tangenterna för att flytta dig, eller vänd telefonen för att se fler tangenter." },
+    { q: "Kan man spela med datorns tangentbord?", a: "Ja. A S D F G H J K L är de vita tangenterna och W E T Y U O P de svarta, från första C på skärmen. På Plus och Proffs flyttar Z och X ner och upp en oktav." },
+    { q: "Vilka sånger finns?", a: "Åtta lätta på alla klaviaturer: Hjulen på bussen, Broder Jakob, Blinka lilla stjärna, Lilla Hans, Ode till glädjen, Brahms vaggvisa, Bjällerklang och Largot ur Dvořáks Nya världen. Från Plus tillkommer åtta klassiker. Alla är traditionella melodier eller fria från upphovsrätt." },
     { q: "Vad händer om man trycker fel?", a: "Tangenten låter som vanligt och sången väntar kvar på rätt ton. Inget straff, inga liv och inga poäng." },
-    { q: "Vad skiljer de tre klaviaturerna?", a: "Bas: tio färgade vita tangenter. Plus: 17 tangenter med de svarta. Proffs: 25 tangenter på dator, oktavbyte och pedal." },
+    { q: "Vad skiljer de tre klaviaturerna?", a: "Bas: tio färgade vita tangenter som står still. Plus: tre oktaver, 37 tangenter med de svarta. Proffs: fem oktaver, 61 tangenter." },
     { q: "Finns det en pedal?", a: "Ja, en pedalknapp på alla klaviaturer. Påslagen klingar varje ton ungefär tre gånger längre." },
     { q: "Måste man ladda ner något?", a: "Nej. Det körs i webbläsaren, gratis och utan konto, och efter första besöket fungerar det även offline." },
   ],
