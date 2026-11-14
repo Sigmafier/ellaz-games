@@ -554,7 +554,27 @@ function ciNodeMajor() {
 // page kind in pageContext.ts. Everything else rides the lazy `career` chunk. A
 // Career button on the Home header measured +98 B more; the operator dropped it
 // (2026-09-30: "Drop it") so the page opens from Neon's diamond pill instead.
-const CEILING = 57_738;
+// RAISED TO 57,776 ON 2026-11-14, for the Piano game, argued the same way.
+// Two arms from ONE tree (08e5e3a plus this game), on Node 22 - the deploy's
+// own toolchain (`deploy.yml` node-version 22), so no spread is added. The OUT
+// arm is the same tree with every tracked edit that names the game stashed
+// (both rosters, both art tables, the content index, the board order):
+//
+//   game out of every list   57,716 B gz     (= 08e5e3a's own reading)
+//   game in, first build     57,772 B gz
+//   game in, final tree      57,776 B gz     (the game chunk's hash is named in
+//                                             the shell, so editing the GAME
+//                                             moved the shell by 4 B)
+//   the piano costs              60 B gz
+//   game in, after the drag / full-screen / song-list change
+//                            57,757 B gz     (the same 4-to-20 B hash wobble)
+//
+// So the game reads 41 to 60 B gz depending on its own chunk's hash, and the
+// ceiling holds the highest reading taken, not the latest.
+//
+// Nothing kept back for the next game. `assert:slope` still holds the growth
+// (31.4 B gz per game against 45 on the same tree).
+const CEILING = 57_776;
 
 function gzBytes(path) {
   return gzipSync(readFileSync(path)).length;

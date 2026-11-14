@@ -46,15 +46,20 @@ export const BOARD_ORDER: readonly string[] = [
   "short",
   "slow",
   "easy",
+  // Piano's three keyboards. It keeps no record, so these never become a
+  // board, but they are a ladder a game declares and so they are ordered.
+  "basic",
   // The middle.
   "classic",
   "normal",
   "medium",
+  "advanced",
   // The high rung.
   "long",
   "fast",
   "hard",
   "expert",
+  "pro",
   // Neon Survival's top rung. Above `hard` rather than beside it: nothing else
   // in the catalogue tightens on a clock the way its wave timer does.
   "wild",

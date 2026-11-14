@@ -339,6 +339,7 @@ const LAZY_GROUNDS: Record<string, string> = {
   snakesurvivors: "#16755F",
   puzzlesnake: "#5646C9",
   snakearena: "#0F7F60",
+  piano: "#2A9D8F",
   chess: "#6D4C41",
   backgammon: "#A85A2E",
   balloons: "#FF4D8D",

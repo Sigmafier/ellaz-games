@@ -111,7 +111,9 @@ describe("what each game says its record measures", () => {
   // ruling 2026-10-03 - it used to keep the biggest tune's note count). Named
   // here rather than left to the general rule above, so adding one is a test
   // someone has to delete on purpose.
-  const SCORELESS = ["coloring", "music"];
+  // Piano joined 2026-11-14: free play is an instrument, and a song finished
+  // pays a level_complete reward - it keeps no record.
+  const SCORELESS = ["coloring", "music", "piano"];
 
   it.each(SCORELESS)("never gives %s one", (id) => {
     const meta = METAS.find((m) => m.id === id);

@@ -48,6 +48,7 @@ import { meta as puzzlesnake } from "../games/puzzlesnake/meta";
 import { meta as snakearena } from "../games/snakearena/meta";
 import { meta as chess } from "../games/chess/meta";
 import { meta as backgammon } from "../games/backgammon/meta";
+import { meta as piano } from "../games/piano/meta";
 
 /** The games below the fold. Fetched on idle; never part of a first visit. */
 export const REST: ReadonlyArray<GameMeta> = [
@@ -199,6 +200,11 @@ export const REST: ReadonlyArray<GameMeta> = [
   // round against three to five computer snakes. Appended, so its metadata
   // and card art land in the lazy half by construction.
   snakearena,
+  // The second game in `create`, beside `music`: an instrument to play, three
+  // keyboards from ten coloured keys to two sliding octaves, and a songs mode
+  // that waits on the next note and never ends a run on a miss. Appended, so
+  // its metadata and card art land in the lazy half by construction.
+  piano,
 ];
 
 /**
@@ -248,4 +254,5 @@ export const REST_LOADERS: Record<string, () => Promise<{ default: GameModule }>
   snakesurvivors: () => import("../games/snakesurvivors/index"),
   puzzlesnake: () => import("../games/puzzlesnake/index"),
   snakearena: () => import("../games/snakearena/index"),
+  piano: () => import("../games/piano/index"),
 };

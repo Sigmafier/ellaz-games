@@ -694,4 +694,31 @@ export const REST: Record<string, Scene> = {
       <circle cx="141" cy="99" r="3"/><circle cx="151" cy="99" r="3"/></g>
     <circle cx="112" cy="72" r="12" fill="${PAL.clay}" stroke="${I}" stroke-width="3"/>
     <path d="M112 60c2-6 7-8 11-7-2 5-6 7-11 7z" fill="${PAL.lime}" stroke="${I}" stroke-width="2"/>` },
+  /* Piano. Seven white keys and five black ones seen from above, one key
+     pressed and glowing, and the note it rang floating up as a coloured
+     bubble - an instrument, not a puzzle, so nothing on the card asks a
+     question. The bubble wears the same colour the basic keyboard gives that
+     note in the game. */
+  piano: { a: "#2A9D8F", b: "#56C2B5", d: "band", s: `
+    <rect x="16" y="54" width="168" height="84" rx="10" fill="#1D2440" stroke="${I}" stroke-width="3.5"/>
+    <g stroke="${I}" stroke-width="2.5">
+      <rect x="24" y="62" width="21" height="68" rx="4" fill="${PAL.paper}"/>
+      <rect x="46" y="62" width="21" height="68" rx="4" fill="${PAL.paper}"/>
+      <rect x="68" y="62" width="21" height="68" rx="4" fill="${PAL.paper}"/>
+      <rect x="90" y="62" width="21" height="68" rx="4" fill="${PAL.sunflower}"/>
+      <rect x="112" y="62" width="21" height="68" rx="4" fill="${PAL.paper}"/>
+      <rect x="134" y="62" width="21" height="68" rx="4" fill="${PAL.paper}"/>
+      <rect x="156" y="62" width="21" height="68" rx="4" fill="${PAL.paper}"/></g>
+    <g fill="#1B1E2B">
+      <rect x="38" y="62" width="14" height="40" rx="3"/>
+      <rect x="60" y="62" width="14" height="40" rx="3"/>
+      <rect x="104" y="62" width="14" height="40" rx="3"/>
+      <rect x="126" y="62" width="14" height="40" rx="3"/>
+      <rect x="148" y="62" width="14" height="40" rx="3"/></g>
+    <circle cx="100" cy="28" r="15" fill="${PAL.sunflower}" stroke="${I}" stroke-width="3"/>
+    <g fill="${PAL.paper}">
+      <ellipse cx="146" cy="30" rx="7" ry="5.4" transform="rotate(-18 146 30)"/>
+      <rect x="151" y="12" width="3.2" height="17" rx="1.6"/>
+      <ellipse cx="54" cy="36" rx="6" ry="4.6" transform="rotate(-18 54 36)"/>
+      <rect x="58" y="21" width="3" height="14" rx="1.5"/></g>` },
 };
